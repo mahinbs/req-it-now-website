@@ -28,9 +28,7 @@ export const RequirementsManagement = () => {
       if (session?.user) {
         setUser(session.user);
         // Fetch user profile after auth state change
-        setTimeout(() => {
-          fetchUserProfile(session.user.id);
-        }, 0);
+        await fetchUserProfile(session.user.id);
       } else {
         setUser(null);
         setUserProfile(null);
@@ -57,34 +55,102 @@ export const RequirementsManagement = () => {
     try {
       console.log('Fetching profile for user:', userId);
       
-      // Fetch user profile
+      // First, try to fetch the user profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('Profile error:', profileError);
+        // If profile doesn't exist, create a default one
+        if (profileError.code === 'PGRST116') {
+          console.log('Profile not found, creating default profile');
+          await createDefaultProfile(userId);
+          return;
+        }
+        throw profileError;
+      }
+
+      if (!profile) {
+        console.log('No profile found, creating default profile');
+        await createDefaultProfile(userId);
         return;
       }
 
-      // Check if user is admin
-      const { data: adminCheck } = await supabase
-        .from('admin_users')
-        .select('user_id')
-        .eq('user_id', userId)
-        .single();
+      // Check if user is admin using the new security definer function
+      let isAdmin = false;
+      try {
+        const { data: adminCheck, error: adminError } = await supabase
+          .rpc('is_admin', { user_id: userId });
 
-      if (profile) {
-        setUserProfile({
-          ...profile,
-          isAdmin: !!adminCheck
-        });
-        console.log('Profile loaded:', profile.company_name, adminCheck ? '(Admin)' : '(User)');
+        if (adminError) {
+          console.warn('Admin check failed, defaulting to false:', adminError);
+          isAdmin = false;
+        } else {
+          isAdmin = adminCheck || false;
+        }
+      } catch (adminCheckError) {
+        console.warn('Admin check error, defaulting to false:', adminCheckError);
+        isAdmin = false;
       }
+
+      console.log('Profile loaded:', profile.company_name, isAdmin ? '(Admin)' : '(User)');
+      
+      setUserProfile({
+        ...profile,
+        isAdmin
+      });
+
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      // Create a fallback profile so user can still access the dashboard
+      await createDefaultProfile(userId);
+    }
+  };
+
+  const createDefaultProfile = async (userId: string) => {
+    try {
+      console.log('Creating default profile for user:', userId);
+      
+      // Get user metadata if available
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const metadata = currentUser?.user_metadata || {};
+      
+      const defaultProfile = {
+        id: userId,
+        company_name: metadata.company_name || 'My Company',
+        website_url: metadata.website_url || 'https://example.com'
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .insert([defaultProfile]);
+
+      if (error) {
+        console.error('Error creating default profile:', error);
+        // Still set a basic profile so user can access dashboard
+        setUserProfile({
+          ...defaultProfile,
+          isAdmin: false
+        });
+      } else {
+        console.log('Default profile created successfully');
+        setUserProfile({
+          ...defaultProfile,
+          isAdmin: false
+        });
+      }
+    } catch (error) {
+      console.error('Error in createDefaultProfile:', error);
+      // Last resort: set a minimal profile
+      setUserProfile({
+        id: userId,
+        company_name: 'My Company',
+        website_url: 'https://example.com',
+        isAdmin: false
+      });
     }
   };
 
