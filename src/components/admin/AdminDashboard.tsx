@@ -32,7 +32,7 @@ export const AdminDashboard = () => {
         .from('requirements')
         .select(`
           *,
-          profiles!inner(company_name, website_url)
+          profiles!requirements_user_id_fkey(company_name, website_url)
         `)
         .order('created_at', { ascending: false });
 
