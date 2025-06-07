@@ -49,6 +49,8 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
         },
         (payload) => {
           const newMessage = payload.new as Message;
+          // Add sender name based on admin status
+          newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
           setMessages(prev => [...prev, newMessage]);
         }
       )
@@ -63,20 +65,16 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
     try {
       const { data, error } = await supabase
         .from('messages')
-        .select(`
-          *,
-          profiles!messages_sender_id_fkey (
-            company_name
-          )
-        `)
+        .select('*')
         .eq('requirement_id', requirementId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       
+      // Add sender names based on admin status
       const messagesWithNames = data?.map(msg => ({
         ...msg,
-        sender_name: msg.is_admin ? 'Admin' : (msg.profiles?.company_name || 'User')
+        sender_name: msg.is_admin ? 'Admin' : 'User'
       })) || [];
       
       setMessages(messagesWithNames);

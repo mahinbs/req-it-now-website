@@ -21,13 +21,13 @@ export const RequirementsManagement = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email);
+      console.log('Auth event:', event, session?.user?.email);
       
       if (session?.user) {
         setUser(session.user);
-        // Defer profile fetching to avoid blocking auth state changes
+        // Fetch user profile after auth state change
         setTimeout(() => {
           fetchUserProfile(session.user.id);
         }, 0);
@@ -38,12 +38,9 @@ export const RequirementsManagement = () => {
       setLoading(false);
     });
 
-    // THEN check for existing session
+    // Check for existing session
     const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error getting session:', error);
-      }
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
         await fetchUserProfile(session.user.id);
@@ -69,7 +66,7 @@ export const RequirementsManagement = () => {
 
       if (profileError) {
         console.error('Profile error:', profileError);
-        throw profileError;
+        return;
       }
 
       // Check if user is admin
@@ -93,15 +90,13 @@ export const RequirementsManagement = () => {
 
   const handleLogin = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
       
       if (error) throw error;
-      
-      console.log('Login successful for:', email);
-      // Don't manually set user state - let onAuthStateChange handle it
+      console.log('Login successful');
       
     } catch (error) {
       console.error('Login error:', error);
@@ -116,6 +111,7 @@ export const RequirementsManagement = () => {
     websiteUrl: string;
   }) => {
     try {
+      // Sign up the user without email confirmation
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -123,13 +119,19 @@ export const RequirementsManagement = () => {
           data: {
             company_name: userData.companyName,
             website_url: userData.websiteUrl
-          }
+          },
+          emailRedirectTo: undefined // Disable email confirmation
         }
       });
       
       if (error) throw error;
       
       console.log('Signup successful for:', userData.email);
+      
+      // If signup was successful and we have a user, they should be logged in automatically
+      if (data.user && !data.user.email_confirmed_at) {
+        console.log('User created and logged in automatically');
+      }
       
     } catch (error) {
       console.error('Signup error:', error);
@@ -191,9 +193,8 @@ export const RequirementsManagement = () => {
         )}
 
         <div className="mt-6 text-center text-sm text-gray-600">
-          <p>Demo credentials:</p>
-          <p>Admin: admin@admin.com / admin</p>
-          <p>User: any email / any password</p>
+          <p>Simple signup - no email confirmation needed!</p>
+          <p>Just create an account and start using the app immediately</p>
         </div>
       </div>
     </div>
