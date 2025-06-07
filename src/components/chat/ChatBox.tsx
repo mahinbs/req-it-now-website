@@ -45,7 +45,7 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `requirement_id=eq.${requirementId}`
+          filter: requirementId ? `requirement_id=eq.${requirementId}` : 'requirement_id=is.null'
         },
         (payload) => {
           const newMessage = payload.new as Message;
@@ -63,11 +63,18 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
 
   const fetchMessages = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('messages')
         .select('*')
-        .eq('requirement_id', requirementId)
         .order('created_at', { ascending: true });
+
+      if (requirementId) {
+        query = query.eq('requirement_id', requirementId);
+      } else {
+        query = query.is('requirement_id', null);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -99,14 +106,20 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      const messageData: any = {
+        sender_id: user.id,
+        content: newMessage,
+        is_admin: isAdmin
+      };
+
+      // Only add requirement_id if it's provided
+      if (requirementId) {
+        messageData.requirement_id = requirementId;
+      }
+
       const { error } = await supabase
         .from('messages')
-        .insert([{
-          requirement_id: requirementId,
-          sender_id: user.id,
-          content: newMessage,
-          is_admin: isAdmin
-        }]);
+        .insert([messageData]);
 
       if (error) throw error;
 
@@ -143,7 +156,7 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <MessageCircle className="h-5 w-5" />
-          <span>Chat</span>
+          <span>{requirementId ? 'Requirement Chat' : 'General Chat'}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -151,7 +164,10 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
           <div className="h-64 overflow-y-auto border rounded-md p-3 space-y-3">
             {messages.length === 0 ? (
               <div className="text-center text-muted-foreground text-sm py-8">
-                No messages yet. Start the conversation!
+                {requirementId ? 
+                  'No messages yet. Start the conversation!' : 
+                  'Welcome! How can we help you today?'
+                }
               </div>
             ) : (
               messages.map((message) => (

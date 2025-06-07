@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, FileVideo, MessageCircle, Calendar, LogOut, User, File, Image, FileText } from 'lucide-react';
+import { Plus, FileVideo, MessageCircle, Calendar, LogOut, User, File, Image, FileText, HelpCircle } from 'lucide-react';
 import { RequirementForm } from '../requirements/RequirementForm';
 import { ChatBox } from '../chat/ChatBox';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,7 @@ interface UserDashboardProps {
 export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
   const [showNewRequirement, setShowNewRequirement] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
+  const [showGeneralChat, setShowGeneralChat] = useState(false);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,6 +40,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
       const { data, error } = await supabase
         .from('requirements')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -140,15 +142,56 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
                 <p className="text-slate-600">{user.company_name}</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout} className="flex items-center space-x-2">
-              <LogOut className="h-4 w-4" />
-              <span>Sign Out</span>
-            </Button>
+            <div className="flex items-center space-x-3">
+              <Button 
+                onClick={() => setShowGeneralChat(true)}
+                className="bg-green-600 hover:bg-green-700 flex items-center space-x-2"
+              >
+                <HelpCircle className="h-4 w-4" />
+                <span>Chat with Admin</span>
+              </Button>
+              <Button variant="outline" onClick={onLogout} className="flex items-center space-x-2">
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
+        {/* Welcome message for new users */}
+        {requirements.length === 0 && (
+          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <MessageCircle className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-blue-900">Welcome to your Requirements Dashboard!</h3>
+                  <p className="text-blue-700 mt-1">
+                    Need help getting started? You can chat directly with our admin team or submit a detailed requirement.
+                  </p>
+                  <div className="flex space-x-3 mt-3">
+                    <Button 
+                      onClick={() => setShowGeneralChat(true)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Quick Chat
+                    </Button>
+                    <Button onClick={() => setShowNewRequirement(true)} variant="outline">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Submit Requirement
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs defaultValue="requirements" className="space-y-6">
           <TabsList className="bg-white border border-slate-200">
             <TabsTrigger value="requirements" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
@@ -281,6 +324,32 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
               </div>
               <ChatBox
                 requirementId={selectedRequirement.id}
+                currentUserName={user.company_name}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* General Chat Modal */}
+        {showGeneralChat && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Chat with Admin</h3>
+                  <p className="text-sm text-slate-600">Ask questions or get help with your website</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowGeneralChat(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  ×
+                </Button>
+              </div>
+              <ChatBox
+                requirementId=""
                 currentUserName={user.company_name}
               />
             </div>

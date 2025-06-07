@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,54 +8,47 @@ import { FileVideo, ExternalLink, MessageCircle, Calendar, Building, Globe, LogO
 import { ChatBox } from '../chat/ChatBox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface Requirement {
-  id: string;
-  title: string;
-  description: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'in-progress' | 'completed';
-  submittedAt: Date;
-  hasScreenRecording: boolean;
-  user: {
-    email: string;
-    companyName: string;
-    websiteUrl: string;
+type Requirement = Tables<'requirements'> & {
+  profiles?: {
+    company_name: string;
+    website_url: string;
   };
-}
+};
 
 export const AdminDashboard = () => {
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
-  const [requirements] = useState<Requirement[]>([
-    {
-      id: '1',
-      title: 'Update homepage hero section',
-      description: 'Need to change the main heading and add a new call-to-action button on the homepage.',
-      priority: 'high',
-      status: 'pending',
-      submittedAt: new Date('2024-06-01'),
-      hasScreenRecording: true,
-      user: {
-        email: 'john@techcorp.com',
-        companyName: 'TechCorp Solutions',
-        websiteUrl: 'https://techcorp.com'
-      }
-    },
-    {
-      id: '2',
-      title: 'Fix mobile responsiveness',
-      description: 'The navigation menu is not working properly on mobile devices. Users cannot access the submenu items.',
-      priority: 'urgent',
-      status: 'in-progress',
-      submittedAt: new Date('2024-06-02'),
-      hasScreenRecording: false,
-      user: {
-        email: 'sarah@designstudio.com',
-        companyName: 'Creative Design Studio',
-        websiteUrl: 'https://designstudio.com'
-      }
+  const [requirements, setRequirements] = useState<Requirement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRequirements();
+  }, []);
+
+  const fetchRequirements = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('requirements')
+        .select(`
+          *,
+          profiles!inner(company_name, website_url)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRequirements(data || []);
+    } catch (error) {
+      console.error('Error fetching requirements:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load requirements",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const handleLogout = async () => {
     try {
@@ -93,6 +86,17 @@ export const AdminDashboard = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-slate-600">Loading requirements...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
@@ -128,71 +132,85 @@ export const AdminDashboard = () => {
           </TabsList>
 
           <TabsContent value="requirements" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {requirements.map((requirement) => (
-                <Card key={requirement.id} className="group hover:shadow-lg transition-all duration-200 border-slate-200 bg-white">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-lg line-clamp-2 text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {requirement.title}
-                      </CardTitle>
-                      <div className="flex flex-col space-y-2">
-                        <Badge className={`${getPriorityColor(requirement.priority)} border`}>
-                          {requirement.priority}
-                        </Badge>
-                        <Badge className={`${getStatusColor(requirement.status)} border`}>
-                          {requirement.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-slate-600 line-clamp-3">
-                      {requirement.description}
-                    </p>
-                    
-                    <div className="space-y-2 text-xs text-slate-500">
-                      <div className="flex items-center space-x-2">
-                        <Building className="h-3 w-3 text-blue-500" />
-                        <span className="font-medium">{requirement.user.companyName}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Globe className="h-3 w-3 text-green-500" />
-                        <span className="truncate">{requirement.user.websiteUrl}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-3 w-3 text-purple-500" />
-                        <span>{requirement.submittedAt.toLocaleDateString()}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                      {requirement.hasScreenRecording && (
-                        <div className="flex items-center space-x-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
-                          <FileVideo className="h-3 w-3" />
-                          <span>Recording</span>
+            {requirements.length === 0 ? (
+              <Card className="bg-white border-slate-200">
+                <CardContent className="text-center py-12">
+                  <div className="bg-blue-50 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <MessageCircle className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2 text-slate-900">No requirements yet</h3>
+                  <p className="text-slate-600">
+                    Waiting for users to submit their first requirements
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {requirements.map((requirement) => (
+                  <Card key={requirement.id} className="group hover:shadow-lg transition-all duration-200 border-slate-200 bg-white">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-lg line-clamp-2 text-slate-900 group-hover:text-blue-600 transition-colors">
+                          {requirement.title}
+                        </CardTitle>
+                        <div className="flex flex-col space-y-2">
+                          <Badge className={`${getPriorityColor(requirement.priority)} border`}>
+                            {requirement.priority}
+                          </Badge>
+                          <Badge className={`${getStatusColor(requirement.status)} border`}>
+                            {requirement.status}
+                          </Badge>
                         </div>
-                      )}
-                      <div className="flex space-x-2 ml-auto">
-                        <Button
-                          size="sm"
-                          onClick={() => setSelectedRequirement(requirement)}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <MessageCircle className="h-3 w-3 mr-1" />
-                          Chat
-                        </Button>
-                        <Button size="sm" variant="outline" asChild>
-                          <a href={requirement.user.websiteUrl} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </Button>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-sm text-slate-600 line-clamp-3">
+                        {requirement.description}
+                      </p>
+                      
+                      <div className="space-y-2 text-xs text-slate-500">
+                        <div className="flex items-center space-x-2">
+                          <Building className="h-3 w-3 text-blue-500" />
+                          <span className="font-medium">{requirement.profiles?.company_name}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Globe className="h-3 w-3 text-green-500" />
+                          <span className="truncate">{requirement.profiles?.website_url}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-3 w-3 text-purple-500" />
+                          <span>{new Date(requirement.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        {requirement.has_screen_recording && (
+                          <div className="flex items-center space-x-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
+                            <FileVideo className="h-3 w-3" />
+                            <span>Recording</span>
+                          </div>
+                        )}
+                        <div className="flex space-x-2 ml-auto">
+                          <Button
+                            size="sm"
+                            onClick={() => setSelectedRequirement(requirement)}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            <MessageCircle className="h-3 w-3 mr-1" />
+                            Chat
+                          </Button>
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={requirement.profiles?.website_url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="analytics">
@@ -252,7 +270,7 @@ export const AdminDashboard = () => {
                   <h3 className="text-lg font-semibold text-slate-900">
                     Chat: {selectedRequirement.title}
                   </h3>
-                  <p className="text-sm text-slate-600">{selectedRequirement.user.companyName}</p>
+                  <p className="text-sm text-slate-600">{selectedRequirement.profiles?.company_name}</p>
                 </div>
                 <Button
                   variant="ghost"

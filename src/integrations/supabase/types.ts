@@ -27,13 +27,40 @@ export type Database = {
         }
         Relationships: []
       }
+      email_notifications: {
+        Row: {
+          created_at: string
+          email_sent_to: string
+          id: string
+          reference_id: string
+          sent_at: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          email_sent_to: string
+          id?: string
+          reference_id: string
+          sent_at?: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          email_sent_to?: string
+          id?: string
+          reference_id?: string
+          sent_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
           created_at: string
           id: string
           is_admin: boolean | null
-          requirement_id: string
+          requirement_id: string | null
           sender_id: string
         }
         Insert: {
@@ -41,7 +68,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_admin?: boolean | null
-          requirement_id: string
+          requirement_id?: string | null
           sender_id: string
         }
         Update: {
@@ -49,7 +76,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_admin?: boolean | null
-          requirement_id?: string
+          requirement_id?: string | null
           sender_id?: string
         }
         Relationships: [
@@ -133,6 +160,14 @@ export type Database = {
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
+      }
+      send_email_notification: {
+        Args: {
+          notification_type: string
+          reference_id: string
+          email_to?: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
