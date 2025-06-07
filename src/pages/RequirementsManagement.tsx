@@ -6,6 +6,7 @@ import { UserDashboard } from '@/components/user/UserDashboard';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
+import { toast } from '@/hooks/use-toast';
 
 interface UserProfile {
   id: string;
@@ -19,57 +20,97 @@ export const RequirementsManagement = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth event:', event, session?.user?.email);
       
+      if (!mounted) return;
+      
       if (session?.user) {
         setUser(session.user);
-        // Fetch user profile after auth state change
-        await fetchUserProfile(session.user.id);
+        setError(null);
+        // Use setTimeout to avoid blocking the auth callback
+        setTimeout(() => {
+          if (mounted) {
+            fetchUserProfile(session.user.id);
+          }
+        }, 0);
       } else {
         setUser(null);
         setUserProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Check for existing session
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        await fetchUserProfile(session.user.id);
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Session error:', error);
+          setError(error.message);
+          setLoading(false);
+          return;
+        }
+
+        if (session?.user && mounted) {
+          setUser(session.user);
+          await fetchUserProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Initial session check failed:', err);
+        setError('Failed to check authentication status');
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    getSession();
+    getInitialSession();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log('Fetching profile for user:', userId);
+      setError(null);
       
-      // First, try to fetch the user profile
-      const { data: profile, error: profileError } = await supabase
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
+      const { data: profile, error: profileError } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]) as any;
+
       if (profileError) {
         console.error('Profile error:', profileError);
-        // If profile doesn't exist, create a default one
-        if (profileError.code === 'PGRST116') {
+        
+        // If profile doesn't exist, try to create one
+        if (profileError.code === 'PGRST116' || profileError.message?.includes('No rows found')) {
           console.log('Profile not found, creating default profile');
           await createDefaultProfile(userId);
           return;
         }
+        
         throw profileError;
       }
 
@@ -79,11 +120,18 @@ export const RequirementsManagement = () => {
         return;
       }
 
-      // Check if user is admin using the new security definer function
+      // Check admin status with timeout
       let isAdmin = false;
       try {
-        const { data: adminCheck, error: adminError } = await supabase
-          .rpc('is_admin', { user_id: userId });
+        const adminPromise = supabase.rpc('is_admin', { user_id: userId });
+        const adminTimeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Admin check timeout')), 5000)
+        );
+
+        const { data: adminCheck, error: adminError } = await Promise.race([
+          adminPromise,
+          adminTimeoutPromise
+        ]) as any;
 
         if (adminError) {
           console.warn('Admin check failed, defaulting to false:', adminError);
@@ -105,8 +153,22 @@ export const RequirementsManagement = () => {
 
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      // Create a fallback profile so user can still access the dashboard
-      await createDefaultProfile(userId);
+      
+      // Create fallback profile so user can still access the dashboard
+      setUserProfile({
+        id: userId,
+        company_name: 'My Company',
+        website_url: 'https://example.com',
+        isAdmin: false
+      });
+      
+      toast({
+        title: "Profile Loading Issue",
+        description: "Using default profile. You can update it later.",
+        variant: "default"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -151,11 +213,14 @@ export const RequirementsManagement = () => {
         website_url: 'https://example.com',
         isAdmin: false
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleLogin = async (email: string, password: string) => {
     try {
+      setError(null);
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -164,8 +229,9 @@ export const RequirementsManagement = () => {
       if (error) throw error;
       console.log('Login successful');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      setError(error.message);
       throw error;
     }
   };
@@ -178,8 +244,8 @@ export const RequirementsManagement = () => {
   }) => {
     try {
       console.log('Starting signup for:', userData.email);
+      setError(null);
       
-      // Sign up with automatic email confirmation disabled
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -193,6 +259,7 @@ export const RequirementsManagement = () => {
       
       if (error) {
         console.error('Signup error:', error);
+        setError(error.message);
         throw error;
       }
       
@@ -202,8 +269,9 @@ export const RequirementsManagement = () => {
         console.log('User created successfully! User will be logged in automatically.');
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Signup error:', error);
+      setError(error.message);
       throw error;
     }
   };
@@ -213,6 +281,8 @@ export const RequirementsManagement = () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       console.log('Logout successful');
+      setUserProfile(null);
+      setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -224,6 +294,11 @@ export const RequirementsManagement = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
+          {error && (
+            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
+              {error}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -231,7 +306,7 @@ export const RequirementsManagement = () => {
 
   if (user && userProfile) {
     if (userProfile.isAdmin) {
-      return <AdminDashboard />;
+      return <AdminDashboard onLogout={handleLogout} />;
     } else {
       return <UserDashboard user={userProfile} onLogout={handleLogout} />;
     }
@@ -248,6 +323,12 @@ export const RequirementsManagement = () => {
             Manage your website changes and requirements efficiently
           </p>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+            {error}
+          </div>
+        )}
 
         {authMode === 'login' ? (
           <LoginForm
