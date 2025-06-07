@@ -14,7 +14,7 @@ type Requirement = Tables<'requirements'> & {
   profiles?: {
     company_name: string;
     website_url: string;
-  };
+  } | null;
 };
 
 export const AdminDashboard = () => {
@@ -32,7 +32,7 @@ export const AdminDashboard = () => {
         .from('requirements')
         .select(`
           *,
-          profiles!requirements_user_id_fkey(company_name, website_url)
+          profiles(company_name, website_url)
         `)
         .order('created_at', { ascending: false });
 
@@ -171,11 +171,11 @@ export const AdminDashboard = () => {
                       <div className="space-y-2 text-xs text-slate-500">
                         <div className="flex items-center space-x-2">
                           <Building className="h-3 w-3 text-blue-500" />
-                          <span className="font-medium">{requirement.profiles?.company_name}</span>
+                          <span className="font-medium">{requirement.profiles?.company_name || 'Unknown Company'}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Globe className="h-3 w-3 text-green-500" />
-                          <span className="truncate">{requirement.profiles?.website_url}</span>
+                          <span className="truncate">{requirement.profiles?.website_url || 'No website provided'}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Calendar className="h-3 w-3 text-purple-500" />
@@ -199,11 +199,13 @@ export const AdminDashboard = () => {
                             <MessageCircle className="h-3 w-3 mr-1" />
                             Chat
                           </Button>
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={requirement.profiles?.website_url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </Button>
+                          {requirement.profiles?.website_url && (
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={requirement.profiles.website_url} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -270,7 +272,7 @@ export const AdminDashboard = () => {
                   <h3 className="text-lg font-semibold text-slate-900">
                     Chat: {selectedRequirement.title}
                   </h3>
-                  <p className="text-sm text-slate-600">{selectedRequirement.profiles?.company_name}</p>
+                  <p className="text-sm text-slate-600">{selectedRequirement.profiles?.company_name || 'Unknown Company'}</p>
                 </div>
                 <Button
                   variant="ghost"
