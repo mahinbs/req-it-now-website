@@ -65,8 +65,8 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
         .from('messages')
         .select(`
           *,
-          sender:sender_id (
-            profiles:id (company_name)
+          profiles!messages_sender_id_fkey (
+            company_name
           )
         `)
         .eq('requirement_id', requirementId)
@@ -76,7 +76,7 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
       
       const messagesWithNames = data?.map(msg => ({
         ...msg,
-        sender_name: msg.is_admin ? 'Admin' : (msg.sender?.profiles?.company_name || 'User')
+        sender_name: msg.is_admin ? 'Admin' : (msg.profiles?.company_name || 'User')
       })) || [];
       
       setMessages(messagesWithNames);

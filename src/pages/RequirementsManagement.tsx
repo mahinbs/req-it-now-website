@@ -21,9 +21,29 @@ export const RequirementsManagement = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
+      
+      if (session?.user) {
+        setUser(session.user);
+        // Defer profile fetching to avoid blocking auth state changes
+        setTimeout(() => {
+          fetchUserProfile(session.user.id);
+        }, 0);
+      } else {
+        setUser(null);
+        setUserProfile(null);
+      }
+      setLoading(false);
+    });
+
+    // THEN check for existing session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting session:', error);
+      }
       if (session?.user) {
         setUser(session.user);
         await fetchUserProfile(session.user.id);
@@ -33,28 +53,24 @@ export const RequirementsManagement = () => {
 
     getSession();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        await fetchUserProfile(session.user.id);
-      } else {
-        setUser(null);
-        setUserProfile(null);
-      }
-    });
-
     return () => subscription.unsubscribe();
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
+      
       // Fetch user profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
+
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        throw profileError;
+      }
 
       // Check if user is admin
       const { data: adminCheck } = await supabase
@@ -68,6 +84,7 @@ export const RequirementsManagement = () => {
           ...profile,
           isAdmin: !!adminCheck
         });
+        console.log('Profile loaded:', profile.company_name, adminCheck ? '(Admin)' : '(User)');
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -75,12 +92,21 @@ export const RequirementsManagement = () => {
   };
 
   const handleLogin = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (error) throw error;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
+      console.log('Login successful for:', email);
+      // Don't manually set user state - let onAuthStateChange handle it
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   const handleSignup = async (userData: {
@@ -89,22 +115,36 @@ export const RequirementsManagement = () => {
     companyName: string;
     websiteUrl: string;
   }) => {
-    const { error } = await supabase.auth.signUp({
-      email: userData.email,
-      password: userData.password,
-      options: {
-        data: {
-          company_name: userData.companyName,
-          website_url: userData.websiteUrl
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            company_name: userData.companyName,
+            website_url: userData.websiteUrl
+          }
         }
-      }
-    });
-    
-    if (error) throw error;
+      });
+      
+      if (error) throw error;
+      
+      console.log('Signup successful for:', userData.email);
+      
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      console.log('Logout successful');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   if (loading) {
