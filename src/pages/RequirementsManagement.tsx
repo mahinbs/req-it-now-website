@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
@@ -306,7 +305,7 @@ export const RequirementsManagement = () => {
 
   if (user && userProfile) {
     if (userProfile.isAdmin) {
-      return <AdminDashboard onLogout={handleLogout} />;
+      return <AdminDashboard />;
     } else {
       return <UserDashboard user={userProfile} onLogout={handleLogout} />;
     }
