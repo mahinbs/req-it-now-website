@@ -17,7 +17,7 @@ interface UserProfile {
 export const RequirementsManagement = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -111,26 +111,29 @@ export const RequirementsManagement = () => {
     websiteUrl: string;
   }) => {
     try {
-      // Sign up the user without email confirmation
+      console.log('Starting signup for:', userData.email);
+      
+      // Sign up with automatic email confirmation disabled
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
         options: {
           data: {
             company_name: userData.companyName,
-            website_url: userData.websiteUrl
-          },
-          emailRedirectTo: undefined // Disable email confirmation
+            website_url: userData.websiteUrl || ''
+          }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Signup error:', error);
+        throw error;
+      }
       
-      console.log('Signup successful for:', userData.email);
+      console.log('Signup response:', data);
       
-      // If signup was successful and we have a user, they should be logged in automatically
-      if (data.user && !data.user.email_confirmed_at) {
-        console.log('User created and logged in automatically');
+      if (data.user) {
+        console.log('User created successfully! User will be logged in automatically.');
       }
       
     } catch (error) {
@@ -193,8 +196,8 @@ export const RequirementsManagement = () => {
         )}
 
         <div className="mt-6 text-center text-sm text-gray-600">
-          <p>Simple signup - no email confirmation needed!</p>
-          <p>Just create an account and start using the app immediately</p>
+          <p className="text-green-600 font-medium">✅ Instant signup - no email verification!</p>
+          <p>Create your account and start using the app immediately</p>
         </div>
       </div>
     </div>
