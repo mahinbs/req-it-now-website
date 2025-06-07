@@ -9,7 +9,122 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_admin: boolean | null
+          requirement_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_admin?: boolean | null
+          requirement_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_admin?: boolean | null
+          requirement_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "requirements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          company_name: string
+          created_at: string
+          id: string
+          updated_at: string
+          website_url: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string
+          id: string
+          updated_at?: string
+          website_url: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          website_url?: string
+        }
+        Relationships: []
+      }
+      requirements: {
+        Row: {
+          created_at: string
+          description: string
+          has_screen_recording: boolean | null
+          id: string
+          priority: string
+          screen_recording_url: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          has_screen_recording?: boolean | null
+          id?: string
+          priority: string
+          screen_recording_url?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          has_screen_recording?: boolean | null
+          id?: string
+          priority?: string
+          screen_recording_url?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

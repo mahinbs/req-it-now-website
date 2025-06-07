@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,21 +7,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, FileVideo, MessageCircle, Calendar, LogOut } from 'lucide-react';
 import { RequirementForm } from '../requirements/RequirementForm';
 import { ChatBox } from '../chat/ChatBox';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import type { Tables } from '@/integrations/supabase/types';
+
+type Requirement = Tables<'requirements'>;
 
 interface User {
-  email: string;
-  companyName: string;
-  websiteUrl: string;
-}
-
-interface Requirement {
   id: string;
-  title: string;
-  description: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'in-progress' | 'completed';
-  submittedAt: Date;
-  hasScreenRecording: boolean;
+  company_name: string;
+  website_url: string;
 }
 
 interface UserDashboardProps {
@@ -32,31 +27,63 @@ interface UserDashboardProps {
 export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
   const [showNewRequirement, setShowNewRequirement] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
-  const [requirements, setRequirements] = useState<Requirement[]>([
-    {
-      id: '1',
-      title: 'Update homepage hero section',
-      description: 'Need to change the main heading and add a new call-to-action button.',
-      priority: 'high',
-      status: 'pending',
-      submittedAt: new Date('2024-06-01'),
-      hasScreenRecording: true
+  const [requirements, setRequirements] = useState<Requirement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRequirements();
+  }, []);
+
+  const fetchRequirements = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('requirements')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRequirements(data || []);
+    } catch (error) {
+      console.error('Error fetching requirements:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load requirements",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const handleSubmitRequirement = async (data: any) => {
-    const newRequirement: Requirement = {
-      id: Date.now().toString(),
-      title: data.title,
-      description: data.description,
-      priority: data.priority,
-      status: 'pending',
-      submittedAt: new Date(),
-      hasScreenRecording: !!data.screenRecording
-    };
-    
-    setRequirements(prev => [newRequirement, ...prev]);
-    setShowNewRequirement(false);
+    try {
+      const { error } = await supabase
+        .from('requirements')
+        .insert([{
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          user_id: user.id,
+          has_screen_recording: !!data.screenRecording
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Requirement submitted successfully!"
+      });
+
+      await fetchRequirements();
+      setShowNewRequirement(false);
+    } catch (error) {
+      console.error('Error submitting requirement:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit requirement",
+        variant: "destructive"
+      });
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -78,6 +105,14 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -86,7 +121,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">Website changes or requirement for my company</h1>
-              <p className="text-muted-foreground">{user.companyName}</p>
+              <p className="text-muted-foreground">{user.company_name}</p>
             </div>
             <Button variant="outline" onClick={onLogout}>
               <LogOut className="h-4 w-4 mr-2" />
@@ -150,9 +185,9 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
                       <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-3 w-3" />
-                          <span>{requirement.submittedAt.toLocaleDateString()}</span>
+                          <span>{new Date(requirement.created_at).toLocaleDateString()}</span>
                         </div>
-                        {requirement.hasScreenRecording && (
+                        {requirement.has_screen_recording && (
                           <div className="flex items-center space-x-1">
                             <FileVideo className="h-3 w-3" />
                             <span>Screen recording attached</span>
@@ -217,7 +252,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
               </div>
               <ChatBox
                 requirementId={selectedRequirement.id}
-                currentUserName={user.companyName}
+                currentUserName={user.company_name}
               />
             </div>
           </div>

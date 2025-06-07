@@ -5,14 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Send, MessageCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'admin';
-  timestamp: Date;
-  senderName: string;
-}
+type Message = Tables<'messages'> & {
+  sender_name?: string;
+};
 
 interface ChatBoxProps {
   requirementId: string;
@@ -24,6 +22,7 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -34,21 +33,85 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    fetchMessages();
+    
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `requirement_id=eq.${requirementId}`
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          setMessages(prev => [...prev, newMessage]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [requirementId]);
+
+  const fetchMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          sender:sender_id (
+            profiles:id (company_name)
+          )
+        `)
+        .eq('requirement_id', requirementId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      
+      const messagesWithNames = data?.map(msg => ({
+        ...msg,
+        sender_name: msg.is_admin ? 'Admin' : (msg.sender?.profiles?.company_name || 'User')
+      })) || [];
+      
+      setMessages(messagesWithNames);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load messages",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
     setIsLoading(true);
     try {
-      const message: Message = {
-        id: Date.now().toString(),
-        text: newMessage,
-        sender: isAdmin ? 'admin' : 'user',
-        timestamp: new Date(),
-        senderName: currentUserName
-      };
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      setMessages(prev => [...prev, message]);
+      const { error } = await supabase
+        .from('messages')
+        .insert([{
+          requirement_id: requirementId,
+          sender_id: user.id,
+          content: newMessage,
+          is_admin: isAdmin
+        }]);
+
+      if (error) throw error;
+
       setNewMessage('');
       
       toast({
@@ -56,6 +119,7 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
         description: "Your message has been sent successfully"
       });
     } catch (error) {
+      console.error('Error sending message:', error);
       toast({
         title: "Error",
         description: "Failed to send message",
@@ -65,6 +129,16 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
       setIsLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <Card className="w-full">
+        <CardContent className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full">
@@ -85,19 +159,19 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
               messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.sender === (isAdmin ? 'admin' : 'user') ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${message.is_admin === isAdmin ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
                     className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg ${
-                      message.sender === (isAdmin ? 'admin' : 'user')
+                      message.is_admin === isAdmin
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted'
                     }`}
                   >
                     <div className="text-xs opacity-75 mb-1">
-                      {message.senderName} • {message.timestamp.toLocaleTimeString()}
+                      {message.sender_name} • {new Date(message.created_at).toLocaleTimeString()}
                     </div>
-                    <div className="text-sm">{message.text}</div>
+                    <div className="text-sm">{message.content}</div>
                   </div>
                 </div>
               ))
