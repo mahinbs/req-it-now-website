@@ -34,14 +34,12 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
 
   useEffect(() => {
     fetchRequirements();
-    setupRealtimeSubscriptions();
-  }, []);
-
-  const setupRealtimeSubscriptions = () => {
+    
+    // Set up real-time subscription with proper cleanup
     console.log('Setting up real-time subscriptions for user dashboard...');
     
     const requirementsChannel = supabase
-      .channel('user-requirements-changes')
+      .channel(`user-requirements-${user.id}-${Date.now()}`) // Use unique channel name
       .on(
         'postgres_changes',
         {
@@ -57,11 +55,12 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
       )
       .subscribe();
 
+    // Cleanup function
     return () => {
       console.log('Cleaning up user dashboard subscriptions');
       supabase.removeChannel(requirementsChannel);
     };
-  };
+  }, [user.id]); // Add user.id as dependency
 
   const fetchRequirements = async () => {
     try {
