@@ -9,7 +9,7 @@ import { LoadingScreen } from '@/components/common/LoadingScreen';
 // Direct imports instead of lazy loading to fix default export issues
 import { AuthPage } from '@/components/auth/AuthPage';
 import { UserDashboard } from '@/components/user/UserDashboard';
-import { AdminDashboardOptimized } from '@/components/admin/AdminDashboardOptimized';
+import { AdminDashboard } from '@/components/admin/AdminDashboard';
 
 const AppContent = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -29,7 +29,7 @@ const AppContent = () => {
           path="/" 
           element={
             isAdmin ? (
-              <AdminDashboardOptimized onLogout={signOut} />
+              <AdminDashboard onLogout={signOut} />
             ) : (
               <UserDashboard 
                 user={{
