@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, User, Calendar, Paperclip, Video, AlertTriangle } from 'lucide-react';
-import { getPriorityColor, formatDate, getUniqueAttachments } from '@/utils/requirementUtils';
+import { getPriorityColor, formatDate, getUniqueAttachments, adminStatusConfig } from '@/utils/requirementUtils';
 import { StatusDropdown } from './StatusDropdown';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
@@ -51,8 +51,10 @@ export const RequirementCard = ({
       return 'bg-green-100 text-green-800 border-green-300';
     } else if (requirement.completed_by_admin) {
       return 'bg-purple-100 text-purple-800 border-purple-300';
-    } else if (requirement.approved_by_admin) {
+    } else if (requirement.admin_status === 'ongoing' || requirement.approved_by_admin) {
       return 'bg-blue-100 text-blue-800 border-blue-300';
+    } else if (requirement.admin_status === 'completed') {
+      return 'bg-green-100 text-green-800 border-green-300';
     }
     return 'bg-gray-100 text-gray-800 border-gray-300';
   };
@@ -64,8 +66,10 @@ export const RequirementCard = ({
       return 'Accepted by Client';
     } else if (requirement.completed_by_admin) {
       return 'Awaiting Client Review';
-    } else if (requirement.approved_by_admin) {
+    } else if (requirement.admin_status === 'ongoing' || requirement.approved_by_admin) {
       return 'Work in Progress';
+    } else if (requirement.admin_status === 'completed') {
+      return 'Completed';
     }
     return requirement.status.replace('_', ' ');
   };

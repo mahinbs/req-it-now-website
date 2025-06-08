@@ -15,6 +15,30 @@ interface AnalyticsCardsProps {
 }
 
 export const AnalyticsCards = ({ requirements }: AnalyticsCardsProps) => {
+  // Count requirements by admin status for more accurate analytics
+  const getInProgressCount = () => {
+    return requirements.filter(r => 
+      r.admin_status === 'ongoing' || 
+      (r.approved_by_admin && !r.completed_by_admin)
+    ).length;
+  };
+
+  const getCompletedCount = () => {
+    return requirements.filter(r => 
+      r.admin_status === 'completed' || 
+      r.completed_by_admin || 
+      r.accepted_by_client
+    ).length;
+  };
+
+  const getPendingCount = () => {
+    return requirements.filter(r => 
+      r.admin_status === 'pending' && 
+      !r.approved_by_admin && 
+      !r.completed_by_admin
+    ).length;
+  };
+
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
       <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
@@ -32,7 +56,7 @@ export const AnalyticsCards = ({ requirements }: AnalyticsCardsProps) => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-yellow-700">
-            {requirements.filter(r => r.status === 'pending').length}
+            {getPendingCount()}
           </div>
           <p className="text-sm text-yellow-600 mt-1">Awaiting review</p>
         </CardContent>
@@ -43,7 +67,7 @@ export const AnalyticsCards = ({ requirements }: AnalyticsCardsProps) => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-orange-700">
-            {requirements.filter(r => r.status === 'in-progress').length}
+            {getInProgressCount()}
           </div>
           <p className="text-sm text-orange-600 mt-1">Being worked on</p>
         </CardContent>
@@ -54,7 +78,7 @@ export const AnalyticsCards = ({ requirements }: AnalyticsCardsProps) => {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-green-700">
-            {requirements.filter(r => r.status === 'completed').length}
+            {getCompletedCount()}
           </div>
           <p className="text-sm text-green-600 mt-1">Finished</p>
         </CardContent>

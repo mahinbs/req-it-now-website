@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Plus, FileText, Paperclip } from 'lucide-react';
+import { MessageCircle, Plus, FileText, Paperclip, AlertTriangle } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import { AcceptanceButton } from './AcceptanceButton';
 import { useClientNotifications } from '@/hooks/useClientNotifications';
@@ -41,7 +41,7 @@ export const RequirementsList = ({
 
   const getStatusBadgeVariant = (requirement: Requirement) => {
     if (requirement.rejected_by_client) {
-      return 'bg-orange-100 text-orange-800 border-orange-300';
+      return 'bg-red-100 text-red-800 border-red-300';
     } else if (requirement.accepted_by_client) {
       return 'bg-green-100 text-green-800 border-green-300';
     } else if (requirement.completed_by_admin) {
@@ -54,7 +54,7 @@ export const RequirementsList = ({
 
   const getStatusText = (requirement: Requirement) => {
     if (requirement.rejected_by_client) {
-      return 'Changes Requested';
+      return 'You Rejected This Work';
     } else if (requirement.accepted_by_client) {
       return 'Completed & Approved';
     } else if (requirement.completed_by_admin) {
@@ -89,6 +89,20 @@ export const RequirementsList = ({
     );
   }
 
+  // Sort requirements to prioritize rejected ones and pending reviews
+  const sortedRequirements = [...requirements].sort((a, b) => {
+    // Rejected by client first (need admin attention)
+    if (a.rejected_by_client && !b.rejected_by_client) return -1;
+    if (!a.rejected_by_client && b.rejected_by_client) return 1;
+    
+    // Then completed work awaiting review
+    if (a.completed_by_admin && !a.accepted_by_client && !a.rejected_by_client) return -1;
+    if (b.completed_by_admin && !b.accepted_by_client && !b.rejected_by_client) return 1;
+    
+    // Then by creation date (newest first)
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
   return (
     <div className="space-y-4">
       {notificationsLoading && (
@@ -98,14 +112,23 @@ export const RequirementsList = ({
       )}
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {requirements.map((requirement) => {
+        {sortedRequirements.map((requirement) => {
           const attachmentCount = getAttachmentCount(requirement);
           const unreadCount = getUnreadCount(requirement.id);
           const adminStatus = getAdminStatusDisplay(requirement);
           const AdminStatusIcon = adminStatus.icon;
           
           return (
-            <Card key={requirement.id} className="hover:shadow-md transition-shadow">
+            <Card key={requirement.id} className="hover:shadow-md transition-shadow relative">
+              {/* Rejection indicator */}
+              {requirement.rejected_by_client && (
+                <div className="absolute top-2 right-2 z-10">
+                  <div className="bg-red-500 text-white rounded-full p-1">
+                    <AlertTriangle className="h-3 w-3" />
+                  </div>
+                </div>
+              )}
+
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-base font-medium text-slate-900 leading-tight">
@@ -143,6 +166,20 @@ export const RequirementsList = ({
                 <p className="text-sm text-slate-600 mb-4 line-clamp-3">
                   {requirement.description}
                 </p>
+
+                {/* Show rejection reason if client rejected */}
+                {requirement.rejected_by_client && requirement.rejection_reason && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                    <h4 className="text-sm font-medium text-orange-800 mb-1">Your Rejection Reason:</h4>
+                    <p className="text-sm text-orange-700">{requirement.rejection_reason}</p>
+                    {requirement.admin_response_to_rejection && (
+                      <>
+                        <h4 className="text-sm font-medium text-orange-800 mb-1 mt-2">Admin Response:</h4>
+                        <p className="text-sm text-orange-700">{requirement.admin_response_to_rejection}</p>
+                      </>
+                    )}
+                  </div>
+                )}
                 
                 {attachmentCount > 0 && (
                   <div className="flex items-center text-xs text-slate-500 mb-4">
