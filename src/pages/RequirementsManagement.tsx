@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
@@ -33,12 +34,7 @@ export const RequirementsManagement = () => {
       if (session?.user) {
         setUser(session.user);
         setError(null);
-        // Use setTimeout to avoid blocking the auth callback
-        setTimeout(() => {
-          if (mounted) {
-            fetchUserProfile(session.user.id);
-          }
-        }, 0);
+        await fetchUserProfile(session.user.id);
       } else {
         setUser(null);
         setUserProfile(null);
@@ -84,32 +80,14 @@ export const RequirementsManagement = () => {
       console.log('Fetching profile for user:', userId);
       setError(null);
       
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
-      );
-
-      const profilePromise = supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      const { data: profile, error: profileError } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]) as any;
-
       if (profileError) {
         console.error('Profile error:', profileError);
-        
-        // If profile doesn't exist, try to create one
-        if (profileError.code === 'PGRST116' || profileError.message?.includes('No rows found')) {
-          console.log('Profile not found, creating default profile');
-          await createDefaultProfile(userId);
-          return;
-        }
-        
         throw profileError;
       }
 
@@ -119,19 +97,11 @@ export const RequirementsManagement = () => {
         return;
       }
 
-      // Check admin status with timeout
+      // Check admin status
       let isAdmin = false;
       try {
-        const adminPromise = supabase.rpc('is_admin', { user_id: userId });
-        const adminTimeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Admin check timeout')), 5000)
-        );
-
-        const { data: adminCheck, error: adminError } = await Promise.race([
-          adminPromise,
-          adminTimeoutPromise
-        ]) as any;
-
+        const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: userId });
+        
         if (adminError) {
           console.warn('Admin check failed, defaulting to false:', adminError);
           isAdmin = false;
@@ -152,20 +122,7 @@ export const RequirementsManagement = () => {
 
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      
-      // Create fallback profile so user can still access the dashboard
-      setUserProfile({
-        id: userId,
-        company_name: 'My Company',
-        website_url: 'https://example.com',
-        isAdmin: false
-      });
-      
-      toast({
-        title: "Profile Loading Issue",
-        description: "Using default profile. You can update it later.",
-        variant: "default"
-      });
+      await createDefaultProfile(userId);
     } finally {
       setLoading(false);
     }
@@ -175,7 +132,6 @@ export const RequirementsManagement = () => {
     try {
       console.log('Creating default profile for user:', userId);
       
-      // Get user metadata if available
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       const metadata = currentUser?.user_metadata || {};
       
@@ -191,21 +147,16 @@ export const RequirementsManagement = () => {
 
       if (error) {
         console.error('Error creating default profile:', error);
-        // Still set a basic profile so user can access dashboard
-        setUserProfile({
-          ...defaultProfile,
-          isAdmin: false
-        });
       } else {
         console.log('Default profile created successfully');
-        setUserProfile({
-          ...defaultProfile,
-          isAdmin: false
-        });
       }
+
+      setUserProfile({
+        ...defaultProfile,
+        isAdmin: false
+      });
     } catch (error) {
       console.error('Error in createDefaultProfile:', error);
-      // Last resort: set a minimal profile
       setUserProfile({
         id: userId,
         company_name: 'My Company',
@@ -265,7 +216,11 @@ export const RequirementsManagement = () => {
       console.log('Signup response:', data);
       
       if (data.user) {
-        console.log('User created successfully! User will be logged in automatically.');
+        console.log('User created successfully!');
+        toast({
+          title: "Account created!",
+          description: "You can now submit website requirements.",
+        });
       }
       
     } catch (error: any) {
@@ -342,8 +297,8 @@ export const RequirementsManagement = () => {
         )}
 
         <div className="mt-6 text-center text-sm text-gray-600">
-          <p className="text-green-600 font-medium">✅ Instant signup - no email verification!</p>
-          <p>Create your account and start using the app immediately</p>
+          <p className="text-green-600 font-medium">✅ Ready to submit requirements!</p>
+          <p>Create your account and start submitting website changes</p>
         </div>
       </div>
     </div>
