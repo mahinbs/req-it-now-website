@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileVideo, ExternalLink, MessageCircle, Calendar, Building, Globe, LogOut, User, RefreshCw } from 'lucide-react';
+import { FileVideo, ExternalLink, MessageCircle, Calendar, Building, Globe, LogOut, User, RefreshCw, Paperclip, Download } from 'lucide-react';
 import { ChatBox } from '../chat/ChatBox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -14,6 +14,13 @@ type Requirement = Tables<'requirements'> & {
     company_name: string;
     website_url: string;
   } | null;
+  attachment_urls?: string[];
+  attachment_metadata?: Array<{
+    url: string;
+    name: string;
+    size: number;
+    type: string;
+  }>;
 };
 
 export const AdminDashboard = () => {
@@ -159,6 +166,16 @@ export const AdminDashboard = () => {
     }
   };
 
+  const handleDownloadAttachment = (url: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'low': return 'bg-green-100 text-green-800 border-green-200';
@@ -274,6 +291,45 @@ export const AdminDashboard = () => {
                       <p className="text-sm text-slate-600 line-clamp-3">
                         {requirement.description}
                       </p>
+                      
+                      {/* Attachments Section */}
+                      {(requirement.attachment_urls?.length > 0 || requirement.attachment_metadata?.length > 0) && (
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2 text-xs text-blue-600">
+                            <Paperclip className="h-3 w-3" />
+                            <span>
+                              {requirement.attachment_metadata?.length || requirement.attachment_urls?.length} attachment(s)
+                            </span>
+                          </div>
+                          <div className="space-y-1 max-h-20 overflow-y-auto">
+                            {requirement.attachment_metadata?.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between text-xs">
+                                <span className="truncate">{file.name}</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDownloadAttachment(file.url, file.name)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )) || requirement.attachment_urls?.map((url, index) => (
+                              <div key={index} className="flex items-center justify-between text-xs">
+                                <span className="truncate">Attachment {index + 1}</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDownloadAttachment(url, `attachment-${index + 1}`)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="space-y-2 text-xs text-slate-500">
                         <div className="flex items-center space-x-2">

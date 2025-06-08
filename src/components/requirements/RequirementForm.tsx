@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Upload, FileVideo, X, File, Image, FileText } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RequirementFormProps {
   onSubmit: (data: {
@@ -25,9 +25,49 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
   });
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+
+  const uploadFile = async (file: File, requirementId: string) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${requirementId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      console.log('Uploading file:', fileName, 'Size:', file.size);
+      
+      const { data, error } = await supabase.storage
+        .from('requirement-attachments')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('File upload error:', error);
+        throw error;
+      }
+
+      console.log('File uploaded successfully:', data);
+      
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from('requirement-attachments')
+        .getPublicUrl(fileName);
+
+      return {
+        url: urlData.publicUrl,
+        name: file.name,
+        size: file.size,
+        type: file.type
+      };
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!formData.title || !formData.description) {
       toast({
         title: "Error",
@@ -36,22 +76,97 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
       });
       return;
     }
+
     setIsLoading(true);
+    
     try {
+      console.log('Submitting requirement with data:', formData);
+      console.log('Attachments to upload:', attachments.length);
+
+      // First create the requirement
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: requirement, error: requirementError } = await supabase
+        .from('requirements')
+        .insert({
+          title: formData.title,
+          description: formData.description,
+          priority: formData.priority,
+          user_id: user.user.id,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (requirementError) {
+        console.error('Error creating requirement:', requirementError);
+        throw requirementError;
+      }
+
+      console.log('Requirement created:', requirement);
+
+      // Upload attachments if any
+      let uploadedFiles = [];
+      if (attachments.length > 0) {
+        console.log('Starting file uploads...');
+        
+        for (const file of attachments) {
+          try {
+            setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+            const uploadedFile = await uploadFile(file, requirement.id);
+            uploadedFiles.push(uploadedFile);
+            setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+            console.log('File uploaded:', uploadedFile);
+          } catch (error) {
+            console.error('Failed to upload file:', file.name, error);
+            toast({
+              title: "Warning",
+              description: `Failed to upload ${file.name}`,
+              variant: "destructive"
+            });
+          }
+        }
+
+        // Update requirement with attachment URLs if any were uploaded
+        if (uploadedFiles.length > 0) {
+          const { error: updateError } = await supabase
+            .from('requirements')
+            .update({
+              attachment_urls: uploadedFiles.map(f => f.url),
+              attachment_metadata: uploadedFiles
+            })
+            .eq('id', requirement.id);
+
+          if (updateError) {
+            console.error('Error updating requirement with attachments:', updateError);
+          }
+        }
+      }
+
+      // Call the onSubmit prop for any additional handling
       await onSubmit({
         ...formData,
         attachments: attachments.length > 0 ? attachments : undefined
       });
+
+      // Reset form
       setFormData({ title: '', description: '', priority: 'medium' });
       setAttachments([]);
+      setUploadProgress({});
+      
       toast({
         title: "Success",
-        description: "Requirement submitted successfully!"
+        description: `Requirement submitted successfully! ${uploadedFiles.length > 0 ? `${uploadedFiles.length} file(s) uploaded.` : ''}`
       });
+
     } catch (error) {
+      console.error('Error in handleSubmit:', error);
       toast({
         title: "Error",
-        description: "Failed to submit requirement",
+        description: "Failed to submit requirement. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -197,6 +312,14 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
                         <div className="min-w-0 flex-1">
                           <span className="text-sm font-medium text-slate-900 truncate block">{file.name}</span>
                           <span className="text-xs text-slate-500">{formatFileSize(file.size)}</span>
+                          {uploadProgress[file.name] !== undefined && (
+                            <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
+                              <div 
+                                className="bg-blue-600 h-1 rounded-full transition-all duration-300" 
+                                style={{ width: `${uploadProgress[file.name]}%` }}
+                              ></div>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <Button
