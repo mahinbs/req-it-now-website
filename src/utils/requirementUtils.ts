@@ -1,5 +1,5 @@
-
 import type { Tables } from '@/integrations/supabase/types';
+import { Clock, Play, CheckCircle } from 'lucide-react';
 
 type Requirement = Tables<'requirements'>;
 
@@ -52,17 +52,20 @@ export const adminStatusConfig = {
   pending: {
     label: 'Pending',
     color: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    buttonColor: 'bg-yellow-600 hover:bg-yellow-700'
+    buttonColor: 'bg-yellow-600 hover:bg-yellow-700',
+    icon: Clock
   },
   ongoing: {
     label: 'Ongoing',
     color: 'bg-blue-100 text-blue-800 border-blue-300',
-    buttonColor: 'bg-blue-600 hover:bg-blue-700'
+    buttonColor: 'bg-blue-600 hover:bg-blue-700',
+    icon: Play
   },
   completed: {
     label: 'Completed',
     color: 'bg-green-100 text-green-800 border-green-300',
-    buttonColor: 'bg-green-600 hover:bg-green-700'
+    buttonColor: 'bg-green-600 hover:bg-green-700',
+    icon: CheckCircle
   }
 };
 
