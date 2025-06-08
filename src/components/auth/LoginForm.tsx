@@ -8,11 +8,12 @@ import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => Promise<void>;
-  loading: boolean;
-  error: string | null;
+  onSwitchToSignup: () => void;
+  loading?: boolean;
+  error?: string | null;
 }
 
-export const LoginForm = ({ onLogin, loading, error }: LoginFormProps) => {
+export const LoginForm = ({ onLogin, onSwitchToSignup, loading = false, error }: LoginFormProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -56,7 +57,7 @@ export const LoginForm = ({ onLogin, loading, error }: LoginFormProps) => {
                 placeholder="Enter your email address"
                 className="pl-10 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                 required
-                autoComplete="email"
+                autoComplete="username email"
                 autoFocus
               />
             </div>
@@ -103,6 +104,17 @@ export const LoginForm = ({ onLogin, loading, error }: LoginFormProps) => {
               'Sign In'
             )}
           </Button>
+
+          <div className="text-center text-sm text-gray-600">
+            Don't have an account?{' '}
+            <button
+              type="button"
+              onClick={onSwitchToSignup}
+              className="text-blue-600 hover:text-blue-700 font-medium underline"
+            >
+              Sign up here
+            </button>
+          </div>
         </form>
       </CardContent>
     </Card>

@@ -11,11 +11,12 @@ interface AuthPageProps {
     companyName: string;
     websiteUrl: string;
   }) => Promise<void>;
+  loading: boolean;
   error: string | null;
   setError: (error: string | null) => void;
 }
 
-export const AuthPage = ({ onLogin, onSignup, error, setError }: AuthPageProps) => {
+export const AuthPage = ({ onLogin, onSignup, loading, error, setError }: AuthPageProps) => {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
 
   return (
@@ -46,11 +47,15 @@ export const AuthPage = ({ onLogin, onSignup, error, setError }: AuthPageProps) 
           <LoginForm
             onLogin={onLogin}
             onSwitchToSignup={() => setAuthMode('signup')}
+            loading={loading}
+            error={error}
           />
         ) : (
           <SignupForm
             onSignup={onSignup}
             onSwitchToLogin={() => setAuthMode('login')}
+            loading={loading}
+            error={error}
           />
         )}
 

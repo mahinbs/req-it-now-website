@@ -7,12 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Eye, EyeOff, Mail, Lock, Building, Globe } from 'lucide-react';
 
 interface SignupFormProps {
-  onSignup: (email: string, password: string, companyName: string, websiteUrl: string) => Promise<void>;
-  loading: boolean;
-  error: string | null;
+  onSignup: (userData: {
+    email: string;
+    password: string;
+    companyName: string;
+    websiteUrl: string;
+  }) => Promise<void>;
+  onSwitchToLogin: () => void;
+  loading?: boolean;
+  error?: string | null;
 }
 
-export const SignupForm = ({ onSignup, loading, error }: SignupFormProps) => {
+export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }: SignupFormProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -24,7 +30,12 @@ export const SignupForm = ({ onSignup, loading, error }: SignupFormProps) => {
     if (!email.trim() || !password.trim() || !companyName.trim() || !websiteUrl.trim()) {
       return;
     }
-    await onSignup(email.trim(), password, companyName.trim(), websiteUrl.trim());
+    await onSignup({
+      email: email.trim(),
+      password,
+      companyName: companyName.trim(),
+      websiteUrl: websiteUrl.trim()
+    });
   };
 
   return (
@@ -58,7 +69,7 @@ export const SignupForm = ({ onSignup, loading, error }: SignupFormProps) => {
                 placeholder="Enter your email address"
                 className="pl-10 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                 required
-                autoComplete="email"
+                autoComplete="username email"
                 autoFocus
               />
             </div>
@@ -146,6 +157,17 @@ export const SignupForm = ({ onSignup, loading, error }: SignupFormProps) => {
               'Create Account'
             )}
           </Button>
+
+          <div className="text-center text-sm text-gray-600">
+            Already have an account?{' '}
+            <button
+              type="button"
+              onClick={onSwitchToLogin}
+              className="text-blue-600 hover:text-blue-700 font-medium underline"
+            >
+              Sign in here
+            </button>
+          </div>
         </form>
       </CardContent>
     </Card>
