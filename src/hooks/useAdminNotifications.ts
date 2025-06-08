@@ -24,6 +24,7 @@ export const useAdminNotifications = () => {
 
   const mountedRef = useRef(true);
   const channelRef = useRef<any>(null);
+  const initializingRef = useRef(false);
 
   const updateState = (updates: Partial<AdminNotificationState>) => {
     if (mountedRef.current) {
@@ -96,12 +97,16 @@ export const useAdminNotifications = () => {
 
   // Set up real-time subscriptions
   const setupRealtimeSubscriptions = () => {
-    if (!user?.id || channelRef.current) return;
+    if (!user?.id || channelRef.current || initializingRef.current) return;
 
     console.log('Setting up admin notifications real-time subscription');
+    initializingRef.current = true;
 
+    // Create a unique channel name to avoid conflicts
+    const channelName = `admin-notifications-${user.id}-${Date.now()}`;
+    
     const channel = supabase
-      .channel('admin-notifications')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -128,6 +133,7 @@ export const useAdminNotifications = () => {
       .subscribe((status) => {
         console.log('Admin notifications subscription status:', status);
         updateState({ connected: status === 'SUBSCRIBED' });
+        initializingRef.current = false;
       });
 
     channelRef.current = channel;
@@ -144,6 +150,7 @@ export const useAdminNotifications = () => {
     return () => {
       console.log('Cleaning up admin notifications');
       mountedRef.current = false;
+      initializingRef.current = false;
       
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
