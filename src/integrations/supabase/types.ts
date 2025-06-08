@@ -229,6 +229,7 @@ export type Database = {
           acceptance_date: string | null
           accepted_by_client: boolean | null
           admin_response_to_rejection: string | null
+          admin_status: string
           approval_date: string | null
           approved_by_admin: boolean | null
           approved_by_admin_id: string | null
@@ -253,6 +254,7 @@ export type Database = {
           acceptance_date?: string | null
           accepted_by_client?: boolean | null
           admin_response_to_rejection?: string | null
+          admin_status?: string
           approval_date?: string | null
           approved_by_admin?: boolean | null
           approved_by_admin_id?: string | null
@@ -277,6 +279,7 @@ export type Database = {
           acceptance_date?: string | null
           accepted_by_client?: boolean | null
           admin_response_to_rejection?: string | null
+          admin_status?: string
           approval_date?: string | null
           approved_by_admin?: boolean | null
           approved_by_admin_id?: string | null

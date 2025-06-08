@@ -5,28 +5,54 @@ type Requirement = Tables<'requirements'>;
 
 export const getStatusColor = (status: string) => {
   switch (status) {
-    case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-    case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-    default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    case 'approved':
+    case 'approved_by_admin':
+      return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'completed':
+    case 'completed_by_admin':
+      return 'bg-green-100 text-green-800 border-green-300';
+    case 'rejected':
+    case 'rejected_by_client':
+      return 'bg-red-100 text-red-800 border-red-300';
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-300';
   }
 };
 
 export const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case 'low': return 'bg-green-50 text-green-700 border-green-200';
-    case 'medium': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-    case 'high': return 'bg-red-50 text-red-700 border-red-200';
-    default: return 'bg-gray-50 text-gray-700 border-gray-200';
+  switch (priority.toLowerCase()) {
+    case 'high':
+      return 'bg-red-100 text-red-800 border-red-300';
+    case 'medium':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    case 'low':
+      return 'bg-green-100 text-green-800 border-green-300';
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-300';
+  }
+};
+
+export const getAdminStatusColor = (adminStatus: string) => {
+  switch (adminStatus) {
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    case 'ongoing':
+      return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'completed':
+      return 'bg-green-100 text-green-800 border-green-300';
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-300';
   }
 };
 
 export const formatDate = (dateString: string, includeTime = false) => {
+  const date = new Date(dateString);
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   };
   
   if (includeTime) {
@@ -34,57 +60,33 @@ export const formatDate = (dateString: string, includeTime = false) => {
     options.minute = '2-digit';
   }
   
-  return new Date(dateString).toLocaleDateString('en-US', options);
+  return date.toLocaleDateString(undefined, options);
 };
 
 export const getAttachmentCount = (requirement: Requirement) => {
-  let count = 0;
-  
-  // Count from attachment_urls array
-  if (requirement.attachment_urls && Array.isArray(requirement.attachment_urls)) {
-    count += requirement.attachment_urls.length;
+  if (requirement.attachment_urls) {
+    return requirement.attachment_urls.length;
   }
-  
-  // Count screen recording if present
-  if (requirement.screen_recording_url) {
-    count += 1;
-  }
-  
-  return count;
+  return 0;
 };
 
 export const getUniqueAttachments = (requirement: Requirement) => {
-  const attachments: Array<{ url: string; name: string; type: 'file' | 'video' }> = [];
+  const attachments = [];
   
-  // Add regular attachments from attachment_urls
-  if (requirement.attachment_urls && Array.isArray(requirement.attachment_urls)) {
+  // Add regular attachments
+  if (requirement.attachment_urls && requirement.attachment_urls.length > 0) {
     requirement.attachment_urls.forEach((url, index) => {
-      // Parse metadata to get proper filename
-      let filename = `Attachment ${index + 1}`;
-      
-      if (requirement.attachment_metadata) {
-        try {
-          const metadata = Array.isArray(requirement.attachment_metadata) 
-            ? requirement.attachment_metadata[index]
-            : requirement.attachment_metadata;
-          
-          if (metadata && typeof metadata === 'object' && 'name' in metadata) {
-            filename = metadata.name as string;
-          }
-        } catch (e) {
-          console.warn('Error parsing attachment metadata:', e);
-        }
-      }
-      
+      const metadata = requirement.attachment_metadata as any;
+      const fileName = metadata?.[index]?.name || `Attachment ${index + 1}`;
       attachments.push({
         url,
-        name: filename,
+        name: fileName,
         type: 'file'
       });
     });
   }
   
-  // Add screen recording if present
+  // Add screen recording if exists
   if (requirement.screen_recording_url) {
     attachments.push({
       url: requirement.screen_recording_url,

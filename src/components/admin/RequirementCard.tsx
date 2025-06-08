@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, User, Calendar, Paperclip, Video, AlertTriangle } from 'lucide-react';
 import { getStatusColor, getPriorityColor, formatDate, getUniqueAttachments } from '@/utils/requirementUtils';
-import { ApprovalButton } from './ApprovalButton';
+import { StatusDropdown } from './StatusDropdown';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -171,9 +171,9 @@ export const RequirementCard = ({
 
         {/* Action Buttons */}
         <div className="flex items-center justify-between space-x-3">
-          <ApprovalButton 
+          <StatusDropdown 
             requirement={requirement} 
-            onApprovalUpdate={onApprovalUpdate || (() => {})} 
+            onStatusUpdate={onApprovalUpdate || (() => {})} 
           />
           
           <div className="relative">

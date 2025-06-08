@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Plus, FileText, Paperclip } from 'lucide-react';
+import { MessageCircle, Plus, FileText, Paperclip, Clock, Play, CheckCircle } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import { AcceptanceButton } from './AcceptanceButton';
 import { useClientNotifications } from '@/hooks/useClientNotifications';
@@ -18,6 +18,24 @@ interface RequirementsListProps {
   onShowNewRequirement: () => void;
   onRequirementUpdate?: () => void;
 }
+
+const adminStatusConfig = {
+  pending: {
+    label: 'Pending Review',
+    icon: Clock,
+    color: 'bg-yellow-100 text-yellow-800 border-yellow-300'
+  },
+  ongoing: {
+    label: 'Work in Progress',
+    icon: Play,
+    color: 'bg-blue-100 text-blue-800 border-blue-300'
+  },
+  completed: {
+    label: 'Completed',
+    icon: CheckCircle,
+    color: 'bg-green-100 text-green-800 border-green-300'
+  }
+};
 
 export const RequirementsList = ({ 
   requirements, 
@@ -65,6 +83,12 @@ export const RequirementsList = ({
     return requirement.status.replace('_', ' ');
   };
 
+  const getAdminStatusDisplay = (requirement: Requirement) => {
+    const adminStatus = requirement.admin_status || 'pending';
+    const config = adminStatusConfig[adminStatus as keyof typeof adminStatusConfig];
+    return config || adminStatusConfig.pending;
+  };
+
   if (requirements.length === 0) {
     return (
       <Card className="border-dashed border-2 border-slate-300">
@@ -95,6 +119,8 @@ export const RequirementsList = ({
         {requirements.map((requirement) => {
           const attachmentCount = getAttachmentCount(requirement);
           const unreadCount = getUnreadCount(requirement.id);
+          const adminStatus = getAdminStatusDisplay(requirement);
+          const AdminStatusIcon = adminStatus.icon;
           
           return (
             <Card key={requirement.id} className="hover:shadow-md transition-shadow">
@@ -109,6 +135,7 @@ export const RequirementsList = ({
                     </Badge>
                   </div>
                 </div>
+                
                 <div className="flex items-center justify-between mt-2">
                   <Badge variant="outline" className={getStatusBadgeVariant(requirement)}>
                     {getStatusText(requirement)}
@@ -117,7 +144,19 @@ export const RequirementsList = ({
                     {formatDate(requirement.created_at)}
                   </span>
                 </div>
+
+                {/* Admin Status Section */}
+                <div className="mt-3 p-2 bg-slate-50 rounded-lg border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-600">Admin Status:</span>
+                    <Badge variant="outline" className={adminStatus.color}>
+                      <AdminStatusIcon className="h-3 w-3 mr-1" />
+                      {adminStatus.label}
+                    </Badge>
+                  </div>
+                </div>
               </CardHeader>
+              
               <CardContent className="pt-0">
                 <p className="text-sm text-slate-600 mb-4 line-clamp-3">
                   {requirement.description}
