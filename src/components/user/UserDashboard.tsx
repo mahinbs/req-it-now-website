@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,30 +30,49 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
   const [showGeneralChat, setShowGeneralChat] = useState(false);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    let loadingTimeout: NodeJS.Timeout;
 
     const initializeDashboard = async () => {
       try {
         console.log('Initializing dashboard for user:', user.id);
+        
+        // Set timeout to prevent infinite loading
+        loadingTimeout = setTimeout(() => {
+          if (mounted && loading) {
+            console.warn('User dashboard loading timeout');
+            setLoading(false);
+            setError('Loading timeout. Please refresh to try again.');
+          }
+        }, 10000);
+
         await fetchRequirements();
       } catch (error) {
         console.error('Error initializing dashboard:', error);
+        if (mounted) {
+          setError('Failed to load dashboard data');
+        }
       } finally {
         if (mounted) {
           setLoading(false);
+        }
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
         }
       }
     };
 
     initializeDashboard();
     
-    // Set up real-time subscription
+    // Set up real-time subscription with unique channel name
     console.log('Setting up real-time subscriptions...');
     
+    const timestamp = Date.now();
     const requirementsChannel = supabase
-      .channel(`user-requirements-${user.id}-${Date.now()}`)
+      .channel(`user-requirements-${user.id}-${timestamp}`)
       .on(
         'postgres_changes',
         {
@@ -70,11 +88,16 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('User requirements subscription status:', status);
+      });
 
     return () => {
       console.log('Cleaning up dashboard subscriptions');
       mounted = false;
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
       supabase.removeChannel(requirementsChannel);
     };
   }, [user.id]);
@@ -82,12 +105,20 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
   const fetchRequirements = async () => {
     try {
       console.log('Fetching requirements for user:', user.id);
+      setError(null);
       
-      const { data, error } = await supabase
+      // Add timeout to prevent hanging
+      const fetchPromise = supabase
         .from('requirements')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Fetch timeout')), 8000)
+      );
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('Error fetching requirements:', error);
@@ -98,6 +129,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
       setRequirements(data || []);
     } catch (error) {
       console.error('Error fetching requirements:', error);
+      setError('Failed to load requirements');
       toast({
         title: "Error",
         description: "Failed to load requirements. Please refresh the page.",
@@ -115,6 +147,20 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
       title: "Success!",
       description: "Your requirement has been submitted successfully."
     });
+  };
+
+  const handleLogout = async () => {
+    try {
+      console.log('User logout triggered');
+      await onLogout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to log out",
+        variant: "destructive"
+      });
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -151,6 +197,17 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-slate-600">Loading your dashboard...</p>
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm max-w-md">
+              {error}
+              <button 
+                onClick={() => window.location.reload()} 
+                className="ml-2 underline hover:no-underline"
+              >
+                Refresh Page
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -179,7 +236,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
                 <HelpCircle className="h-4 w-4" />
                 <span>Chat with Admin</span>
               </Button>
-              <Button variant="outline" onClick={onLogout} className="flex items-center space-x-2">
+              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
                 <LogOut className="h-4 w-4" />
                 <span>Sign Out</span>
               </Button>
@@ -189,6 +246,18 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
+            {error}
+            <button 
+              onClick={() => setError(null)} 
+              className="ml-2 underline hover:no-underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Welcome message for new users */}
         {requirements.length === 0 && (
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">

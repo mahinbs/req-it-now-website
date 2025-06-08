@@ -24,8 +24,18 @@ export const RequirementsManagement = () => {
 
   useEffect(() => {
     let mounted = true;
+    let authTimeout: NodeJS.Timeout;
 
     console.log('Setting up authentication listeners...');
+
+    // Set timeout to prevent infinite loading
+    authTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('Authentication timeout - forcing loading to false');
+        setLoading(false);
+        setError('Authentication timeout. Please refresh the page.');
+      }
+    }, 10000); // 10 second timeout
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -33,14 +43,27 @@ export const RequirementsManagement = () => {
       
       if (!mounted) return;
       
+      // Clear timeout on any auth event
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+      }
+      
       if (session?.user) {
         setUser(session.user);
         setError(null);
-        await fetchUserProfile(session.user.id);
+        try {
+          await fetchUserProfile(session.user.id);
+        } catch (profileError) {
+          console.error('Profile fetch error:', profileError);
+          setError('Failed to load user profile');
+          setLoading(false);
+        }
       } else {
         setUser(null);
         setUserProfile(null);
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     });
 
@@ -48,11 +71,11 @@ export const RequirementsManagement = () => {
     const getInitialSession = async () => {
       try {
         console.log('Checking for existing session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('Session error:', error);
-          setError(error.message);
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          setError(sessionError.message);
           setLoading(false);
           return;
         }
@@ -74,6 +97,9 @@ export const RequirementsManagement = () => {
     return () => {
       console.log('Cleaning up authentication listeners');
       mounted = false;
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+      }
       subscription.unsubscribe();
     };
   }, []);
@@ -100,10 +126,18 @@ export const RequirementsManagement = () => {
         return;
       }
 
-      // Check admin status
+      // Check admin status with timeout
       let isAdmin = false;
       try {
-        const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: userId });
+        const adminCheckPromise = supabase.rpc('is_admin', { user_id: userId });
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Admin check timeout')), 5000)
+        );
+        
+        const { data: adminCheck, error: adminError } = await Promise.race([
+          adminCheckPromise,
+          timeoutPromise
+        ]) as any;
         
         if (adminError) {
           console.warn('Admin check failed, defaulting to false:', adminError);
@@ -236,6 +270,8 @@ export const RequirementsManagement = () => {
   const handleLogout = async () => {
     try {
       console.log('Starting logout...');
+      
+      // Immediately show loading state
       setLoading(true);
       
       const { error } = await supabase.auth.signOut();
@@ -245,10 +281,11 @@ export const RequirementsManagement = () => {
       }
       
       console.log('Logout successful');
-      // Clear all state
+      // Clear all state immediately
       setUserProfile(null);
       setUser(null);
       setError(null);
+      setLoading(false);
       
       toast({
         title: "Signed out",
@@ -257,13 +294,12 @@ export const RequirementsManagement = () => {
       
     } catch (error: any) {
       console.error('Logout error:', error);
+      setLoading(false);
       toast({
         title: "Error",
         description: "Failed to sign out. Please try again.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -274,8 +310,14 @@ export const RequirementsManagement = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
           {error && (
-            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm max-w-md">
               {error}
+              <button 
+                onClick={() => window.location.reload()} 
+                className="ml-2 underline hover:no-underline"
+              >
+                Refresh Page
+              </button>
             </div>
           )}
         </div>
@@ -285,7 +327,7 @@ export const RequirementsManagement = () => {
 
   if (user && userProfile) {
     if (userProfile.isAdmin) {
-      return <AdminDashboard />;
+      return <AdminDashboard onLogout={handleLogout} />;
     } else {
       return <UserDashboard user={userProfile} onLogout={handleLogout} />;
     }
@@ -306,6 +348,12 @@ export const RequirementsManagement = () => {
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
             {error}
+            <button 
+              onClick={() => setError(null)} 
+              className="ml-2 underline hover:no-underline"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 

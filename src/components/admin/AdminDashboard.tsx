@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,23 +24,72 @@ interface AttachmentFile {
   type: string;
 }
 
-export const AdminDashboard = () => {
+interface AdminDashboardProps {
+  onLogout: () => void;
+}
+
+export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchRequirements();
-    setupRealtimeSubscriptions();
+    let mounted = true;
+    let loadingTimeout: NodeJS.Timeout;
+
+    // Set timeout to prevent infinite loading
+    loadingTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('Admin dashboard loading timeout');
+        setLoading(false);
+        setError('Loading timeout. Please refresh to try again.');
+      }
+    }, 15000); // 15 second timeout
+
+    const initializeDashboard = async () => {
+      try {
+        await fetchRequirements();
+        
+        // Only set up real-time after initial load is complete
+        if (mounted) {
+          setupRealtimeSubscriptions();
+        }
+      } catch (error) {
+        console.error('Error initializing dashboard:', error);
+        if (mounted) {
+          setError('Failed to load dashboard data');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+        }
+      }
+    };
+
+    initializeDashboard();
+
+    return () => {
+      mounted = false;
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
+    };
   }, []);
 
   const setupRealtimeSubscriptions = () => {
     console.log('Setting up real-time subscriptions...');
     
+    // Use unique channel names to avoid conflicts
+    const timestamp = Date.now();
+    
     // Subscribe to requirements changes
     const requirementsChannel = supabase
-      .channel('requirements-changes')
+      .channel(`admin-requirements-${timestamp}`)
       .on(
         'postgres_changes',
         {
@@ -58,7 +106,7 @@ export const AdminDashboard = () => {
 
     // Subscribe to profiles changes
     const profilesChannel = supabase
-      .channel('profiles-changes')
+      .channel(`admin-profiles-${timestamp}`)
       .on(
         'postgres_changes',
         {
@@ -84,38 +132,46 @@ export const AdminDashboard = () => {
   const fetchRequirements = async () => {
     try {
       console.log('Fetching requirements...');
+      setError(null);
       
-      // First, get all requirements
-      const { data: requirementsData, error: requirementsError } = await supabase
-        .from('requirements')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Add timeout to prevent hanging
+      const fetchPromise = Promise.all([
+        supabase
+          .from('requirements')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('profiles')
+          .select('id, company_name, website_url')
+      ]);
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Fetch timeout')), 10000)
+      );
+
+      const [requirementsResult, profilesResult] = await Promise.race([
+        fetchPromise,
+        timeoutPromise
+      ]) as any;
+
+      const { data: requirementsData, error: requirementsError } = requirementsResult;
+      const { data: profilesData, error: profilesError } = profilesResult;
 
       if (requirementsError) {
         console.error('Error fetching requirements:', requirementsError);
         throw requirementsError;
       }
 
-      console.log('Requirements fetched:', requirementsData?.length || 0);
-      console.log('Requirements data:', requirementsData);
-
-      // Then, get all profiles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, company_name, website_url');
-
       if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        // Don't throw here, just log the error and continue without profile data
+        console.warn('Error fetching profiles (continuing without profile data):', profilesError);
       }
 
+      console.log('Requirements fetched:', requirementsData?.length || 0);
       console.log('Profiles fetched:', profilesData?.length || 0);
-      console.log('Profiles data:', profilesData);
 
       // Combine the data manually
       const requirementsWithProfiles: Requirement[] = requirementsData?.map(requirement => {
         const profile = profilesData?.find(p => p.id === requirement.user_id);
-        console.log(`Matching requirement ${requirement.id} with user_id ${requirement.user_id} to profile:`, profile);
         return {
           ...requirement,
           profiles: profile ? {
@@ -126,17 +182,16 @@ export const AdminDashboard = () => {
       }) || [];
 
       console.log('Final requirements with profiles:', requirementsWithProfiles.length);
-      console.log('Final combined data:', requirementsWithProfiles);
       setRequirements(requirementsWithProfiles);
     } catch (error) {
       console.error('Error in fetchRequirements:', error);
+      setError('Failed to load requirements data');
       toast({
         title: "Error",
         description: "Failed to load requirements",
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   };
@@ -153,13 +208,10 @@ export const AdminDashboard = () => {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      toast({
-        title: "Success",
-        description: "You have been logged out successfully"
-      });
+      console.log('Admin logout triggered');
+      await onLogout();
     } catch (error) {
+      console.error('Logout failed:', error);
       toast({
         title: "Error",
         description: "Failed to log out",
@@ -218,7 +270,18 @@ export const AdminDashboard = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading requirements...</p>
+          <p className="mt-4 text-slate-600">Loading admin dashboard...</p>
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm max-w-md">
+              {error}
+              <button 
+                onClick={() => window.location.reload()} 
+                className="ml-2 underline hover:no-underline"
+              >
+                Refresh Page
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -259,6 +322,18 @@ export const AdminDashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
+            {error}
+            <button 
+              onClick={() => setError(null)} 
+              className="ml-2 underline hover:no-underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <Tabs defaultValue="requirements" className="space-y-6">
           <TabsList className="bg-white border border-slate-200">
             <TabsTrigger value="requirements" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
