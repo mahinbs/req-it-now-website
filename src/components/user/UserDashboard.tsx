@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,17 +34,51 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
 
   useEffect(() => {
     fetchRequirements();
+    setupRealtimeSubscriptions();
   }, []);
+
+  const setupRealtimeSubscriptions = () => {
+    console.log('Setting up real-time subscriptions for user dashboard...');
+    
+    const requirementsChannel = supabase
+      .channel('user-requirements-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'requirements',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('User requirements changed:', payload);
+          fetchRequirements();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up user dashboard subscriptions');
+      supabase.removeChannel(requirementsChannel);
+    };
+  };
 
   const fetchRequirements = async () => {
     try {
+      console.log('Fetching requirements for user:', user.id);
+      
       const { data, error } = await supabase
         .from('requirements')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching requirements:', error);
+        throw error;
+      }
+      
+      console.log('Requirements fetched:', data?.length || 0);
       setRequirements(data || []);
     } catch (error) {
       console.error('Error fetching requirements:', error);
@@ -57,35 +92,12 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     }
   };
 
-  const handleSubmitRequirement = async (data: any) => {
-    try {
-      const { error } = await supabase
-        .from('requirements')
-        .insert([{
-          title: data.title,
-          description: data.description,
-          priority: data.priority,
-          user_id: user.id,
-          has_screen_recording: !!data.attachments
-        }]);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Requirement submitted successfully!"
-      });
-
-      await fetchRequirements();
-      setShowNewRequirement(false);
-    } catch (error) {
-      console.error('Error submitting requirement:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit requirement",
-        variant: "destructive"
-      });
-    }
+  const handleSubmitRequirement = async () => {
+    console.log('Requirement submitted successfully');
+    // Refresh requirements list
+    await fetchRequirements();
+    // Close the modal
+    setShowNewRequirement(false);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -255,7 +267,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
                           <span>Submitted: {new Date(requirement.created_at).toLocaleDateString()}</span>
                         </div>
                         <p className="text-slate-600">{getStatusMessage(requirement.status)}</p>
-                        {requirement.has_screen_recording && (
+                        {(requirement.attachment_urls?.length > 0 || requirement.attachment_metadata) && (
                           <div className="flex items-center space-x-1 mt-2">
                             <File className="h-3 w-3 text-green-500" />
                             <span className="text-green-600">Files attached</span>
