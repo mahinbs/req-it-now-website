@@ -12,9 +12,6 @@ export const RequirementsManagement = () => {
     userProfile,
     loading,
     error,
-    setError,
-    handleLogin,
-    handleSignup,
     handleLogout
   } = useAuth();
 
@@ -30,13 +27,5 @@ export const RequirementsManagement = () => {
     }
   }
 
-  return (
-    <AuthPage
-      onLogin={handleLogin}
-      onSignup={handleSignup}
-      loading={loading}
-      error={error}
-      setError={setError}
-    />
-  );
+  return <AuthPage />;
 };
