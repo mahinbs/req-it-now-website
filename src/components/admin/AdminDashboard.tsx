@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,18 +27,49 @@ export const AdminDashboard = () => {
 
   const fetchRequirements = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('Fetching requirements...');
+      
+      // First, get all requirements
+      const { data: requirementsData, error: requirementsError } = await supabase
         .from('requirements')
-        .select(`
-          *,
-          profiles(company_name, website_url)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setRequirements(data || []);
+      if (requirementsError) {
+        console.error('Error fetching requirements:', requirementsError);
+        throw requirementsError;
+      }
+
+      console.log('Requirements fetched:', requirementsData?.length || 0);
+
+      // Then, get all profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, company_name, website_url');
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        // Don't throw here, just log the error and continue without profile data
+      }
+
+      console.log('Profiles fetched:', profilesData?.length || 0);
+
+      // Combine the data manually
+      const requirementsWithProfiles: Requirement[] = requirementsData?.map(requirement => {
+        const profile = profilesData?.find(p => p.id === requirement.user_id);
+        return {
+          ...requirement,
+          profiles: profile ? {
+            company_name: profile.company_name,
+            website_url: profile.website_url
+          } : null
+        };
+      }) || [];
+
+      console.log('Final requirements with profiles:', requirementsWithProfiles.length);
+      setRequirements(requirementsWithProfiles);
     } catch (error) {
-      console.error('Error fetching requirements:', error);
+      console.error('Error in fetchRequirements:', error);
       toast({
         title: "Error",
         description: "Failed to load requirements",
@@ -124,7 +154,7 @@ export const AdminDashboard = () => {
         <Tabs defaultValue="requirements" className="space-y-6">
           <TabsList className="bg-white border border-slate-200">
             <TabsTrigger value="requirements" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
-              All Requirements
+              All Requirements ({requirements.length})
             </TabsTrigger>
             <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
               Analytics
