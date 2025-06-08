@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { RequirementsList } from './RequirementsList';
 import { ChatModal } from './ChatModal';
 import { AnalyticsCards } from './AnalyticsCards';
@@ -44,8 +44,15 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
   const { markAsRead } = useAdminNotifications();
 
-  // Apply filters to requirements
-  const filteredRequirements = applyFilters(requirements, filters.dateFilter, filters.statusFilter);
+  // Memoized filtered requirements for better performance
+  const filteredRequirements = useMemo(() => {
+    return applyFilters(requirements, filters.dateFilter, filters.statusFilter);
+  }, [requirements, filters.dateFilter, filters.statusFilter]);
+
+  // Memoized recent requirements for overview tab
+  const recentRequirements = useMemo(() => {
+    return requirements.slice(0, 6);
+  }, [requirements]);
 
   const handleChatClick = (requirement: Requirement) => {
     console.log('Admin opening chat for requirement:', requirement.id);
@@ -165,7 +172,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-4">Recent Requirements</h2>
               <RequirementsList
-                requirements={requirements.slice(0, 6)}
+                requirements={recentRequirements}
                 onChatClick={handleChatClick}
                 onDownloadAttachment={handleDownloadAttachment}
                 onRefresh={handleRefresh}
