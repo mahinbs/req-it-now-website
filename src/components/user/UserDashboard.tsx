@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -9,7 +9,9 @@ import { UserDashboardHeader } from './UserDashboardHeader';
 import { WelcomeCard } from './WelcomeCard';
 import { RequirementsList } from './RequirementsList';
 import { UserModals } from './UserModals';
+import { RequirementsFilter, type FilterState } from '@/components/filters/RequirementsFilter';
 import { useUserDashboard } from '@/hooks/useUserDashboard';
+import { applyFilters } from '@/utils/filterUtils';
 
 interface User {
   id: string;
@@ -23,6 +25,11 @@ interface UserDashboardProps {
 }
 
 export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
+  const [filters, setFilters] = useState<FilterState>({
+    dateFilter: 'newest',
+    statusFilter: 'all'
+  });
+
   const {
     showNewRequirement,
     setShowNewRequirement,
@@ -37,6 +44,9 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     handleSubmitRequirement,
     handleRequirementUpdate
   } = useUserDashboard(user);
+
+  // Apply filters to requirements
+  const filteredRequirements = applyFilters(requirements, filters.dateFilter, filters.statusFilter);
 
   const handleLogout = async () => {
     try {
@@ -141,19 +151,27 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           </TabsList>
 
           <TabsContent value="requirements" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h2 className="text-xl font-semibold text-slate-900">Your Requirements</h2>
-              <Button 
-                onClick={() => setShowNewRequirement(true)} 
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 rounded-xl"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Requirement
-              </Button>
+              <div className="flex items-center space-x-3">
+                {requirements.length > 0 && (
+                  <RequirementsFilter 
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                  />
+                )}
+                <Button 
+                  onClick={() => setShowNewRequirement(true)} 
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 rounded-xl"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Requirement
+                </Button>
+              </div>
             </div>
 
             <RequirementsList 
-              requirements={requirements}
+              requirements={filteredRequirements}
               onSelectRequirement={setSelectedRequirement}
               onShowNewRequirement={() => setShowNewRequirement(true)}
               onRequirementUpdate={handleRequirementUpdate}

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,8 +7,10 @@ import { RequirementsList } from './RequirementsList';
 import { ChatModal } from './ChatModal';
 import { AnalyticsCards } from './AnalyticsCards';
 import { AdminDashboardHeader } from './AdminDashboardHeader';
+import { RequirementsFilter, type FilterState } from '@/components/filters/RequirementsFilter';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
+import { applyFilters } from '@/utils/filterUtils';
 import { toast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -25,6 +28,10 @@ interface AdminDashboardProps {
 export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [filters, setFilters] = useState<FilterState>({
+    dateFilter: 'newest',
+    statusFilter: 'all'
+  });
   
   const {
     requirements,
@@ -36,6 +43,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   } = useAdminDashboard();
 
   const { markAsRead } = useAdminNotifications();
+
+  // Apply filters to requirements
+  const filteredRequirements = applyFilters(requirements, filters.dateFilter, filters.statusFilter);
 
   const handleChatClick = (requirement: Requirement) => {
     console.log('Admin opening chat for requirement:', requirement.id);
@@ -164,8 +174,18 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
           </TabsContent>
 
           <TabsContent value="requirements" className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <h2 className="text-xl font-semibold text-slate-900">All Requirements</h2>
+              {requirements.length > 0 && (
+                <RequirementsFilter 
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                />
+              )}
+            </div>
+            
             <RequirementsList
-              requirements={requirements}
+              requirements={filteredRequirements}
               onChatClick={handleChatClick}
               onDownloadAttachment={handleDownloadAttachment}
               onRefresh={handleRefresh}

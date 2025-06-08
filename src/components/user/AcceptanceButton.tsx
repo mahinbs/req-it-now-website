@@ -84,12 +84,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
   // Show Accept/Reject buttons only when work is completed but not yet decided
   return (
     <>
-      <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200 shadow-sm">
-        <div className="flex items-center space-x-1 text-slate-600">
-          <AlertCircle className="h-4 w-4" />
-          <span className="text-sm font-medium">Action Required</span>
-        </div>
-        
+      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200 shadow-sm">
         <div className="flex items-center space-x-2 ml-auto">
           <Button
             onClick={handleAcceptStart}

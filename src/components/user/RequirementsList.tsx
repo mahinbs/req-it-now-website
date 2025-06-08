@@ -89,20 +89,6 @@ export const RequirementsList = ({
     );
   }
 
-  // Sort requirements to prioritize rejected ones and pending reviews
-  const sortedRequirements = [...requirements].sort((a, b) => {
-    // Rejected by client first (need admin attention)
-    if (a.rejected_by_client && !b.rejected_by_client) return -1;
-    if (!a.rejected_by_client && b.rejected_by_client) return 1;
-    
-    // Then completed work awaiting review
-    if (a.completed_by_admin && !a.accepted_by_client && !a.rejected_by_client) return -1;
-    if (b.completed_by_admin && !b.accepted_by_client && !b.rejected_by_client) return 1;
-    
-    // Then by creation date (newest first)
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-
   return (
     <div className="space-y-4">
       {notificationsLoading && (
@@ -112,7 +98,7 @@ export const RequirementsList = ({
       )}
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {sortedRequirements.map((requirement) => {
+        {requirements.map((requirement) => {
           const attachmentCount = getAttachmentCount(requirement);
           const unreadCount = getUnreadCount(requirement.id);
           const adminStatus = getAdminStatusDisplay(requirement);
