@@ -6,10 +6,10 @@ import { AuthProvider, useAuth } from '@/hooks/useAuthOptimized';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
 
-// Lazy load components for better performance
-const AuthPage = React.lazy(() => import('@/components/auth/AuthPage'));
-const UserDashboard = React.lazy(() => import('@/components/user/UserDashboard'));
-const AdminDashboardOptimized = React.lazy(() => import('@/components/admin/AdminDashboardOptimized'));
+// Direct imports instead of lazy loading to fix default export issues
+import { AuthPage } from '@/components/auth/AuthPage';
+import { UserDashboard } from '@/components/user/UserDashboard';
+import { AdminDashboardOptimized } from '@/components/admin/AdminDashboardOptimized';
 
 const AppContent = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -19,11 +19,7 @@ const AppContent = () => {
   }
 
   if (!user) {
-    return (
-      <React.Suspense fallback={<LoadingScreen />}>
-        <AuthPage />
-      </React.Suspense>
-    );
+    return <AuthPage />;
   }
 
   return (
@@ -32,20 +28,18 @@ const AppContent = () => {
         <Route 
           path="/" 
           element={
-            <React.Suspense fallback={<LoadingScreen />}>
-              {isAdmin ? (
-                <AdminDashboardOptimized onLogout={signOut} />
-              ) : (
-                <UserDashboard 
-                  user={{
-                    id: user.id,
-                    company_name: user.user_metadata?.company_name || 'My Company',
-                    website_url: user.user_metadata?.website_url || 'https://example.com'
-                  }}
-                  onLogout={signOut}
-                />
-              )}
-            </React.Suspense>
+            isAdmin ? (
+              <AdminDashboardOptimized onLogout={signOut} />
+            ) : (
+              <UserDashboard 
+                user={{
+                  id: user.id,
+                  company_name: user.user_metadata?.company_name || 'My Company',
+                  website_url: user.user_metadata?.website_url || 'https://example.com'
+                }}
+                onLogout={signOut}
+              />
+            )
           } 
         />
         <Route path="*" element={<Navigate to="/" replace />} />
