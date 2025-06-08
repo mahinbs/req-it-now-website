@@ -13,6 +13,8 @@ interface LoginFormProps {
 }
 
 const getAuthErrorMessage = (error: any) => {
+  console.log('Auth error details:', error);
+  
   if (!error) return "An unexpected error occurred";
   
   const message = error.message?.toLowerCase() || '';
@@ -46,6 +48,8 @@ export const LoginForm = ({ onLogin, onSwitchToSignup }: LoginFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Login attempt for email:', email);
+    
     if (!email || !password) {
       setError("Please fill in all fields");
       return;
@@ -55,7 +59,9 @@ export const LoginForm = ({ onLogin, onSwitchToSignup }: LoginFormProps) => {
     setError(null);
     
     try {
+      console.log('Calling onLogin...');
       await onLogin(email, password);
+      console.log('Login successful');
       toast({
         title: "Success",
         description: "Logged in successfully!"

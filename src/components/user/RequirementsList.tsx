@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Plus, FileText, Paperclip } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import { useNotificationContext } from '@/hooks/useGlobalNotifications';
+import { getStatusColor, getPriorityColor, formatDate, getAttachmentCount } from '@/utils/requirementUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'>;
@@ -16,49 +17,6 @@ interface RequirementsListProps {
   onShowNewRequirement: () => void;
 }
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-    case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-    default: return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
-};
-
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case 'low': return 'bg-green-50 text-green-700 border-green-200';
-    case 'medium': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-    case 'high': return 'bg-red-50 text-red-700 border-red-200';
-    default: return 'bg-gray-50 text-gray-700 border-gray-200';
-  }
-};
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-};
-
-const getAttachmentCount = (requirement: Requirement) => {
-  let count = 0;
-  
-  // Count from attachment_urls array
-  if (requirement.attachment_urls && Array.isArray(requirement.attachment_urls)) {
-    count += requirement.attachment_urls.length;
-  }
-  
-  // Count screen recording if present
-  if (requirement.screen_recording_url) {
-    count += 1;
-  }
-  
-  return count;
-};
-
 export const RequirementsList = ({ 
   requirements, 
   onSelectRequirement, 
@@ -67,6 +25,7 @@ export const RequirementsList = ({
   const { getUnreadCount, clearNotifications } = useNotificationContext();
 
   const handleSelectRequirement = (requirement: Requirement) => {
+    console.log('Selecting requirement for chat:', requirement.id);
     // Clear notifications when opening chat
     clearNotifications(requirement.id);
     onSelectRequirement(requirement);
