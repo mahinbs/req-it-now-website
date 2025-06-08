@@ -42,6 +42,7 @@ export const ChatModal = ({ requirement, onClose }: ChatModalProps) => {
           requirementId={requirement.id}
           currentUserName="Admin"
           isAdmin={true}
+          isCurrentChat={true}
         />
       </div>
     </div>

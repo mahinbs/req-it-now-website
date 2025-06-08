@@ -42,8 +42,7 @@ export const useChatWithNotifications = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(true);
   const channelRef = useRef<any>(null);
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const retryCountRef = useRef(0);
+  const currentUserIdRef = useRef<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,6 +55,18 @@ export const useChatWithNotifications = ({
   const updateState = (updates: Partial<ChatNotificationState>) => {
     if (mountedRef.current) {
       setState(prev => ({ ...prev, ...updates }));
+    }
+  };
+
+  // Get current user ID
+  const getCurrentUserId = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) return null;
+      return user.id;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      return null;
     }
   };
 
@@ -99,14 +110,16 @@ export const useChatWithNotifications = ({
     }
   };
 
-  const setupRealtimeSubscription = () => {
+  const setupRealtimeSubscription = async () => {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Use consistent channel name to avoid connection overhead
-    const channelName = `unified-chat-${requirementId || 'general'}`;
-    console.log('Setting up unified chat subscription:', channelName);
+    // Get current user ID for proper notification logic
+    currentUserIdRef.current = await getCurrentUserId();
+
+    const channelName = `chat-${requirementId || 'general'}`;
+    console.log('Setting up chat subscription:', channelName);
     
     const channel = supabase
       .channel(channelName)
@@ -130,8 +143,19 @@ export const useChatWithNotifications = ({
               
               const updatedMessages = [...prev.messages, newMessage];
               
-              // Update notification state based on current chat status
-              const shouldNotify = !isCurrentChat && newMessage.sender_id !== 'current-user-id';
+              // Only show notification if:
+              // 1. This chat is not currently active
+              // 2. The message is from someone else (not current user)
+              const isFromSelf = newMessage.sender_id === currentUserIdRef.current;
+              const shouldNotify = !isCurrentChat && !isFromSelf;
+              
+              console.log('Notification logic:', {
+                isCurrentChat,
+                isFromSelf,
+                shouldNotify,
+                senderId: newMessage.sender_id,
+                currentUserId: currentUserIdRef.current
+              });
               
               return {
                 ...prev,
@@ -144,17 +168,24 @@ export const useChatWithNotifications = ({
         }
       )
       .subscribe((status) => {
-        console.log('Unified chat subscription status:', status);
+        console.log('Chat subscription status:', status);
         if (mountedRef.current) {
           if (status === 'SUBSCRIBED') {
             updateState({ 
               connected: true, 
-              loading: false 
+              loading: false,
+              error: null
             });
-            retryCountRef.current = 0;
           } else if (status === 'CHANNEL_ERROR') {
-            updateState({ connected: false });
-            handleConnectionError();
+            updateState({ 
+              connected: false,
+              loading: false,
+              error: 'Connection failed. Please retry.'
+            });
+          } else if (status === 'CLOSED') {
+            updateState({ 
+              connected: false
+            });
           }
         }
       });
@@ -162,79 +193,37 @@ export const useChatWithNotifications = ({
     channelRef.current = channel;
   };
 
-  const handleConnectionError = () => {
-    console.log('Chat connection error, attempting retry...');
-    updateState({ connected: false });
-    
-    const maxRetries = 3;
-    const retryDelay = Math.min(1000 * Math.pow(2, retryCountRef.current), 5000);
-    
-    if (retryCountRef.current < maxRetries && mountedRef.current) {
-      retryCountRef.current++;
-      
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
-      
-      retryTimeoutRef.current = setTimeout(() => {
-        if (mountedRef.current) {
-          setupRealtimeSubscription();
-        }
-      }, retryDelay);
-    } else {
-      updateState({ 
-        error: 'Connection failed. Please refresh to try again.',
-        loading: false 
-      });
-    }
-  };
-
   useEffect(() => {
     mountedRef.current = true;
     
     const initializeChat = async () => {
-      console.log('Initializing unified chat for requirement:', requirementId || 'general');
+      console.log('Initializing chat for requirement:', requirementId || 'general');
       
       updateState({ 
         error: null, 
         loading: true 
       });
       
-      // Reduced timeout for better perceived performance
-      const fetchTimeout = setTimeout(() => {
-        if (mountedRef.current && state.loading) {
-          updateState({ 
-            error: 'Loading timeout. Please try again.',
-            loading: false 
-          });
-        }
-      }, 3000); // Reduced from 10 seconds to 3 seconds
-      
-      // Start both fetch and subscription setup in parallel
+      // Start both operations in parallel for faster loading
       const [fetchSuccess] = await Promise.all([
         fetchMessages(),
-        new Promise(resolve => {
-          setupRealtimeSubscription();
-          resolve(true);
-        })
+        setupRealtimeSubscription()
       ]);
       
-      clearTimeout(fetchTimeout);
-      
+      // If fetch failed, still allow subscription to work
       if (!fetchSuccess && mountedRef.current) {
-        updateState({ loading: false });
+        updateState({ 
+          loading: false,
+          error: 'Failed to load message history'
+        });
       }
     };
 
     initializeChat();
 
     return () => {
-      console.log('Cleaning up unified chat component');
+      console.log('Cleaning up chat component');
       mountedRef.current = false;
-      
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
       
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
@@ -306,20 +295,18 @@ export const useChatWithNotifications = ({
     }
   };
 
-  const retryConnection = () => {
+  const retryConnection = async () => {
     if (!mountedRef.current) return;
     
     updateState({ 
       error: null, 
       loading: true 
     });
-    retryCountRef.current = 0;
     
-    fetchMessages().then(success => {
-      if (success && mountedRef.current) {
-        setupRealtimeSubscription();
-      }
-    });
+    const fetchSuccess = await fetchMessages();
+    if (fetchSuccess && mountedRef.current) {
+      await setupRealtimeSubscription();
+    }
   };
 
   const clearNotifications = () => {
