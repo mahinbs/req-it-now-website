@@ -24,6 +24,9 @@ export const RequirementsManagement = () => {
 
   useEffect(() => {
     let mounted = true;
+    let profileTimeout: NodeJS.Timeout;
+
+    console.log('Setting up authentication listeners...');
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -34,7 +37,26 @@ export const RequirementsManagement = () => {
       if (session?.user) {
         setUser(session.user);
         setError(null);
+        
+        // Set a timeout to ensure loading doesn't get stuck
+        profileTimeout = setTimeout(() => {
+          if (mounted) {
+            console.log('Profile fetch timeout, proceeding with default profile');
+            setUserProfile({
+              id: session.user.id,
+              company_name: 'My Company',
+              website_url: 'https://example.com',
+              isAdmin: false
+            });
+            setLoading(false);
+          }
+        }, 10000); // 10 second timeout
+        
         await fetchUserProfile(session.user.id);
+        
+        if (profileTimeout) {
+          clearTimeout(profileTimeout);
+        }
       } else {
         setUser(null);
         setUserProfile(null);
@@ -45,6 +67,7 @@ export const RequirementsManagement = () => {
     // Check for existing session
     const getInitialSession = async () => {
       try {
+        console.log('Checking for existing session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -54,12 +77,11 @@ export const RequirementsManagement = () => {
           return;
         }
 
-        if (session?.user && mounted) {
-          setUser(session.user);
-          await fetchUserProfile(session.user.id);
-        } else {
+        if (!session?.user && mounted) {
+          console.log('No existing session found');
           setLoading(false);
         }
+        // If session exists, onAuthStateChange will handle it
       } catch (err) {
         console.error('Initial session check failed:', err);
         setError('Failed to check authentication status');
@@ -70,7 +92,11 @@ export const RequirementsManagement = () => {
     getInitialSession();
 
     return () => {
+      console.log('Cleaning up authentication listeners');
       mounted = false;
+      if (profileTimeout) {
+        clearTimeout(profileTimeout);
+      }
       subscription.unsubscribe();
     };
   }, []);
@@ -80,11 +106,21 @@ export const RequirementsManagement = () => {
       console.log('Fetching profile for user:', userId);
       setError(null);
       
-      const { data: profile, error: profileError } = await supabase
+      // Fetch profile with timeout
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 8000)
+      );
+
+      const { data: profile, error: profileError } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]) as any;
 
       if (profileError) {
         console.error('Profile error:', profileError);
@@ -97,10 +133,18 @@ export const RequirementsManagement = () => {
         return;
       }
 
-      // Check admin status
+      // Check admin status with timeout
       let isAdmin = false;
       try {
-        const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: userId });
+        const adminPromise = supabase.rpc('is_admin', { user_id: userId });
+        const adminTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Admin check timeout')), 5000)
+        );
+
+        const { data: adminCheck, error: adminError } = await Promise.race([
+          adminPromise,
+          adminTimeoutPromise
+        ]) as any;
         
         if (adminError) {
           console.warn('Admin check failed, defaulting to false:', adminError);
