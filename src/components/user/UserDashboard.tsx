@@ -79,6 +79,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
         user={user}
         onShowGeneralChat={() => setShowGeneralChat(true)}
         onLogout={handleLogout}
+        isGeneralChatOpen={showGeneralChat}
       />
 
       <div className="max-w-7xl mx-auto p-6">

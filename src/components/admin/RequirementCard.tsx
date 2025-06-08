@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, User, Calendar, Paperclip, Video } from 'lucide-react';
-import { useMessageNotifications } from '@/hooks/useMessageNotifications';
+import { useChatWithNotifications } from '@/hooks/useChatWithNotifications';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -17,6 +17,7 @@ type Requirement = Tables<'requirements'> & {
 interface RequirementCardProps {
   requirement: Requirement;
   onOpenChat: (requirement: Requirement) => void;
+  isCurrentChat?: boolean;
 }
 
 const getStatusColor = (status: string) => {
@@ -91,9 +92,13 @@ const getUniqueAttachments = (requirement: Requirement) => {
   return attachments;
 };
 
-export const RequirementCard = ({ requirement, onOpenChat }: RequirementCardProps) => {
+export const RequirementCard = ({ requirement, onOpenChat, isCurrentChat = false }: RequirementCardProps) => {
   const attachments = getUniqueAttachments(requirement);
-  const { unreadCount, hasNewMessage } = useMessageNotifications(requirement.id, false);
+  const { unreadCount, hasNewMessage } = useChatWithNotifications({ 
+    requirementId: requirement.id, 
+    isAdmin: true,
+    isCurrentChat 
+  });
   
   return (
     <Card className="hover:shadow-md transition-shadow">

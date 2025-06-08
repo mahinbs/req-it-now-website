@@ -80,6 +80,7 @@ export const UserModals = ({
               requirementId={selectedRequirement.id}
               currentUserName={user.company_name}
               isCurrentChat={true}
+              isAdmin={false}
             />
           </div>
         </div>
@@ -107,6 +108,7 @@ export const UserModals = ({
               requirementId=""
               currentUserName={user.company_name}
               isCurrentChat={true}
+              isAdmin={false}
             />
           </div>
         </div>

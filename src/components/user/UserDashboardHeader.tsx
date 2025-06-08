@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { LogOut, HelpCircle } from 'lucide-react';
 import { Logo } from '../ui/logo';
-import { useMessageNotifications } from '@/hooks/useMessageNotifications';
+import { useChatWithNotifications } from '@/hooks/useChatWithNotifications';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 
 interface User {
@@ -14,10 +14,20 @@ interface UserDashboardHeaderProps {
   user: User;
   onShowGeneralChat: () => void;
   onLogout: () => void;
+  isGeneralChatOpen?: boolean;
 }
 
-export const UserDashboardHeader = ({ user, onShowGeneralChat, onLogout }: UserDashboardHeaderProps) => {
-  const { unreadCount, hasNewMessage } = useMessageNotifications('', false); // Empty string for general chat
+export const UserDashboardHeader = ({ 
+  user, 
+  onShowGeneralChat, 
+  onLogout, 
+  isGeneralChatOpen = false 
+}: UserDashboardHeaderProps) => {
+  const { unreadCount, hasNewMessage } = useChatWithNotifications({ 
+    requirementId: '', // Empty string for general chat
+    isAdmin: false,
+    isCurrentChat: isGeneralChatOpen
+  });
 
   return (
     <div className="bg-white border-b border-slate-200 shadow-sm">

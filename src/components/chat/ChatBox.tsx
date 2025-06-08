@@ -3,8 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useChatEnhanced } from '@/hooks/useChatEnhanced';
-import { useMessageNotifications } from '@/hooks/useMessageNotifications';
+import { useChatWithNotifications } from '@/hooks/useChatWithNotifications';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
@@ -25,19 +24,19 @@ const ChatBoxContent = ({ requirementId, currentUserName, isAdmin = false, isCur
     connected,
     messagesEndRef, 
     sendMessage, 
-    retryConnection 
-  } = useChatEnhanced({
+    retryConnection,
+    clearNotifications
+  } = useChatWithNotifications({
     requirementId,
-    isAdmin
+    isAdmin,
+    isCurrentChat
   });
-
-  const { markAsRead } = useMessageNotifications(requirementId, isCurrentChat);
 
   React.useEffect(() => {
     if (isCurrentChat) {
-      markAsRead();
+      clearNotifications();
     }
-  }, [isCurrentChat, markAsRead]);
+  }, [isCurrentChat, clearNotifications]);
 
   if (loading) {
     return (
