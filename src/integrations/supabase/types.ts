@@ -228,16 +228,21 @@ export type Database = {
         Row: {
           acceptance_date: string | null
           accepted_by_client: boolean | null
+          admin_response_to_rejection: string | null
           approval_date: string | null
           approved_by_admin: boolean | null
           approved_by_admin_id: string | null
           attachment_metadata: Json | null
           attachment_urls: string[] | null
+          completed_by_admin: boolean | null
+          completion_date: string | null
           created_at: string
           description: string
           has_screen_recording: boolean | null
           id: string
           priority: string
+          rejected_by_client: boolean | null
+          rejection_reason: string | null
           screen_recording_url: string | null
           status: string
           title: string
@@ -247,16 +252,21 @@ export type Database = {
         Insert: {
           acceptance_date?: string | null
           accepted_by_client?: boolean | null
+          admin_response_to_rejection?: string | null
           approval_date?: string | null
           approved_by_admin?: boolean | null
           approved_by_admin_id?: string | null
           attachment_metadata?: Json | null
           attachment_urls?: string[] | null
+          completed_by_admin?: boolean | null
+          completion_date?: string | null
           created_at?: string
           description: string
           has_screen_recording?: boolean | null
           id?: string
           priority: string
+          rejected_by_client?: boolean | null
+          rejection_reason?: string | null
           screen_recording_url?: string | null
           status?: string
           title: string
@@ -266,16 +276,21 @@ export type Database = {
         Update: {
           acceptance_date?: string | null
           accepted_by_client?: boolean | null
+          admin_response_to_rejection?: string | null
           approval_date?: string | null
           approved_by_admin?: boolean | null
           approved_by_admin_id?: string | null
           attachment_metadata?: Json | null
           attachment_urls?: string[] | null
+          completed_by_admin?: boolean | null
+          completion_date?: string | null
           created_at?: string
           description?: string
           has_screen_recording?: boolean | null
           id?: string
           priority?: string
+          rejected_by_client?: boolean | null
+          rejection_reason?: string | null
           screen_recording_url?: string | null
           status?: string
           title?: string

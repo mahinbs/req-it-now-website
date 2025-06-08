@@ -51,9 +51,15 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     }
   };
 
-  const handleRequirementUpdate = async () => {
-    // Refresh requirements data when something changes
-    window.location.reload();
+  const handleRequirementUpdate = () => {
+    // Instead of forcing a reload, just close any open modals
+    // The real-time subscriptions will handle the data updates
+    setSelectedRequirement(null);
+    setShowNewRequirement(false);
+    toast({
+      title: "Updated",
+      description: "Requirement has been updated successfully."
+    });
   };
 
   if (loading) {
@@ -66,10 +72,10 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm max-w-md">
               {error}
               <button 
-                onClick={() => window.location.reload()} 
+                onClick={() => setError(null)} 
                 className="ml-2 underline hover:no-underline"
               >
-                Refresh Page
+                Dismiss
               </button>
             </div>
           )}

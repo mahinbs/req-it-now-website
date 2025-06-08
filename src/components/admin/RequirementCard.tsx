@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, User, Calendar, Paperclip, Video } from 'lucide-react';
+import { MessageCircle, User, Calendar, Paperclip, Video, AlertTriangle } from 'lucide-react';
 import { getStatusColor, getPriorityColor, formatDate, getUniqueAttachments } from '@/utils/requirementUtils';
 import { ApprovalButton } from './ApprovalButton';
 import { cn } from '@/lib/utils';
@@ -45,8 +45,12 @@ export const RequirementCard = ({
   };
 
   const getStatusBadgeVariant = () => {
-    if (requirement.approved_by_admin && requirement.accepted_by_client) {
+    if (requirement.rejected_by_client) {
+      return 'bg-red-100 text-red-800 border-red-300';
+    } else if (requirement.accepted_by_client) {
       return 'bg-green-100 text-green-800 border-green-300';
+    } else if (requirement.completed_by_admin) {
+      return 'bg-purple-100 text-purple-800 border-purple-300';
     } else if (requirement.approved_by_admin) {
       return 'bg-blue-100 text-blue-800 border-blue-300';
     }
@@ -54,10 +58,14 @@ export const RequirementCard = ({
   };
 
   const getStatusText = () => {
-    if (requirement.approved_by_admin && requirement.accepted_by_client) {
+    if (requirement.rejected_by_client) {
+      return 'Rejected by Client';
+    } else if (requirement.accepted_by_client) {
       return 'Accepted by Client';
+    } else if (requirement.completed_by_admin) {
+      return 'Awaiting Client Review';
     } else if (requirement.approved_by_admin) {
-      return 'Approved - Awaiting Client';
+      return 'Work in Progress';
     }
     return requirement.status.replace('_', ' ');
   };
@@ -69,6 +77,15 @@ export const RequirementCard = ({
         <div className="absolute -top-2 -right-2 z-20">
           <div className="bg-red-500 text-white rounded-full text-xs font-bold min-w-[1.25rem] h-5 flex items-center justify-center px-1 shadow-lg border-2 border-white animate-pulse">
             {unreadCount > 99 ? '99+' : unreadCount}
+          </div>
+        </div>
+      )}
+
+      {/* Rejection indicator */}
+      {requirement.rejected_by_client && (
+        <div className="absolute top-2 left-2 z-10">
+          <div className="bg-red-500 text-white rounded-full p-1">
+            <AlertTriangle className="h-3 w-3" />
           </div>
         </div>
       )}
@@ -104,6 +121,14 @@ export const RequirementCard = ({
         <p className="text-slate-700 mb-4 leading-relaxed">
           {requirement.description}
         </p>
+
+        {/* Show rejection reason if rejected */}
+        {requirement.rejected_by_client && requirement.rejection_reason && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <h4 className="text-sm font-medium text-red-800 mb-1">Client Rejection Reason:</h4>
+            <p className="text-sm text-red-700">{requirement.rejection_reason}</p>
+          </div>
+        )}
         
         {attachments.length > 0 && (
           <div className="space-y-2 mb-4">

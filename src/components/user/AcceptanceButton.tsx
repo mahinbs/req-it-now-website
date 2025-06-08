@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, X, AlertCircle, Clock } from 'lucide-react';
 import { AcceptanceModal } from './AcceptanceModal';
+import { RejectionModal } from './RejectionModal';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'>;
@@ -13,12 +14,23 @@ interface AcceptanceButtonProps {
 }
 
 export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: AcceptanceButtonProps) => {
-  const [showModal, setShowModal] = useState(false);
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
 
-  if (!requirement.approved_by_admin) {
+  // Only show buttons if requirement is completed by admin
+  if (!requirement.completed_by_admin) {
+    if (requirement.approved_by_admin) {
+      return (
+        <div className="flex items-center space-x-2 text-blue-600">
+          <Clock className="h-4 w-4" />
+          <span className="text-sm font-medium">Work in Progress</span>
+        </div>
+      );
+    }
     return null;
   }
 
+  // Show final status if already decided
   if (requirement.accepted_by_client) {
     return (
       <div className="flex items-center space-x-2 text-green-600">
@@ -28,22 +40,52 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
     );
   }
 
+  if (requirement.rejected_by_client) {
+    return (
+      <div className="flex items-center space-x-2 text-red-600">
+        <X className="h-4 w-4" />
+        <span className="text-sm font-medium">Rejected - Under Review</span>
+      </div>
+    );
+  }
+
+  // Show Accept/Reject buttons
   return (
     <>
-      <Button
-        onClick={() => setShowModal(true)}
-        size="sm"
-        className="bg-blue-600 hover:bg-blue-700 text-white"
-      >
-        <CheckCircle2 className="h-4 w-4 mr-2" />
-        Accept & Confirm
-      </Button>
+      <div className="flex items-center space-x-2">
+        <Button
+          onClick={() => setShowAcceptModal(true)}
+          size="sm"
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" />
+          Accept
+        </Button>
 
-      {showModal && (
+        <Button
+          onClick={() => setShowRejectModal(true)}
+          size="sm"
+          variant="outline"
+          className="border-red-300 text-red-600 hover:bg-red-50"
+        >
+          <X className="h-4 w-4 mr-2" />
+          Reject
+        </Button>
+      </div>
+
+      {showAcceptModal && (
         <AcceptanceModal
           requirement={requirement}
-          onClose={() => setShowModal(false)}
+          onClose={() => setShowAcceptModal(false)}
           onAccept={onAcceptanceUpdate}
+        />
+      )}
+
+      {showRejectModal && (
+        <RejectionModal
+          requirement={requirement}
+          onClose={() => setShowRejectModal(false)}
+          onReject={onAcceptanceUpdate}
         />
       )}
     </>

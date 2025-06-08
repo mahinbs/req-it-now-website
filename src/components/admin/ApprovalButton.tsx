@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { CompletionButton } from './CompletionButton';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -47,7 +48,7 @@ export const ApprovalButton = ({ requirement, onApprovalUpdate }: ApprovalButton
 
       toast({
         title: "Requirement Approved",
-        description: `${requirement.title} has been approved and client will be notified.`
+        description: `${requirement.title} has been approved. You can now start working on it.`
       });
 
       onApprovalUpdate();
@@ -63,36 +64,50 @@ export const ApprovalButton = ({ requirement, onApprovalUpdate }: ApprovalButton
     }
   };
 
-  if (requirement.approved_by_admin) {
+  // Show completion button if approved but not yet completed
+  if (requirement.approved_by_admin && !requirement.completed_by_admin) {
+    return <CompletionButton requirement={requirement} onApprovalUpdate={onApprovalUpdate} />;
+  }
+
+  // Show completion status if already completed
+  if (requirement.completed_by_admin) {
     return (
       <div className="flex items-center space-x-2 text-green-600">
         <CheckCircle className="h-4 w-4" />
-        <span className="text-sm">Approved</span>
+        <span className="text-sm">Completed</span>
         {requirement.accepted_by_client && (
           <span className="text-xs text-green-700 font-medium">& Accepted</span>
+        )}
+        {requirement.rejected_by_client && (
+          <span className="text-xs text-red-700 font-medium">& Rejected</span>
         )}
       </div>
     );
   }
 
-  return (
-    <Button
-      onClick={handleApprove}
-      disabled={isApproving}
-      size="sm"
-      className="bg-green-600 hover:bg-green-700 text-white"
-    >
-      {isApproving ? (
-        <div className="flex items-center space-x-1">
-          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-          <span>Approving...</span>
-        </div>
-      ) : (
-        <div className="flex items-center space-x-1">
-          <CheckCircle className="h-4 w-4" />
-          <span>Approve</span>
-        </div>
-      )}
-    </Button>
-  );
+  // Show approval button if not yet approved
+  if (!requirement.approved_by_admin) {
+    return (
+      <Button
+        onClick={handleApprove}
+        disabled={isApproving}
+        size="sm"
+        className="bg-green-600 hover:bg-green-700 text-white"
+      >
+        {isApproving ? (
+          <div className="flex items-center space-x-1">
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+            <span>Approving...</span>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-1">
+            <CheckCircle className="h-4 w-4" />
+            <span>Approve</span>
+          </div>
+        )}
+      </Button>
+    );
+  }
+
+  return null;
 };
