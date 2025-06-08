@@ -43,10 +43,10 @@ export const useUserDashboard = (user: User) => {
     };
 
     const setupRealtimeSubscription = () => {
-      console.log('Setting up real-time subscriptions...');
+      console.log('Setting up enhanced real-time subscriptions...');
       
       const timestamp = Date.now();
-      const channelName = `user-requirements-${user.id}-${timestamp}`;
+      const channelName = `user-requirements-enhanced-${user.id}-${timestamp}`;
       
       requirementsChannel = supabase
         .channel(channelName)
@@ -59,21 +59,45 @@ export const useUserDashboard = (user: User) => {
             filter: `user_id=eq.${user.id}`
           },
           (payload) => {
-            console.log('Requirements changed:', payload);
+            console.log('Requirements changed with enhanced sync:', payload);
             if (mounted) {
-              fetchRequirements();
+              // Immediate optimistic update for better UX
+              if (payload.eventType === 'UPDATE' && payload.new) {
+                setRequirements(prev => 
+                  prev.map(req => 
+                    req.id === payload.new.id ? { ...req, ...payload.new } : req
+                  )
+                );
+              }
+              // Still fetch fresh data to ensure consistency
+              setTimeout(() => {
+                if (mounted) {
+                  fetchRequirements();
+                }
+              }, 100);
             }
           }
         )
         .subscribe((status) => {
-          console.log('User requirements subscription status:', status);
+          console.log('Enhanced user requirements subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Real-time sync active for user dashboard');
+          } else if (status === 'CLOSED') {
+            console.log('❌ Real-time connection lost, attempting reconnect...');
+            // Auto-reconnect after a delay
+            setTimeout(() => {
+              if (mounted) {
+                setupRealtimeSubscription();
+              }
+            }, 5000);
+          }
         });
     };
 
     initializeDashboard();
     
     return () => {
-      console.log('Cleaning up dashboard subscriptions');
+      console.log('Cleaning up enhanced dashboard subscriptions');
       mounted = false;
       if (requirementsChannel) {
         supabase.removeChannel(requirementsChannel);
@@ -83,7 +107,7 @@ export const useUserDashboard = (user: User) => {
 
   const fetchRequirements = async () => {
     try {
-      console.log('Fetching requirements for user:', user.id);
+      console.log('Fetching requirements for user with enhanced error handling:', user.id);
       setError(null);
       
       const { data, error } = await supabase
@@ -104,12 +128,20 @@ export const useUserDashboard = (user: User) => {
       console.error('Error fetching requirements:', error);
       setError('Failed to load requirements');
       setLoading(false);
+      
+      // Enhanced error feedback
       toast({
-        title: "Error",
-        description: "Failed to load requirements. Please refresh the page.",
+        title: "⚠️ Connection Issue",
+        description: "Failed to load requirements. Retrying...",
         variant: "destructive"
       });
-      setRequirements([]);
+      
+      // Auto-retry after 3 seconds
+      setTimeout(() => {
+        if (user.id) {
+          fetchRequirements();
+        }
+      }, 3000);
     }
   };
 
@@ -118,8 +150,22 @@ export const useUserDashboard = (user: User) => {
     await fetchRequirements();
     setShowNewRequirement(false);
     toast({
-      title: "Success!",
-      description: "Your requirement has been submitted successfully."
+      title: "✅ Success!",
+      description: "Your requirement has been submitted successfully.",
+      className: "bg-green-50 border-green-200 text-green-800"
+    });
+  };
+
+  // Enhanced update handler with immediate UI feedback
+  const handleRequirementUpdate = () => {
+    console.log('Triggering immediate requirement update...');
+    // Force immediate refresh for critical updates
+    fetchRequirements();
+    
+    toast({
+      title: "🔄 Updated",
+      description: "Status has been updated successfully.",
+      className: "bg-blue-50 border-blue-200 text-blue-800"
     });
   };
 
@@ -134,6 +180,7 @@ export const useUserDashboard = (user: User) => {
     loading,
     error,
     setError,
-    handleSubmitRequirement
+    handleSubmitRequirement,
+    handleRequirementUpdate
   };
 };

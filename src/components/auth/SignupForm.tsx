@@ -39,23 +39,18 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="text-center">
+    <Card className="w-full max-w-md mx-auto shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+      <CardHeader className="text-center pb-6 space-y-2">
         <CardTitle className="text-2xl font-bold text-slate-900">Create Account</CardTitle>
         <CardDescription className="text-slate-600">
           Sign up to start managing your website requirements
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
-              {error}
-            </div>
-          )}
+      <CardContent className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="on">
           
           <div className="space-y-2">
-            <Label htmlFor="signup-email" className="text-slate-700 font-medium">
+            <Label htmlFor="signup-email" className="text-slate-700 font-medium text-sm">
               Email Address
             </Label>
             <div className="relative">
@@ -67,7 +62,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email address"
-                className="pl-10 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
+                className="pl-10 h-12 border-slate-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl transition-all duration-200 hover:border-slate-400"
                 required
                 autoComplete="username email"
                 autoFocus
@@ -76,7 +71,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="signup-password" className="text-slate-700 font-medium">
+            <Label htmlFor="signup-password" className="text-slate-700 font-medium text-sm">
               Password
             </Label>
             <div className="relative">
@@ -88,7 +83,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Create a secure password"
-                className="pl-10 pr-10 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
+                className="pl-10 pr-10 h-12 border-slate-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl transition-all duration-200 hover:border-slate-400"
                 required
                 autoComplete="new-password"
                 minLength={6}
@@ -96,7 +91,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors duration-200"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -104,7 +99,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="signup-company" className="text-slate-700 font-medium">
+            <Label htmlFor="signup-company" className="text-slate-700 font-medium text-sm">
               Company Name
             </Label>
             <div className="relative">
@@ -116,7 +111,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="Your company name"
-                className="pl-10 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
+                className="pl-10 h-12 border-slate-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl transition-all duration-200 hover:border-slate-400"
                 required
                 autoComplete="organization"
               />
@@ -124,7 +119,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="signup-website" className="text-slate-700 font-medium">
+            <Label htmlFor="signup-website" className="text-slate-700 font-medium text-sm">
               Website URL
             </Label>
             <div className="relative">
@@ -136,7 +131,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
                 placeholder="https://example.com"
-                className="pl-10 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
+                className="pl-10 h-12 border-slate-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl transition-all duration-200 hover:border-slate-400"
                 required
                 autoComplete="url"
               />
@@ -145,7 +140,7 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
 
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2"
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-3 h-12 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
             disabled={loading || !email.trim() || !password.trim() || !companyName.trim() || !websiteUrl.trim()}
           >
             {loading ? (
@@ -158,12 +153,12 @@ export const SignupForm = ({ onSignup, onSwitchToLogin, loading = false, error }
             )}
           </Button>
 
-          <div className="text-center text-sm text-gray-600">
+          <div className="text-center text-sm text-gray-600 pt-4 border-t border-slate-200">
             Already have an account?{' '}
             <button
               type="button"
               onClick={onSwitchToLogin}
-              className="text-blue-600 hover:text-blue-700 font-medium underline"
+              className="text-blue-600 hover:text-blue-700 font-medium underline hover:no-underline transition-colors duration-200"
             >
               Sign in here
             </button>

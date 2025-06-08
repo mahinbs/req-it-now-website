@@ -20,52 +20,88 @@ export const useAuth = () => {
   useEffect(() => {
     let mounted = true;
     let authSubscription: any = null;
+    let sessionCheckAttempts = 0;
+    const maxSessionCheckAttempts = 3;
 
-    console.log('Setting up authentication listeners...');
+    console.log('Setting up enhanced authentication listeners...');
 
     const initializeAuth = async () => {
       try {
-        // Check for existing session first
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          throw sessionError;
-        }
+        // Enhanced session checking with retry logic
+        const checkSession = async (): Promise<boolean> => {
+          try {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError) {
+              console.error('Session error:', sessionError);
+              if (sessionCheckAttempts < maxSessionCheckAttempts) {
+                sessionCheckAttempts++;
+                console.log(`Retrying session check (${sessionCheckAttempts}/${maxSessionCheckAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                return checkSession();
+              }
+              throw sessionError;
+            }
 
-        if (session?.user && mounted) {
-          console.log('Existing session found:', session.user.email);
-          setUser(session.user);
-          await fetchUserProfile(session.user.id);
-        } else {
-          console.log('No existing session found');
-          if (mounted) {
-            setLoading(false);
-          }
-        }
-
-        // Set up auth state listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log('Auth event:', event, session?.user?.email);
-          
-          if (!mounted) return;
-          
-          if (session?.user) {
-            setUser(session.user);
-            setError(null);
-            try {
+            if (session?.user && mounted) {
+              console.log('✅ Existing session found:', session.user.email);
+              setUser(session.user);
               await fetchUserProfile(session.user.id);
-            } catch (profileError) {
-              console.error('Profile fetch error:', profileError);
-              setError('Failed to load user profile');
+              return true;
+            } else {
+              console.log('No existing session found');
               if (mounted) {
                 setLoading(false);
               }
+              return false;
             }
-          } else {
-            // User logged out
-            setUser(null);
-            setUserProfile(null);
+          } catch (error) {
+            console.error('Session check failed:', error);
+            return false;
+          }
+        };
+
+        await checkSession();
+
+        // Enhanced auth state listener with better error handling
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('🔄 Auth event:', event, session?.user?.email);
+          
+          if (!mounted) return;
+          
+          try {
+            if (session?.user) {
+              setUser(session.user);
+              setError(null);
+              await fetchUserProfile(session.user.id);
+              
+              // Enhanced success feedback
+              if (event === 'SIGNED_IN') {
+                toast({
+                  title: "✅ Welcome back!",
+                  description: "You have been successfully signed in.",
+                  className: "bg-green-50 border-green-200 text-green-800"
+                });
+              }
+            } else {
+              // User logged out or session expired
+              setUser(null);
+              setUserProfile(null);
+              if (mounted) {
+                setLoading(false);
+              }
+              
+              if (event === 'SIGNED_OUT') {
+                toast({
+                  title: "👋 Signed out",
+                  description: "You have been successfully signed out.",
+                  className: "bg-blue-50 border-blue-200 text-blue-800"
+                });
+              }
+            }
+          } catch (profileError) {
+            console.error('Profile fetch error in auth change:', profileError);
+            setError('Failed to load user profile');
             if (mounted) {
               setLoading(false);
             }
@@ -86,7 +122,7 @@ export const useAuth = () => {
     initializeAuth();
 
     return () => {
-      console.log('Cleaning up authentication listeners');
+      console.log('Cleaning up enhanced authentication listeners');
       mounted = false;
       if (authSubscription) {
         authSubscription.unsubscribe();
@@ -116,7 +152,7 @@ export const useAuth = () => {
         return;
       }
 
-      // Check admin status
+      // Check admin status with enhanced error handling
       let isAdmin = false;
       try {
         const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: userId });
@@ -132,7 +168,7 @@ export const useAuth = () => {
         isAdmin = false;
       }
 
-      console.log('Profile loaded:', profile.company_name, isAdmin ? '(Admin)' : '(User)');
+      console.log('✅ Profile loaded:', profile.company_name, isAdmin ? '(Admin)' : '(User)');
       
       setUserProfile({
         ...profile,
@@ -167,7 +203,7 @@ export const useAuth = () => {
       if (error) {
         console.error('Error creating default profile:', error);
       } else {
-        console.log('Default profile created successfully');
+        console.log('✅ Default profile created successfully');
       }
 
       setUserProfile({
@@ -198,12 +234,20 @@ export const useAuth = () => {
       });
       
       if (error) throw error;
-      console.log('Login successful');
+      console.log('✅ Login successful');
       
     } catch (error: any) {
       console.error('Login error:', error);
-      setError(error.message);
+      const errorMessage = error.message || 'Login failed. Please try again.';
+      setError(errorMessage);
       setLoading(false);
+      
+      toast({
+        title: "❌ Login Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+      
       throw error;
     }
   };
@@ -215,9 +259,12 @@ export const useAuth = () => {
     websiteUrl: string;
   }) => {
     try {
-      console.log('Starting signup for:', userData.email);
+      console.log('Starting enhanced signup for:', userData.email);
       setError(null);
       setLoading(true);
+      
+      // Enhanced redirect URL for better compatibility
+      const redirectUrl = `${window.location.origin}/`;
       
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
@@ -226,7 +273,8 @@ export const useAuth = () => {
           data: {
             company_name: userData.companyName,
             website_url: userData.websiteUrl || ''
-          }
+          },
+          emailRedirectTo: redirectUrl
         }
       });
       
@@ -236,13 +284,14 @@ export const useAuth = () => {
         throw error;
       }
       
-      console.log('Signup response:', data);
+      console.log('✅ Signup response:', data);
       
       if (data.user) {
-        console.log('User created successfully!');
+        console.log('✅ User created successfully!');
         toast({
-          title: "Account created!",
+          title: "🎉 Account created!",
           description: "You can now submit website requirements.",
+          className: "bg-green-50 border-green-200 text-green-800"
         });
       }
       
@@ -250,13 +299,20 @@ export const useAuth = () => {
       console.error('Signup error:', error);
       setError(error.message);
       setLoading(false);
+      
+      toast({
+        title: "❌ Signup Failed",
+        description: error.message || 'Failed to create account. Please try again.',
+        variant: "destructive"
+      });
+      
       throw error;
     }
   };
 
   const handleLogout = async () => {
     try {
-      console.log('Starting logout...');
+      console.log('Starting enhanced logout...');
       setLoading(true);
       
       const { error } = await supabase.auth.signOut();
@@ -265,7 +321,7 @@ export const useAuth = () => {
         throw error;
       }
       
-      console.log('Logout successful');
+      console.log('✅ Logout successful');
       
       // Clear state immediately
       setUser(null);
@@ -273,16 +329,11 @@ export const useAuth = () => {
       setError(null);
       setLoading(false);
       
-      toast({
-        title: "Signed out",
-        description: "You have been successfully signed out.",
-      });
-      
     } catch (error: any) {
       console.error('Logout error:', error);
       setLoading(false);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "Failed to sign out. Please try again.",
         variant: "destructive"
       });

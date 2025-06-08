@@ -20,29 +20,50 @@ export const AuthPage = ({ onLogin, onSignup, loading, error, setError }: AuthPa
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-200/30 to-purple-200/30 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-200/30 to-blue-200/30 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="w-full max-w-md relative z-10">
+        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg mb-4">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-2">
             Website Requirements
           </h1>
-          <p className="text-gray-600">
+          <p className="text-slate-600 text-lg">
             Manage your website changes and requirements efficiently
           </p>
         </div>
 
+        {/* Error Display */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-            {error}
-            <button 
-              onClick={() => setError(null)} 
-              className="ml-2 underline hover:no-underline"
-            >
-              Dismiss
-            </button>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm shadow-sm animate-in slide-in-from-top duration-300">
+            <div className="flex items-start space-x-2">
+              <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <p>{error}</p>
+                <button 
+                  onClick={() => setError(null)} 
+                  className="mt-2 text-red-700 underline hover:no-underline text-sm font-medium"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
+        {/* Auth Forms */}
         {authMode === 'login' ? (
           <LoginForm
             onLogin={onLogin}
@@ -59,8 +80,12 @@ export const AuthPage = ({ onLogin, onSignup, loading, error, setError }: AuthPa
           />
         )}
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p className="text-green-600 font-medium">✅ Ready to submit requirements!</p>
+        {/* Footer */}
+        <div className="mt-8 text-center text-sm text-slate-600 space-y-2">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <p className="text-green-600 font-medium">Ready to submit requirements!</p>
+          </div>
           <p>Create your account and start submitting website changes</p>
         </div>
       </div>
