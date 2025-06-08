@@ -7,6 +7,7 @@ import { useChatOptimized } from '@/hooks/useChatOptimized';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
+import { useClientNotifications } from '@/hooks/useClientNotifications';
 
 interface ChatBoxProps {
   requirementId: string;
@@ -38,13 +39,22 @@ const ChatBoxContent = ({
     isCurrentChat
   });
 
-  // Mark messages as read when chat is opened (for admins)
+  const { markAsRead: clientMarkAsRead } = useClientNotifications();
+
+  // Mark messages as read when chat is opened
   useEffect(() => {
-    if (isCurrentChat && isAdmin && onMarkAsRead && requirementId) {
+    if (isCurrentChat && requirementId) {
       console.log('ChatBox opened - marking as read:', requirementId);
-      onMarkAsRead(requirementId);
+      
+      if (isAdmin && onMarkAsRead) {
+        // Admin marking as read
+        onMarkAsRead(requirementId);
+      } else if (!isAdmin) {
+        // Client marking as read
+        clientMarkAsRead(requirementId);
+      }
     }
-  }, [isCurrentChat, isAdmin, onMarkAsRead, requirementId]);
+  }, [isCurrentChat, isAdmin, onMarkAsRead, requirementId, clientMarkAsRead]);
 
   if (loading) {
     return (

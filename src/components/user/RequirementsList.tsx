@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Plus, FileText, Paperclip } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
-import { useNotificationContext } from '@/hooks/useGlobalNotifications';
+import { useClientNotifications } from '@/hooks/useClientNotifications';
 import { getStatusColor, getPriorityColor, formatDate, getAttachmentCount } from '@/utils/requirementUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -22,12 +22,17 @@ export const RequirementsList = ({
   onSelectRequirement, 
   onShowNewRequirement 
 }: RequirementsListProps) => {
-  const { getUnreadCount, clearNotifications } = useNotificationContext();
+  const { getUnreadCount, markAsRead, loading: notificationsLoading } = useClientNotifications();
 
   const handleSelectRequirement = (requirement: Requirement) => {
     console.log('Selecting requirement for chat:', requirement.id);
-    // Clear notifications when opening chat
-    clearNotifications(requirement.id);
+    const unreadCount = getUnreadCount(requirement.id);
+    
+    // Mark as read when opening chat if there are unread messages
+    if (unreadCount > 0) {
+      markAsRead(requirement.id);
+    }
+    
     onSelectRequirement(requirement);
   };
 
@@ -50,60 +55,75 @@ export const RequirementsList = ({
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {requirements.map((requirement) => {
-        const attachmentCount = getAttachmentCount(requirement);
-        const unreadCount = getUnreadCount(requirement.id);
-        
-        return (
-          <Card key={requirement.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <CardTitle className="text-base font-medium text-slate-900 leading-tight">
-                  {requirement.title}
-                </CardTitle>
-                <div className="flex items-center space-x-1 ml-2">
-                  <Badge variant="outline" className={getPriorityColor(requirement.priority)}>
-                    {requirement.priority}
+    <div className="space-y-4">
+      {notificationsLoading && (
+        <div className="text-center text-sm text-slate-600 py-2">
+          Loading notification status...
+        </div>
+      )}
+      
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {requirements.map((requirement) => {
+          const attachmentCount = getAttachmentCount(requirement);
+          const unreadCount = getUnreadCount(requirement.id);
+          
+          return (
+            <Card key={requirement.id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-base font-medium text-slate-900 leading-tight">
+                    {requirement.title}
+                  </CardTitle>
+                  <div className="flex items-center space-x-1 ml-2">
+                    <Badge variant="outline" className={getPriorityColor(requirement.priority)}>
+                      {requirement.priority}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <Badge variant="outline" className={getStatusColor(requirement.status)}>
+                    {requirement.status.replace('_', ' ')}
                   </Badge>
+                  <span className="text-xs text-slate-500">
+                    {formatDate(requirement.created_at)}
+                  </span>
                 </div>
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <Badge variant="outline" className={getStatusColor(requirement.status)}>
-                  {requirement.status.replace('_', ' ')}
-                </Badge>
-                <span className="text-xs text-slate-500">
-                  {formatDate(requirement.created_at)}
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-sm text-slate-600 mb-4 line-clamp-3">
-                {requirement.description}
-              </p>
-              
-              {attachmentCount > 0 && (
-                <div className="flex items-center text-xs text-slate-500 mb-4">
-                  <Paperclip className="h-3 w-3 mr-1" />
-                  {attachmentCount} attachment{attachmentCount !== 1 ? 's' : ''}
-                </div>
-              )}
-              
-              <NotificationBadge count={unreadCount} pulse={unreadCount > 0}>
-                <Button
-                  onClick={() => handleSelectRequirement(requirement)}
-                  variant="outline"
-                  size="sm"
-                  className="w-full flex items-center justify-center space-x-2 hover:bg-blue-50 hover:border-blue-300"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Open Chat</span>
-                </Button>
-              </NotificationBadge>
-            </CardContent>
-          </Card>
-        );
-      })}
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-sm text-slate-600 mb-4 line-clamp-3">
+                  {requirement.description}
+                </p>
+                
+                {attachmentCount > 0 && (
+                  <div className="flex items-center text-xs text-slate-500 mb-4">
+                    <Paperclip className="h-3 w-3 mr-1" />
+                    {attachmentCount} attachment{attachmentCount !== 1 ? 's' : ''}
+                  </div>
+                )}
+                
+                <NotificationBadge count={unreadCount} pulse={unreadCount > 0}>
+                  <Button
+                    onClick={() => handleSelectRequirement(requirement)}
+                    variant="outline"
+                    size="sm"
+                    className={`w-full flex items-center justify-center space-x-2 hover:bg-blue-50 hover:border-blue-300 ${
+                      unreadCount > 0 ? 'ring-2 ring-blue-200 ring-offset-1 shadow-lg bg-blue-50' : ''
+                    }`}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span>{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
+                    {unreadCount > 0 && (
+                      <div className="ml-1 bg-blue-500 text-white rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </div>
+                    )}
+                  </Button>
+                </NotificationBadge>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 };

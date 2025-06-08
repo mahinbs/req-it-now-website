@@ -46,8 +46,10 @@ export const useUserDashboard = (user: User) => {
       console.log('Setting up real-time subscriptions...');
       
       const timestamp = Date.now();
+      const channelName = `user-requirements-${user.id}-${timestamp}`;
+      
       requirementsChannel = supabase
-        .channel(`user-requirements-${user.id}-${timestamp}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
