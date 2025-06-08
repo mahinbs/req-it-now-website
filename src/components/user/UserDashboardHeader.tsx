@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { LogOut, HelpCircle } from 'lucide-react';
 import { Logo } from '../ui/logo';
-import { useChatWithNotifications } from '@/hooks/useChatWithNotifications';
+import { useNotificationContext } from '@/hooks/useGlobalNotifications';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 
 interface User {
@@ -23,11 +23,8 @@ export const UserDashboardHeader = ({
   onLogout, 
   isGeneralChatOpen = false 
 }: UserDashboardHeaderProps) => {
-  const { unreadCount, hasNewMessage } = useChatWithNotifications({ 
-    requirementId: '', // Empty string for general chat
-    isAdmin: false,
-    isCurrentChat: isGeneralChatOpen
-  });
+  const { getUnreadCount } = useNotificationContext();
+  const unreadCount = getUnreadCount('general');
 
   return (
     <div className="bg-white border-b border-slate-200 shadow-sm">
@@ -43,7 +40,7 @@ export const UserDashboardHeader = ({
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <NotificationBadge count={unreadCount} pulse={hasNewMessage}>
+            <NotificationBadge count={unreadCount} pulse={unreadCount > 0}>
               <Button 
                 onClick={onShowGeneralChat}
                 className="bg-green-600 hover:bg-green-700 flex items-center space-x-2"

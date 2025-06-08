@@ -2,20 +2,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useNotificationContext } from './useGlobalNotifications';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Message = Tables<'messages'> & {
   sender_name?: string;
 };
 
-interface ChatNotificationState {
+interface ChatState {
   messages: Message[];
   loading: boolean;
   error: string | null;
   sending: boolean;
   connected: boolean;
-  unreadCount: number;
-  hasNewMessage: boolean;
 }
 
 interface UseChatWithNotificationsProps {
@@ -29,20 +28,18 @@ export const useChatWithNotifications = ({
   isAdmin = false, 
   isCurrentChat = false 
 }: UseChatWithNotificationsProps) => {
-  const [state, setState] = useState<ChatNotificationState>({
+  const [state, setState] = useState<ChatState>({
     messages: [],
     loading: true,
     error: null,
     sending: false,
-    connected: false,
-    unreadCount: 0,
-    hasNewMessage: false
+    connected: false
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(true);
   const channelRef = useRef<any>(null);
-  const currentUserIdRef = useRef<string | null>(null);
+  const { clearNotifications, getUnreadCount } = useNotificationContext();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,21 +49,9 @@ export const useChatWithNotifications = ({
     scrollToBottom();
   }, [state.messages]);
 
-  const updateState = (updates: Partial<ChatNotificationState>) => {
+  const updateState = (updates: Partial<ChatState>) => {
     if (mountedRef.current) {
       setState(prev => ({ ...prev, ...updates }));
-    }
-  };
-
-  // Get current user ID
-  const getCurrentUserId = async () => {
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) return null;
-      return user.id;
-    } catch (error) {
-      console.error('Error getting current user:', error);
-      return null;
     }
   };
 
@@ -115,9 +100,6 @@ export const useChatWithNotifications = ({
       supabase.removeChannel(channelRef.current);
     }
 
-    // Get current user ID for proper notification logic
-    currentUserIdRef.current = await getCurrentUserId();
-
     const channelName = `chat-${requirementId || 'general'}`;
     console.log('Setting up chat subscription:', channelName);
     
@@ -132,7 +114,7 @@ export const useChatWithNotifications = ({
           filter: requirementId ? `requirement_id=eq.${requirementId}` : 'requirement_id=is.null'
         },
         (payload) => {
-          console.log('New message received:', payload);
+          console.log('New message received in chat:', payload);
           if (mountedRef.current) {
             const newMessage = payload.new as Message;
             newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
@@ -141,27 +123,9 @@ export const useChatWithNotifications = ({
               const exists = prev.messages.some(msg => msg.id === newMessage.id);
               if (exists) return prev;
               
-              const updatedMessages = [...prev.messages, newMessage];
-              
-              // Only show notification if:
-              // 1. This chat is not currently active
-              // 2. The message is from someone else (not current user)
-              const isFromSelf = newMessage.sender_id === currentUserIdRef.current;
-              const shouldNotify = !isCurrentChat && !isFromSelf;
-              
-              console.log('Notification logic:', {
-                isCurrentChat,
-                isFromSelf,
-                shouldNotify,
-                senderId: newMessage.sender_id,
-                currentUserId: currentUserIdRef.current
-              });
-              
               return {
                 ...prev,
-                messages: updatedMessages,
-                unreadCount: shouldNotify ? prev.unreadCount + 1 : prev.unreadCount,
-                hasNewMessage: shouldNotify
+                messages: [...prev.messages, newMessage]
               };
             });
           }
@@ -204,19 +168,11 @@ export const useChatWithNotifications = ({
         loading: true 
       });
       
-      // Start both operations in parallel for faster loading
-      const [fetchSuccess] = await Promise.all([
-        fetchMessages(),
-        setupRealtimeSubscription()
-      ]);
+      // Fetch messages first
+      await fetchMessages();
       
-      // If fetch failed, still allow subscription to work
-      if (!fetchSuccess && mountedRef.current) {
-        updateState({ 
-          loading: false,
-          error: 'Failed to load message history'
-        });
-      }
+      // Then setup subscription
+      await setupRealtimeSubscription();
     };
 
     initializeChat();
@@ -235,12 +191,9 @@ export const useChatWithNotifications = ({
   // Clear notifications when chat becomes current
   useEffect(() => {
     if (isCurrentChat) {
-      updateState({
-        unreadCount: 0,
-        hasNewMessage: false
-      });
+      clearNotifications(requirementId || 'general');
     }
-  }, [isCurrentChat]);
+  }, [isCurrentChat, requirementId, clearNotifications]);
 
   const sendMessage = async (content: string) => {
     if (state.sending || !mountedRef.current) return;
@@ -303,17 +256,8 @@ export const useChatWithNotifications = ({
       loading: true 
     });
     
-    const fetchSuccess = await fetchMessages();
-    if (fetchSuccess && mountedRef.current) {
-      await setupRealtimeSubscription();
-    }
-  };
-
-  const clearNotifications = () => {
-    updateState({
-      unreadCount: 0,
-      hasNewMessage: false
-    });
+    await fetchMessages();
+    await setupRealtimeSubscription();
   };
 
   return {
@@ -322,11 +266,11 @@ export const useChatWithNotifications = ({
     error: state.error,
     sending: state.sending,
     connected: state.connected,
-    unreadCount: state.unreadCount,
-    hasNewMessage: state.hasNewMessage,
+    unreadCount: getUnreadCount(requirementId || 'general'),
+    hasNewMessage: getUnreadCount(requirementId || 'general') > 0,
     messagesEndRef,
     sendMessage,
     retryConnection,
-    clearNotifications
+    clearNotifications: () => clearNotifications(requirementId || 'general')
   };
 };

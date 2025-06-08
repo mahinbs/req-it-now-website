@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Plus, FileText, Paperclip } from 'lucide-react';
+import { NotificationBadge } from '@/components/ui/NotificationBadge';
+import { useNotificationContext } from '@/hooks/useGlobalNotifications';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'>;
@@ -62,6 +64,8 @@ export const RequirementsList = ({
   onSelectRequirement, 
   onShowNewRequirement 
 }: RequirementsListProps) => {
+  const { getUnreadCount } = useNotificationContext();
+
   if (requirements.length === 0) {
     return (
       <Card className="border-dashed border-2 border-slate-300">
@@ -84,6 +88,7 @@ export const RequirementsList = ({
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {requirements.map((requirement) => {
         const attachmentCount = getAttachmentCount(requirement);
+        const unreadCount = getUnreadCount(requirement.id);
         
         return (
           <Card key={requirement.id} className="hover:shadow-md transition-shadow">
@@ -119,15 +124,17 @@ export const RequirementsList = ({
                 </div>
               )}
               
-              <Button
-                onClick={() => onSelectRequirement(requirement)}
-                variant="outline"
-                size="sm"
-                className="w-full flex items-center justify-center space-x-2 hover:bg-blue-50 hover:border-blue-300"
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span>Open Chat</span>
-              </Button>
+              <NotificationBadge count={unreadCount} pulse={unreadCount > 0}>
+                <Button
+                  onClick={() => onSelectRequirement(requirement)}
+                  variant="outline"
+                  size="sm"
+                  className="w-full flex items-center justify-center space-x-2 hover:bg-blue-50 hover:border-blue-300"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Open Chat</span>
+                </Button>
+              </NotificationBadge>
             </CardContent>
           </Card>
         );

@@ -24,19 +24,12 @@ const ChatBoxContent = ({ requirementId, currentUserName, isAdmin = false, isCur
     connected,
     messagesEndRef, 
     sendMessage, 
-    retryConnection,
-    clearNotifications
+    retryConnection
   } = useChatWithNotifications({
     requirementId,
     isAdmin,
     isCurrentChat
   });
-
-  React.useEffect(() => {
-    if (isCurrentChat) {
-      clearNotifications();
-    }
-  }, [isCurrentChat, clearNotifications]);
 
   if (loading) {
     return (
