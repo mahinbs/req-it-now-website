@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +32,35 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchRequirements();
+    let mounted = true;
+    let fetchTimeout: NodeJS.Timeout;
+
+    const fetchRequirementsWithTimeout = async () => {
+      try {
+        console.log('Starting requirements fetch for user:', user.id);
+        
+        // Set a timeout to prevent infinite loading
+        fetchTimeout = setTimeout(() => {
+          if (mounted) {
+            console.log('Requirements fetch timeout, setting loading to false');
+            setLoading(false);
+          }
+        }, 8000); // 8 second timeout
+
+        await fetchRequirements();
+        
+        if (fetchTimeout) {
+          clearTimeout(fetchTimeout);
+        }
+      } catch (error) {
+        console.error('Error in fetchRequirementsWithTimeout:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchRequirementsWithTimeout();
     
     // Set up real-time subscription with proper cleanup
     console.log('Setting up real-time subscriptions for user dashboard...');
@@ -58,6 +85,10 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     // Cleanup function
     return () => {
       console.log('Cleaning up user dashboard subscriptions');
+      mounted = false;
+      if (fetchTimeout) {
+        clearTimeout(fetchTimeout);
+      }
       supabase.removeChannel(requirementsChannel);
     };
   }, [user.id]); // Add user.id as dependency
@@ -66,27 +97,47 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     try {
       console.log('Fetching requirements for user:', user.id);
       
-      const { data, error } = await supabase
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Requirements fetch timeout')), 6000)
+      );
+
+      // Create the actual fetch promise
+      const fetchPromise = supabase
         .from('requirements')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
+      // Race between timeout and actual fetch
+      const { data, error } = await Promise.race([
+        fetchPromise,
+        timeoutPromise
+      ]) as any;
 
       if (error) {
         console.error('Error fetching requirements:', error);
         throw error;
       }
       
-      console.log('Requirements fetched:', data?.length || 0);
+      console.log('Requirements fetched successfully:', data?.length || 0);
       setRequirements(data || []);
     } catch (error) {
       console.error('Error fetching requirements:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load requirements",
-        variant: "destructive"
-      });
+      
+      // Don't show error toast for timeout - just log it
+      if (error instanceof Error && error.message === 'Requirements fetch timeout') {
+        console.log('Requirements fetch timed out, proceeding with empty list');
+        setRequirements([]);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load requirements",
+          variant: "destructive"
+        });
+      }
     } finally {
+      console.log('Setting loading to false');
       setLoading(false);
     }
   };
@@ -133,6 +184,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-slate-600">Loading your requirements...</p>
+          <p className="mt-2 text-sm text-slate-500">This should only take a moment</p>
         </div>
       </div>
     );
