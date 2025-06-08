@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, FileVideo, MessageCircle, Calendar, LogOut, User, File, Image, FileText, HelpCircle } from 'lucide-react';
 import { RequirementForm } from '../requirements/RequirementForm';
 import { ChatBox } from '../chat/ChatBox';
+import { Logo } from '../ui/logo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
@@ -135,10 +135,10 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="bg-blue-600 p-2 rounded-lg">
-                <User className="h-6 w-6 text-white" />
+                <Logo size="md" className="text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Website Requirements</h1>
+                <h1 className="text-2xl font-bold text-slate-900">req-it-now</h1>
                 <p className="text-slate-600">{user.company_name}</p>
               </div>
             </div>

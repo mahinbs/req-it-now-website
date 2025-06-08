@@ -115,6 +115,8 @@ export type Database = {
       }
       requirements: {
         Row: {
+          attachment_metadata: Json | null
+          attachment_urls: string[] | null
           created_at: string
           description: string
           has_screen_recording: boolean | null
@@ -127,6 +129,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attachment_metadata?: Json | null
+          attachment_urls?: string[] | null
           created_at?: string
           description: string
           has_screen_recording?: boolean | null
@@ -139,6 +143,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attachment_metadata?: Json | null
+          attachment_urls?: string[] | null
           created_at?: string
           description?: string
           has_screen_recording?: boolean | null
