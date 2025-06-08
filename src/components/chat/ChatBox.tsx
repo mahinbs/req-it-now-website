@@ -14,7 +14,7 @@ interface ChatBoxProps {
 }
 
 export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: ChatBoxProps) => {
-  const { messages, loading, error, messagesEndRef, sendMessage, retryFetch } = useChat({
+  const { messages, loading, error, sending, messagesEndRef, sendMessage, retryFetch } = useChat({
     requirementId,
     isAdmin
   });
@@ -54,7 +54,10 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
             />
           </div>
           
-          <MessageForm onSendMessage={sendMessage} />
+          <MessageForm 
+            onSendMessage={sendMessage} 
+            disabled={sending}
+          />
         </div>
       </CardContent>
     </Card>

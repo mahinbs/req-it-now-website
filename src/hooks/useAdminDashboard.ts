@@ -17,56 +17,89 @@ export const useAdminDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const setupRealtimeSubscriptions = () => {
-    console.log('Setting up real-time subscriptions...');
-    
-    const timestamp = Date.now();
-    
-    const requirementsChannel = supabase
-      .channel(`admin-requirements-${timestamp}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'requirements'
-        },
-        (payload) => {
-          console.log('Requirements table changed:', payload);
-          fetchRequirements();
-        }
-      )
-      .subscribe();
+  useEffect(() => {
+    let mounted = true;
+    let requirementsChannel: any = null;
+    let profilesChannel: any = null;
 
-    const profilesChannel = supabase
-      .channel(`admin-profiles-${timestamp}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles'
-        },
-        (payload) => {
-          console.log('Profiles table changed:', payload);
-          fetchRequirements();
+    const initializeDashboard = async () => {
+      try {
+        await fetchRequirements();
+        
+        if (mounted) {
+          setupRealtimeSubscriptions();
         }
-      )
-      .subscribe();
+      } catch (error) {
+        console.error('Error initializing dashboard:', error);
+        if (mounted) {
+          setError('Failed to load dashboard data');
+          setLoading(false);
+        }
+      }
+    };
+
+    const setupRealtimeSubscriptions = () => {
+      console.log('Setting up real-time subscriptions...');
+      
+      const timestamp = Date.now();
+      
+      requirementsChannel = supabase
+        .channel(`admin-requirements-${timestamp}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'requirements'
+          },
+          (payload) => {
+            console.log('Requirements table changed:', payload);
+            if (mounted) {
+              fetchRequirements();
+            }
+          }
+        )
+        .subscribe();
+
+      profilesChannel = supabase
+        .channel(`admin-profiles-${timestamp}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles'
+          },
+          (payload) => {
+            console.log('Profiles table changed:', payload);
+            if (mounted) {
+              fetchRequirements();
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    initializeDashboard();
 
     return () => {
-      console.log('Cleaning up real-time subscriptions');
-      supabase.removeChannel(requirementsChannel);
-      supabase.removeChannel(profilesChannel);
+      console.log('Cleaning up admin dashboard subscriptions');
+      mounted = false;
+      if (requirementsChannel) {
+        supabase.removeChannel(requirementsChannel);
+      }
+      if (profilesChannel) {
+        supabase.removeChannel(profilesChannel);
+      }
     };
-  };
+  }, []);
 
   const fetchRequirements = async () => {
     try {
       console.log('Fetching requirements...');
       setError(null);
       
-      const fetchPromise = Promise.all([
+      const [requirementsResult, profilesResult] = await Promise.all([
         supabase
           .from('requirements')
           .select('*')
@@ -75,15 +108,6 @@ export const useAdminDashboard = () => {
           .from('profiles')
           .select('id, company_name, website_url')
       ]);
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Fetch timeout')), 10000)
-      );
-
-      const [requirementsResult, profilesResult] = await Promise.race([
-        fetchPromise,
-        timeoutPromise
-      ]) as any;
 
       const { data: requirementsData, error: requirementsError } = requirementsResult;
       const { data: profilesData, error: profilesError } = profilesResult;
@@ -113,9 +137,11 @@ export const useAdminDashboard = () => {
 
       console.log('Final requirements with profiles:', requirementsWithProfiles.length);
       setRequirements(requirementsWithProfiles);
+      setLoading(false);
     } catch (error) {
       console.error('Error in fetchRequirements:', error);
       setError('Failed to load requirements data');
+      setLoading(false);
       toast({
         title: "Error",
         description: "Failed to load requirements",
@@ -135,50 +161,6 @@ export const useAdminDashboard = () => {
       description: "Requirements data has been refreshed"
     });
   };
-
-  useEffect(() => {
-    let mounted = true;
-    let loadingTimeout: NodeJS.Timeout;
-
-    loadingTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Admin dashboard loading timeout');
-        setLoading(false);
-        setError('Loading timeout. Please refresh to try again.');
-      }
-    }, 15000);
-
-    const initializeDashboard = async () => {
-      try {
-        await fetchRequirements();
-        
-        if (mounted) {
-          setupRealtimeSubscriptions();
-        }
-      } catch (error) {
-        console.error('Error initializing dashboard:', error);
-        if (mounted) {
-          setError('Failed to load dashboard data');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-        }
-      }
-    };
-
-    initializeDashboard();
-
-    return () => {
-      mounted = false;
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-      }
-    };
-  }, []);
 
   return {
     requirements,

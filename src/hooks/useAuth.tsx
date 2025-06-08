@@ -19,29 +19,14 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
-    let authTimeout: NodeJS.Timeout;
 
     console.log('Setting up authentication listeners...');
 
-    // Set timeout to prevent infinite loading
-    authTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Authentication timeout - forcing loading to false');
-        setLoading(false);
-        setError('Authentication timeout. Please refresh the page.');
-      }
-    }, 10000); // 10 second timeout
-
-    // Set up auth state listener
+    // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth event:', event, session?.user?.email);
       
       if (!mounted) return;
-      
-      // Clear timeout on any auth event
-      if (authTimeout) {
-        clearTimeout(authTimeout);
-      }
       
       if (session?.user) {
         setUser(session.user);
@@ -51,7 +36,9 @@ export const useAuth = () => {
         } catch (profileError) {
           console.error('Profile fetch error:', profileError);
           setError('Failed to load user profile');
-          setLoading(false);
+          if (mounted) {
+            setLoading(false);
+          }
         }
       } else {
         setUser(null);
@@ -92,9 +79,6 @@ export const useAuth = () => {
     return () => {
       console.log('Cleaning up authentication listeners');
       mounted = false;
-      if (authTimeout) {
-        clearTimeout(authTimeout);
-      }
       subscription.unsubscribe();
     };
   }, []);
@@ -121,18 +105,10 @@ export const useAuth = () => {
         return;
       }
 
-      // Check admin status with timeout
+      // Check admin status
       let isAdmin = false;
       try {
-        const adminCheckPromise = supabase.rpc('is_admin', { user_id: userId });
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Admin check timeout')), 5000)
-        );
-        
-        const { data: adminCheck, error: adminError } = await Promise.race([
-          adminCheckPromise,
-          timeoutPromise
-        ]) as any;
+        const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: userId });
         
         if (adminError) {
           console.warn('Admin check failed, defaulting to false:', adminError);
@@ -266,9 +242,6 @@ export const useAuth = () => {
     try {
       console.log('Starting logout...');
       
-      // Immediately show loading state
-      setLoading(true);
-      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);
@@ -276,11 +249,7 @@ export const useAuth = () => {
       }
       
       console.log('Logout successful');
-      // Clear all state immediately
-      setUserProfile(null);
-      setUser(null);
-      setError(null);
-      setLoading(false);
+      // State will be cleared by onAuthStateChange
       
       toast({
         title: "Signed out",
@@ -289,12 +258,12 @@ export const useAuth = () => {
       
     } catch (error: any) {
       console.error('Logout error:', error);
-      setLoading(false);
       toast({
         title: "Error",
         description: "Failed to sign out. Please try again.",
         variant: "destructive"
       });
+      throw error;
     }
   };
 

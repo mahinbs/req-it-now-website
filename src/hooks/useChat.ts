@@ -17,6 +17,7 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -29,75 +30,69 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
 
   useEffect(() => {
     let mounted = true;
-    let initTimeout: NodeJS.Timeout;
+    let channel: any = null;
 
     const initializeChat = async () => {
       try {
         console.log('Initializing chat for requirement:', requirementId || 'general');
         
-        initTimeout = setTimeout(() => {
-          if (mounted && loading) {
-            console.warn('Chat initialization timeout');
-            setLoading(false);
-            setError('Chat loading timeout. Please try refreshing.');
-          }
-        }, 10000);
-
         await fetchMessages();
+        
+        if (mounted) {
+          setupRealtimeSubscription();
+        }
       } catch (error) {
         console.error('Error initializing chat:', error);
         if (mounted) {
           setError('Failed to load chat messages');
-        }
-      } finally {
-        if (mounted) {
           setLoading(false);
-        }
-        if (initTimeout) {
-          clearTimeout(initTimeout);
         }
       }
     };
 
-    initializeChat();
-    
-    const channelName = `messages-${requirementId || 'general'}-${Date.now()}-${Math.random()}`;
-    console.log('Setting up chat subscription:', channelName);
-    
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: requirementId ? `requirement_id=eq.${requirementId}` : 'requirement_id=is.null'
-        },
-        (payload) => {
-          console.log('New message received:', payload);
-          if (mounted) {
-            const newMessage = payload.new as Message;
-            newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
-            setMessages(prev => {
-              const exists = prev.some(msg => msg.id === newMessage.id);
-              if (exists) return prev;
-              return [...prev, newMessage];
-            });
+    const setupRealtimeSubscription = () => {
+      const channelName = `chat-${requirementId || 'general'}-${Date.now()}`;
+      console.log('Setting up chat subscription:', channelName);
+      
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: requirementId ? `requirement_id=eq.${requirementId}` : 'requirement_id=is.null'
+          },
+          (payload) => {
+            console.log('New message received:', payload);
+            if (mounted) {
+              const newMessage = payload.new as Message;
+              newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
+              setMessages(prev => {
+                const exists = prev.some(msg => msg.id === newMessage.id);
+                if (exists) return prev;
+                return [...prev, newMessage];
+              });
+            }
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Chat subscription status:', status);
-      });
+        )
+        .subscribe((status) => {
+          console.log('Chat subscription status:', status);
+          if (status === 'SUBSCRIBED' && mounted) {
+            setLoading(false);
+          }
+        });
+    };
+
+    initializeChat();
 
     return () => {
       console.log('Cleaning up chat component');
       mounted = false;
-      if (initTimeout) {
-        clearTimeout(initTimeout);
+      if (channel) {
+        supabase.removeChannel(channel);
       }
-      supabase.removeChannel(channel);
     };
   }, [requirementId]);
 
@@ -117,12 +112,7 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
         query = query.is('requirement_id', null);
       }
 
-      const fetchPromise = query;
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Message fetch timeout')), 8000)
-      );
-
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching messages:', error);
@@ -136,9 +126,11 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
       
       console.log('Messages fetched successfully:', messagesWithNames.length);
       setMessages(messagesWithNames);
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching messages:', error);
       setError('Failed to load messages');
+      setLoading(false);
       toast({
         title: "Error",
         description: "Failed to load messages. Please refresh and try again.",
@@ -148,20 +140,16 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
   };
 
   const sendMessage = async (content: string) => {
+    if (sending) return;
+    
     try {
+      setSending(true);
       console.log('Sending message...');
       
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         throw new Error('You must be logged in to send messages');
       }
-
-      console.log('Sending message:', {
-        content,
-        isAdmin,
-        requirementId: requirementId || null,
-        userId: user.id
-      });
 
       const messageData: any = {
         sender_id: user.id,
@@ -186,17 +174,6 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
 
       console.log('Message sent successfully:', data);
       
-      const optimisticMessage = {
-        ...data,
-        sender_name: isAdmin ? 'Admin' : 'User'
-      };
-      
-      setMessages(prev => {
-        const exists = prev.some(msg => msg.id === optimisticMessage.id);
-        if (exists) return prev;
-        return [...prev, optimisticMessage];
-      });
-      
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Failed to send message');
@@ -206,11 +183,14 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
         variant: "destructive"
       });
       throw error;
+    } finally {
+      setSending(false);
     }
   };
 
   const retryFetch = () => {
     setError(null);
+    setLoading(true);
     fetchMessages();
   };
 
@@ -218,6 +198,7 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
     messages,
     loading,
     error,
+    sending,
     messagesEndRef,
     sendMessage,
     retryFetch

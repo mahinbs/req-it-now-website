@@ -22,71 +22,60 @@ export const useUserDashboard = (user: User) => {
 
   useEffect(() => {
     let mounted = true;
-    let loadingTimeout: NodeJS.Timeout;
+    let requirementsChannel: any = null;
 
     const initializeDashboard = async () => {
       try {
         console.log('Initializing dashboard for user:', user.id);
         
-        // Set timeout to prevent infinite loading
-        loadingTimeout = setTimeout(() => {
-          if (mounted && loading) {
-            console.warn('User dashboard loading timeout');
-            setLoading(false);
-            setError('Loading timeout. Please refresh to try again.');
-          }
-        }, 10000);
-
         await fetchRequirements();
+        
+        if (mounted) {
+          setupRealtimeSubscription();
+        }
       } catch (error) {
         console.error('Error initializing dashboard:', error);
         if (mounted) {
           setError('Failed to load dashboard data');
-        }
-      } finally {
-        if (mounted) {
           setLoading(false);
-        }
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
         }
       }
     };
 
+    const setupRealtimeSubscription = () => {
+      console.log('Setting up real-time subscriptions...');
+      
+      const timestamp = Date.now();
+      requirementsChannel = supabase
+        .channel(`user-requirements-${user.id}-${timestamp}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'requirements',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Requirements changed:', payload);
+            if (mounted) {
+              fetchRequirements();
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('User requirements subscription status:', status);
+        });
+    };
+
     initializeDashboard();
     
-    // Set up real-time subscription with unique channel name
-    console.log('Setting up real-time subscriptions...');
-    
-    const timestamp = Date.now();
-    const requirementsChannel = supabase
-      .channel(`user-requirements-${user.id}-${timestamp}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'requirements',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Requirements changed:', payload);
-          if (mounted) {
-            fetchRequirements();
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('User requirements subscription status:', status);
-      });
-
     return () => {
       console.log('Cleaning up dashboard subscriptions');
       mounted = false;
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
+      if (requirementsChannel) {
+        supabase.removeChannel(requirementsChannel);
       }
-      supabase.removeChannel(requirementsChannel);
     };
   }, [user.id]);
 
@@ -95,18 +84,11 @@ export const useUserDashboard = (user: User) => {
       console.log('Fetching requirements for user:', user.id);
       setError(null);
       
-      // Add timeout to prevent hanging
-      const fetchPromise = supabase
+      const { data, error } = await supabase
         .from('requirements')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Fetch timeout')), 8000)
-      );
-
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('Error fetching requirements:', error);
@@ -115,9 +97,11 @@ export const useUserDashboard = (user: User) => {
       
       console.log('Requirements fetched successfully:', data?.length || 0);
       setRequirements(data || []);
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching requirements:', error);
       setError('Failed to load requirements');
+      setLoading(false);
       toast({
         title: "Error",
         description: "Failed to load requirements. Please refresh the page.",
