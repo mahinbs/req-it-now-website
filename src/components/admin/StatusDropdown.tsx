@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -29,7 +29,14 @@ const statusIcons = {
 
 export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownProps) => {
   const [updating, setUpdating] = useState(false);
-  const currentStatus = requirement.admin_status || 'pending';
+  // Use local state to handle optimistic updates
+  const [currentStatus, setCurrentStatus] = useState(requirement.admin_status || 'pending');
+  
+  // Update local state when requirement prop changes (real-time updates)
+  useEffect(() => {
+    setCurrentStatus(requirement.admin_status || 'pending');
+  }, [requirement.admin_status]);
+
   const CurrentIcon = statusIcons[currentStatus as keyof typeof statusIcons] || Clock;
 
   const handleStatusChange = async (newStatus: string) => {
@@ -43,6 +50,10 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
       userId: requirement.user_id
     });
 
+    // Optimistic update - immediately show the new status
+    const previousStatus = currentStatus;
+    setCurrentStatus(newStatus);
+
     try {
       const { error } = await supabase
         .from('requirements')
@@ -54,6 +65,8 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
 
       if (error) {
         console.error('Supabase error updating requirement status:', error);
+        // Revert optimistic update on error
+        setCurrentStatus(previousStatus);
         throw error;
       }
 
@@ -63,7 +76,7 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
         description: `Requirement status changed to ${adminStatusConfig[newStatus as keyof typeof adminStatusConfig]?.label || newStatus}`,
       });
 
-      // Call the callback to refresh data
+      // Call the callback to refresh data in parent components
       if (onStatusUpdate) {
         onStatusUpdate();
       }

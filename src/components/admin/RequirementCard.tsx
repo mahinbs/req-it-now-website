@@ -69,6 +69,14 @@ export const RequirementCard = ({
     }
     return requirement.status.replace('_', ' ');
   };
+
+  // Handle status update with additional logging
+  const handleStatusUpdate = () => {
+    console.log('Status update callback triggered for requirement:', requirement.id);
+    if (onApprovalUpdate) {
+      onApprovalUpdate();
+    }
+  };
   
   return (
     <Card className="hover:shadow-md transition-shadow relative">
@@ -173,7 +181,7 @@ export const RequirementCard = ({
         <div className="flex items-center justify-between space-x-3">
           <StatusDropdown 
             requirement={requirement} 
-            onStatusUpdate={onApprovalUpdate || (() => {})} 
+            onStatusUpdate={handleStatusUpdate} 
           />
           
           <div className="relative">

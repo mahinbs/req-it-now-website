@@ -55,6 +55,7 @@ export const useAdminDashboard = () => {
           (payload) => {
             console.log('Requirements table changed:', payload);
             if (mounted) {
+              // Force immediate refresh for better UI responsiveness
               fetchRequirements();
             }
           }
@@ -144,6 +145,7 @@ export const useAdminDashboard = () => {
       }) || [];
 
       console.log('Final requirements with profiles:', requirementsWithProfiles.length);
+      console.log('Requirements data sample:', requirementsWithProfiles.slice(0, 2));
       setRequirements(requirementsWithProfiles);
       setLoading(false);
     } catch (error: any) {
@@ -177,6 +179,7 @@ export const useAdminDashboard = () => {
 
   const handleApprovalUpdate = async () => {
     console.log('Approval status updated, refreshing data...');
+    // Force immediate refresh without showing loading state
     await fetchRequirements();
   };
 
