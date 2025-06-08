@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useChatWithNotifications } from '@/hooks/useChatWithNotifications';
+import { useChatOptimized } from '@/hooks/useChatOptimized';
+import { useNotificationContext } from '@/hooks/useGlobalNotifications';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
@@ -25,11 +26,20 @@ const ChatBoxContent = ({ requirementId, currentUserName, isAdmin = false, isCur
     messagesEndRef, 
     sendMessage, 
     retryConnection
-  } = useChatWithNotifications({
+  } = useChatOptimized({
     requirementId,
     isAdmin,
     isCurrentChat
   });
+
+  const { clearNotifications } = useNotificationContext();
+
+  // Auto-clear notifications when chat is opened
+  useEffect(() => {
+    if (isCurrentChat) {
+      clearNotifications(requirementId || 'general');
+    }
+  }, [isCurrentChat, requirementId, clearNotifications]);
 
   if (loading) {
     return (

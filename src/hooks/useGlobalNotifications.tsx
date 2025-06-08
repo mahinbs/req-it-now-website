@@ -37,6 +37,7 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
   const mountedRef = useRef(true);
   const channelRef = useRef<any>(null);
   const currentUserIdRef = useRef<string | null>(null);
+  const isAdminRef = useRef<boolean>(false);
 
   const updateState = (updates: Partial<GlobalNotificationState>) => {
     if (mountedRef.current) {
@@ -44,14 +45,21 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
     }
   };
 
-  const getCurrentUserId = async () => {
+  const getCurrentUserInfo = async () => {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) return null;
-      return user.id;
+      if (error || !user) return { userId: null, isAdmin: false };
+
+      // Check if user is admin
+      const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: user.id });
+      
+      return {
+        userId: user.id,
+        isAdmin: adminError ? false : (adminCheck || false)
+      };
     } catch (error) {
-      console.error('Error getting current user:', error);
-      return null;
+      console.error('Error getting current user info:', error);
+      return { userId: null, isAdmin: false };
     }
   };
 
@@ -60,12 +68,15 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Get current user ID for proper notification logic
-    currentUserIdRef.current = await getCurrentUserId();
-    console.log('Setting up global notifications for user:', currentUserIdRef.current);
+    // Get current user info for proper notification logic
+    const { userId, isAdmin } = await getCurrentUserInfo();
+    currentUserIdRef.current = userId;
+    isAdminRef.current = isAdmin;
+    
+    console.log('Setting up global notifications for user:', userId, isAdmin ? '(Admin)' : '(User)');
 
     const channel = supabase
-      .channel('global-messages')
+      .channel('global-messages-optimized')
       .on(
         'postgres_changes',
         {
@@ -75,13 +86,21 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
         },
         (payload) => {
           console.log('Global message received:', payload);
-          if (mountedRef.current) {
+          if (mountedRef.current && currentUserIdRef.current) {
             const newMessage = payload.new as Message;
             
-            // Only show notification if message is from someone else
-            const isFromSelf = newMessage.sender_id === currentUserIdRef.current;
+            // Notification logic based on user type
+            let shouldNotify = false;
             
-            if (!isFromSelf) {
+            if (isAdminRef.current) {
+              // Admin should get notifications for client messages only
+              shouldNotify = !newMessage.is_admin && newMessage.sender_id !== currentUserIdRef.current;
+            } else {
+              // Client should get notifications for admin messages only
+              shouldNotify = newMessage.is_admin && newMessage.sender_id !== currentUserIdRef.current;
+            }
+            
+            if (shouldNotify) {
               const requirementId = newMessage.requirement_id || 'general';
               
               setState(prev => ({
@@ -93,7 +112,7 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
                 hasNewMessage: true
               }));
 
-              console.log('Notification added for requirement:', requirementId);
+              console.log('Notification added for requirement:', requirementId, 'Admin:', isAdminRef.current);
             }
           }
         }
@@ -126,12 +145,17 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
   }, []);
 
   const clearNotifications = (requirementId: string) => {
+    console.log('Clearing notifications for requirement:', requirementId);
     setState(prev => ({
       ...prev,
       notificationCounts: {
         ...prev.notificationCounts,
         [requirementId]: 0
-      }
+      },
+      hasNewMessage: Object.values({
+        ...prev.notificationCounts,
+        [requirementId]: 0
+      }).some(count => count > 0)
     }));
   };
 

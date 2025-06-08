@@ -1,0 +1,297 @@
+
+import { useState, useRef, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import type { Tables } from '@/integrations/supabase/types';
+
+type Message = Tables<'messages'> & {
+  sender_name?: string;
+};
+
+interface UseChatOptimizedProps {
+  requirementId: string;
+  isAdmin?: boolean;
+  isCurrentChat?: boolean;
+}
+
+export const useChatOptimized = ({ requirementId, isAdmin = false, isCurrentChat = true }: UseChatOptimizedProps) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(true);
+  const channelRef = useRef<any>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    const initializeChat = async () => {
+      console.log('Initializing optimized chat for requirement:', requirementId || 'general');
+      
+      try {
+        setError(null);
+        
+        // Fetch initial messages first
+        await fetchMessages();
+        
+        // Setup realtime subscription
+        if (mountedRef.current && isCurrentChat) {
+          setupRealtimeSubscription();
+        }
+      } catch (error) {
+        console.error('Error initializing chat:', error);
+        if (mountedRef.current) {
+          setError('Failed to load chat messages');
+          setLoading(false);
+        }
+      }
+    };
+
+    const setupRealtimeSubscription = () => {
+      // Clean up existing channel first
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+
+      const channelName = `chat-optimized-${requirementId || 'general'}-${Date.now()}`;
+      console.log('Setting up optimized chat subscription:', channelName);
+      
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: requirementId ? `requirement_id=eq.${requirementId}` : 'requirement_id=is.null'
+          },
+          (payload) => {
+            console.log('New message received in chat:', payload);
+            if (mountedRef.current) {
+              const newMessage = payload.new as Message;
+              newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
+              
+              setMessages(prev => {
+                // Prevent duplicate messages
+                const exists = prev.some(msg => msg.id === newMessage.id);
+                if (exists) return prev;
+                return [...prev, newMessage];
+              });
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Optimized chat subscription status:', status);
+          if (mountedRef.current) {
+            setConnected(status === 'SUBSCRIBED');
+            if (status === 'SUBSCRIBED') {
+              setLoading(false);
+              setError(null);
+            } else if (status === 'CHANNEL_ERROR') {
+              setError('Connection failed');
+              setLoading(false);
+            }
+          }
+        });
+
+      channelRef.current = channel;
+    };
+
+    initializeChat();
+
+    return () => {
+      console.log('Cleaning up optimized chat component');
+      mountedRef.current = false;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [requirementId, isCurrentChat]);
+
+  const fetchMessages = async () => {
+    try {
+      console.log('Fetching messages for:', requirementId || 'general chat');
+      
+      let query = supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (requirementId) {
+        query = query.eq('requirement_id', requirementId);
+      } else {
+        query = query.is('requirement_id', null);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
+      
+      const messagesWithNames = data?.map(msg => ({
+        ...msg,
+        sender_name: msg.is_admin ? 'Admin' : 'User'
+      })) || [];
+      
+      console.log('Messages fetched successfully:', messagesWithNames.length);
+      
+      if (mountedRef.current) {
+        setMessages(messagesWithNames);
+        setError(null);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      if (mountedRef.current) {
+        setError('Failed to load messages');
+        toast({
+          title: "Error",
+          description: "Failed to load messages. Please refresh and try again.",
+          variant: "destructive"
+        });
+      }
+      throw error;
+    }
+  };
+
+  const sendMessage = async (content: string) => {
+    if (sending || !mountedRef.current) return;
+    
+    try {
+      setSending(true);
+      setError(null);
+      console.log('Sending message...');
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('You must be logged in to send messages');
+      }
+
+      const messageData: any = {
+        sender_id: user.id,
+        content: content,
+        is_admin: isAdmin
+      };
+
+      if (requirementId) {
+        messageData.requirement_id = requirementId;
+      }
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert([messageData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Message send error:', error);
+        throw error;
+      }
+
+      console.log('Message sent successfully:', data);
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to send message. Please try again.";
+      
+      if (mountedRef.current) {
+        setError(errorMessage);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
+      throw error;
+    } finally {
+      if (mountedRef.current) {
+        setSending(false);
+      }
+    }
+  };
+
+  const retryConnection = () => {
+    if (!mountedRef.current) return;
+    
+    setError(null);
+    setLoading(true);
+    setConnected(false);
+    
+    // Re-setup the subscription
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    
+    fetchMessages().then(() => {
+      if (mountedRef.current && isCurrentChat) {
+        const setupRealtimeSubscription = () => {
+          const channelName = `chat-retry-${requirementId || 'general'}-${Date.now()}`;
+          
+          const channel = supabase
+            .channel(channelName)
+            .on(
+              'postgres_changes',
+              {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: requirementId ? `requirement_id=eq.${requirementId}` : 'requirement_id=is.null'
+              },
+              (payload) => {
+                if (mountedRef.current) {
+                  const newMessage = payload.new as Message;
+                  newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
+                  
+                  setMessages(prev => {
+                    const exists = prev.some(msg => msg.id === newMessage.id);
+                    if (exists) return prev;
+                    return [...prev, newMessage];
+                  });
+                }
+              }
+            )
+            .subscribe((status) => {
+              if (mountedRef.current) {
+                setConnected(status === 'SUBSCRIBED');
+                if (status === 'SUBSCRIBED') {
+                  setLoading(false);
+                  setError(null);
+                }
+              }
+            });
+
+          channelRef.current = channel;
+        };
+        
+        setupRealtimeSubscription();
+      }
+    }).catch(() => {
+      // Error already handled in fetchMessages
+    });
+  };
+
+  return {
+    messages,
+    loading,
+    error,
+    sending,
+    connected,
+    messagesEndRef,
+    sendMessage,
+    retryConnection
+  };
+};
