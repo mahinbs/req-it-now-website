@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, FileVideo, MessageCircle, Calendar, LogOut, User, File, Image, FileText, HelpCircle } from 'lucide-react';
+import { Plus, MessageCircle, Calendar, LogOut, HelpCircle, File, FileText } from 'lucide-react';
 import { RequirementForm } from '../requirements/RequirementForm';
 import { ChatBox } from '../chat/ChatBox';
 import { Logo } from '../ui/logo';
@@ -33,40 +34,27 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
 
   useEffect(() => {
     let mounted = true;
-    let fetchTimeout: NodeJS.Timeout;
 
-    const fetchRequirementsWithTimeout = async () => {
+    const initializeDashboard = async () => {
       try {
-        console.log('Starting requirements fetch for user:', user.id);
-        
-        // Set a timeout to prevent infinite loading
-        fetchTimeout = setTimeout(() => {
-          if (mounted) {
-            console.log('Requirements fetch timeout, setting loading to false');
-            setLoading(false);
-          }
-        }, 8000); // 8 second timeout
-
+        console.log('Initializing dashboard for user:', user.id);
         await fetchRequirements();
-        
-        if (fetchTimeout) {
-          clearTimeout(fetchTimeout);
-        }
       } catch (error) {
-        console.error('Error in fetchRequirementsWithTimeout:', error);
+        console.error('Error initializing dashboard:', error);
+      } finally {
         if (mounted) {
           setLoading(false);
         }
       }
     };
 
-    fetchRequirementsWithTimeout();
+    initializeDashboard();
     
-    // Set up real-time subscription with proper cleanup
-    console.log('Setting up real-time subscriptions for user dashboard...');
+    // Set up real-time subscription
+    console.log('Setting up real-time subscriptions...');
     
     const requirementsChannel = supabase
-      .channel(`user-requirements-${user.id}-${Date.now()}`) // Use unique channel name
+      .channel(`user-requirements-${user.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -76,44 +64,30 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('User requirements changed:', payload);
-          fetchRequirements();
+          console.log('Requirements changed:', payload);
+          if (mounted) {
+            fetchRequirements();
+          }
         }
       )
       .subscribe();
 
-    // Cleanup function
     return () => {
-      console.log('Cleaning up user dashboard subscriptions');
+      console.log('Cleaning up dashboard subscriptions');
       mounted = false;
-      if (fetchTimeout) {
-        clearTimeout(fetchTimeout);
-      }
       supabase.removeChannel(requirementsChannel);
     };
-  }, [user.id]); // Add user.id as dependency
+  }, [user.id]);
 
   const fetchRequirements = async () => {
     try {
       console.log('Fetching requirements for user:', user.id);
       
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Requirements fetch timeout')), 6000)
-      );
-
-      // Create the actual fetch promise
-      const fetchPromise = supabase
+      const { data, error } = await supabase
         .from('requirements')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-
-      // Race between timeout and actual fetch
-      const { data, error } = await Promise.race([
-        fetchPromise,
-        timeoutPromise
-      ]) as any;
 
       if (error) {
         console.error('Error fetching requirements:', error);
@@ -124,30 +98,23 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
       setRequirements(data || []);
     } catch (error) {
       console.error('Error fetching requirements:', error);
-      
-      // Don't show error toast for timeout - just log it
-      if (error instanceof Error && error.message === 'Requirements fetch timeout') {
-        console.log('Requirements fetch timed out, proceeding with empty list');
-        setRequirements([]);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to load requirements",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      console.log('Setting loading to false');
-      setLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to load requirements. Please refresh the page.",
+        variant: "destructive"
+      });
+      setRequirements([]);
     }
   };
 
   const handleSubmitRequirement = async () => {
     console.log('Requirement submitted successfully');
-    // Refresh requirements list
     await fetchRequirements();
-    // Close the modal
     setShowNewRequirement(false);
+    toast({
+      title: "Success!",
+      description: "Your requirement has been submitted successfully."
+    });
   };
 
   const getPriorityColor = (priority: string) => {
@@ -183,8 +150,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading your requirements...</p>
-          <p className="mt-2 text-sm text-slate-500">This should only take a moment</p>
+          <p className="mt-4 text-slate-600">Loading your dashboard...</p>
         </div>
       </div>
     );
@@ -393,7 +359,6 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           </div>
         )}
 
-        {/* General Chat Modal */}
         {showGeneralChat && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">

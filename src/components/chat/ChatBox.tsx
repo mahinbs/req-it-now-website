@@ -34,11 +34,25 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
   }, [messages]);
 
   useEffect(() => {
-    fetchMessages();
+    let mounted = true;
+
+    const initializeChat = async () => {
+      try {
+        await fetchMessages();
+      } catch (error) {
+        console.error('Error initializing chat:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeChat();
     
     // Subscribe to real-time updates
     const channel = supabase
-      .channel('messages')
+      .channel(`messages-${requirementId || 'general'}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -48,21 +62,26 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
           filter: requirementId ? `requirement_id=eq.${requirementId}` : 'requirement_id=is.null'
         },
         (payload) => {
-          const newMessage = payload.new as Message;
-          // Add sender name based on admin status
-          newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
-          setMessages(prev => [...prev, newMessage]);
+          console.log('New message received:', payload);
+          if (mounted) {
+            const newMessage = payload.new as Message;
+            newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
+            setMessages(prev => [...prev, newMessage]);
+          }
         }
       )
       .subscribe();
 
     return () => {
+      mounted = false;
       supabase.removeChannel(channel);
     };
   }, [requirementId]);
 
   const fetchMessages = async () => {
     try {
+      console.log('Fetching messages for:', requirementId || 'general chat');
+      
       let query = supabase
         .from('messages')
         .select('*')
@@ -76,24 +95,25 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
       
-      // Add sender names based on admin status
       const messagesWithNames = data?.map(msg => ({
         ...msg,
         sender_name: msg.is_admin ? 'Admin' : 'User'
       })) || [];
       
+      console.log('Messages fetched:', messagesWithNames.length);
       setMessages(messagesWithNames);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
         title: "Error",
-        description: "Failed to load messages",
+        description: "Failed to load messages. Please refresh and try again.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -104,15 +124,22 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) {
+        throw new Error('You must be logged in to send messages');
+      }
+
+      console.log('Sending message:', {
+        content: newMessage,
+        isAdmin,
+        requirementId: requirementId || null
+      });
 
       const messageData: any = {
         sender_id: user.id,
-        content: newMessage,
+        content: newMessage.trim(),
         is_admin: isAdmin
       };
 
-      // Only add requirement_id if it's provided
       if (requirementId) {
         messageData.requirement_id = requirementId;
       }
@@ -121,19 +148,19 @@ export const ChatBox = ({ requirementId, currentUserName, isAdmin = false }: Cha
         .from('messages')
         .insert([messageData]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Message send error:', error);
+        throw error;
+      }
 
       setNewMessage('');
+      console.log('Message sent successfully');
       
-      toast({
-        title: "Message sent",
-        description: "Your message has been sent successfully"
-      });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
         title: "Error",
-        description: "Failed to send message",
+        description: error instanceof Error ? error.message : "Failed to send message. Please try again.",
         variant: "destructive"
       });
     } finally {

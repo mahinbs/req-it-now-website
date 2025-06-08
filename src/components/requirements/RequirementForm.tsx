@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, FileVideo, X, File, AlertCircle } from 'lucide-react';
+import { Upload, X, File, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -36,7 +36,6 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
     attachments: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
 
   const handleInputChange = (field: keyof RequirementFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -67,15 +66,11 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
       try {
         console.log(`Uploading file: ${file.name}, size: ${file.size}, type: ${file.type}`);
         
-        // Create a unique filename
         const timestamp = Date.now();
         const randomSuffix = Math.random().toString(36).substring(2, 8);
         const fileExtension = file.name.split('.').pop();
         const fileName = `${timestamp}_${randomSuffix}.${fileExtension}`;
         
-        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
-        
-        // Upload to Supabase Storage
         const { data, error } = await supabase.storage
           .from('requirement-attachments')
           .upload(fileName, file, {
@@ -89,9 +84,7 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
         }
 
         console.log('Upload successful:', data);
-        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('requirement-attachments')
           .getPublicUrl(fileName);
@@ -140,7 +133,6 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
       let attachmentMetadata: AttachmentFile[] = [];
       let attachmentUrls: string[] = [];
       
-      // Upload files if any
       if (formData.attachments && formData.attachments.length > 0) {
         console.log('Uploading files...');
         toast({
@@ -148,13 +140,21 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
           description: "Please wait while we upload your attachments"
         });
         
-        attachmentMetadata = await uploadFiles(formData.attachments);
-        attachmentUrls = attachmentMetadata.map(file => file.url);
-        
-        console.log('Files uploaded successfully:', attachmentMetadata);
+        try {
+          attachmentMetadata = await uploadFiles(formData.attachments);
+          attachmentUrls = attachmentMetadata.map(file => file.url);
+          console.log('Files uploaded successfully:', attachmentMetadata);
+        } catch (uploadError) {
+          console.error('File upload failed:', uploadError);
+          // Continue without files if upload fails
+          toast({
+            title: "Upload Warning",
+            description: "File upload failed, submitting requirement without attachments",
+            variant: "destructive"
+          });
+        }
       }
 
-      // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
@@ -163,7 +163,6 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
 
       console.log('Current user:', user.id);
 
-      // Submit requirement to database
       const requirementData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -190,11 +189,6 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
 
       console.log('Requirement submitted successfully:', data);
 
-      toast({
-        title: "Success!",
-        description: "Your requirement has been submitted successfully"
-      });
-
       // Reset form
       setFormData({
         title: '',
@@ -202,7 +196,6 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
         priority: 'medium',
         attachments: []
       });
-      setUploadProgress({});
 
       // Call the onSubmit callback
       onSubmit(formData);
@@ -326,23 +319,16 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
                         <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {uploadProgress[file.name] !== undefined && (
-                        <div className="text-xs text-slate-500">
-                          {uploadProgress[file.name]}%
-                        </div>
-                      )}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(index)}
-                        className="h-6 w-6 p-0"
-                        disabled={isSubmitting}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="h-6 w-6 p-0"
+                      disabled={isSubmitting}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
                 ))}
               </div>

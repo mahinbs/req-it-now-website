@@ -24,7 +24,6 @@ export const RequirementsManagement = () => {
 
   useEffect(() => {
     let mounted = true;
-    let profileTimeout: NodeJS.Timeout;
 
     console.log('Setting up authentication listeners...');
 
@@ -37,26 +36,7 @@ export const RequirementsManagement = () => {
       if (session?.user) {
         setUser(session.user);
         setError(null);
-        
-        // Set a timeout to ensure loading doesn't get stuck
-        profileTimeout = setTimeout(() => {
-          if (mounted) {
-            console.log('Profile fetch timeout, proceeding with default profile');
-            setUserProfile({
-              id: session.user.id,
-              company_name: 'My Company',
-              website_url: 'https://example.com',
-              isAdmin: false
-            });
-            setLoading(false);
-          }
-        }, 10000); // 10 second timeout
-        
         await fetchUserProfile(session.user.id);
-        
-        if (profileTimeout) {
-          clearTimeout(profileTimeout);
-        }
       } else {
         setUser(null);
         setUserProfile(null);
@@ -94,9 +74,6 @@ export const RequirementsManagement = () => {
     return () => {
       console.log('Cleaning up authentication listeners');
       mounted = false;
-      if (profileTimeout) {
-        clearTimeout(profileTimeout);
-      }
       subscription.unsubscribe();
     };
   }, []);
@@ -106,21 +83,11 @@ export const RequirementsManagement = () => {
       console.log('Fetching profile for user:', userId);
       setError(null);
       
-      // Fetch profile with timeout
-      const profilePromise = supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 8000)
-      );
-
-      const { data: profile, error: profileError } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]) as any;
 
       if (profileError) {
         console.error('Profile error:', profileError);
@@ -133,18 +100,10 @@ export const RequirementsManagement = () => {
         return;
       }
 
-      // Check admin status with timeout
+      // Check admin status
       let isAdmin = false;
       try {
-        const adminPromise = supabase.rpc('is_admin', { user_id: userId });
-        const adminTimeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Admin check timeout')), 5000)
-        );
-
-        const { data: adminCheck, error: adminError } = await Promise.race([
-          adminPromise,
-          adminTimeoutPromise
-        ]) as any;
+        const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: userId });
         
         if (adminError) {
           console.warn('Admin check failed, defaulting to false:', adminError);
@@ -276,13 +235,35 @@ export const RequirementsManagement = () => {
 
   const handleLogout = async () => {
     try {
+      console.log('Starting logout...');
+      setLoading(true);
+      
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error('Logout error:', error);
+        throw error;
+      }
+      
       console.log('Logout successful');
+      // Clear all state
       setUserProfile(null);
       setUser(null);
-    } catch (error) {
+      setError(null);
+      
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+      
+    } catch (error: any) {
       console.error('Logout error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
