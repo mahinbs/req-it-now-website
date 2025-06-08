@@ -66,7 +66,7 @@ export const ApprovalButton = ({ requirement, onApprovalUpdate }: ApprovalButton
 
   // Show completion button if approved but not yet completed
   if (requirement.approved_by_admin && !requirement.completed_by_admin) {
-    return <CompletionButton requirement={requirement} onApprovalUpdate={onApprovalUpdate} />;
+    return <CompletionButton requirement={requirement} onCompletionUpdate={onApprovalUpdate} />;
   }
 
   // Show completion status if already completed
