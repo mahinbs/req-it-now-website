@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileVideo, ExternalLink, MessageCircle, Calendar, Building, Globe, LogOut, User } from 'lucide-react';
+import { FileVideo, ExternalLink, MessageCircle, Calendar, Building, Globe, LogOut, User, RefreshCw } from 'lucide-react';
 import { ChatBox } from '../chat/ChatBox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -20,10 +20,57 @@ export const AdminDashboard = () => {
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchRequirements();
+    setupRealtimeSubscriptions();
   }, []);
+
+  const setupRealtimeSubscriptions = () => {
+    console.log('Setting up real-time subscriptions...');
+    
+    // Subscribe to requirements changes
+    const requirementsChannel = supabase
+      .channel('requirements-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'requirements'
+        },
+        (payload) => {
+          console.log('Requirements table changed:', payload);
+          fetchRequirements(); // Refetch all data when requirements change
+        }
+      )
+      .subscribe();
+
+    // Subscribe to profiles changes
+    const profilesChannel = supabase
+      .channel('profiles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
+        (payload) => {
+          console.log('Profiles table changed:', payload);
+          fetchRequirements(); // Refetch all data when profiles change
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      console.log('Cleaning up real-time subscriptions');
+      supabase.removeChannel(requirementsChannel);
+      supabase.removeChannel(profilesChannel);
+    };
+  };
 
   const fetchRequirements = async () => {
     try {
@@ -41,6 +88,7 @@ export const AdminDashboard = () => {
       }
 
       console.log('Requirements fetched:', requirementsData?.length || 0);
+      console.log('Requirements data:', requirementsData);
 
       // Then, get all profiles
       const { data: profilesData, error: profilesError } = await supabase
@@ -53,10 +101,12 @@ export const AdminDashboard = () => {
       }
 
       console.log('Profiles fetched:', profilesData?.length || 0);
+      console.log('Profiles data:', profilesData);
 
       // Combine the data manually
       const requirementsWithProfiles: Requirement[] = requirementsData?.map(requirement => {
         const profile = profilesData?.find(p => p.id === requirement.user_id);
+        console.log(`Matching requirement ${requirement.id} with user_id ${requirement.user_id} to profile:`, profile);
         return {
           ...requirement,
           profiles: profile ? {
@@ -67,6 +117,7 @@ export const AdminDashboard = () => {
       }) || [];
 
       console.log('Final requirements with profiles:', requirementsWithProfiles.length);
+      console.log('Final combined data:', requirementsWithProfiles);
       setRequirements(requirementsWithProfiles);
     } catch (error) {
       console.error('Error in fetchRequirements:', error);
@@ -77,7 +128,18 @@ export const AdminDashboard = () => {
       });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    console.log('Manual refresh triggered');
+    await fetchRequirements();
+    toast({
+      title: "Refreshed",
+      description: "Requirements data has been refreshed"
+    });
   };
 
   const handleLogout = async () => {
@@ -142,10 +204,21 @@ export const AdminDashboard = () => {
                 <p className="text-slate-600">Manage website requirements and communicate with clients</p>
               </div>
             </div>
-            <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
-              <LogOut className="h-4 w-4" />
-              <span>Sign Out</span>
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={handleRefresh} 
+                disabled={refreshing}
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </Button>
+              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -172,6 +245,10 @@ export const AdminDashboard = () => {
                   <p className="text-slate-600">
                     Waiting for users to submit their first requirements
                   </p>
+                  <Button onClick={handleRefresh} className="mt-4" variant="outline">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Data
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -211,6 +288,10 @@ export const AdminDashboard = () => {
                           <Calendar className="h-3 w-3 text-purple-500" />
                           <span>{new Date(requirement.created_at).toLocaleDateString()}</span>
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <User className="h-3 w-3 text-orange-500" />
+                          <span className="text-xs">User ID: {requirement.user_id}</span>
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
@@ -223,7 +304,10 @@ export const AdminDashboard = () => {
                         <div className="flex space-x-2 ml-auto">
                           <Button
                             size="sm"
-                            onClick={() => setSelectedRequirement(requirement)}
+                            onClick={() => {
+                              console.log('Opening chat for requirement:', requirement);
+                              setSelectedRequirement(requirement);
+                            }}
                             className="bg-blue-600 hover:bg-blue-700"
                           >
                             <MessageCircle className="h-3 w-3 mr-1" />
