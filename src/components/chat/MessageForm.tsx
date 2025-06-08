@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Send, X } from 'lucide-react';
 import { AttachmentButton } from './AttachmentButton';
 import { validateFile, formatFileSize, getFileIcon } from '@/utils/chatAttachmentUtils';
+import { toast } from '@/hooks/use-toast';
 
 interface MessageFormProps {
   onSendMessage: (content: string, file?: File) => Promise<void>;
@@ -23,17 +24,30 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
     const messageContent = newMessage.trim();
     const fileToSend = selectedFile;
     
+    // Clear form immediately for better UX
     setNewMessage('');
     setSelectedFile(null);
     setIsLoading(true);
     
     try {
       await onSendMessage(messageContent || 'File attachment', fileToSend || undefined);
+      
+      toast({
+        title: "Message sent",
+        description: fileToSend ? "Message and file sent successfully" : "Message sent successfully"
+      });
     } catch (error) {
       console.error('Message send failed:', error);
+      
       // Restore the message content and file on error
       setNewMessage(messageContent);
       setSelectedFile(fileToSend);
+      
+      toast({
+        title: "Failed to send message",
+        description: "Please try again. Check your connection and try once more.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -43,6 +57,10 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
     const validation = validateFile(file);
     if (validation.valid) {
       setSelectedFile(file);
+      toast({
+        title: "File selected",
+        description: `${file.name} ready to send`
+      });
     }
   };
 

@@ -37,48 +37,98 @@ export const uploadChatAttachment = async (
   messageId: string,
   userId: string
 ): Promise<string | null> => {
-  try {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${messageId}/${Date.now()}_${file.name}`;
-    
-    const { data, error } = await supabase.storage
-      .from('chat-attachments')
-      .upload(fileName, file);
+  let retryCount = 0;
+  const maxRetries = 3;
 
-    if (error) {
-      console.error('Chat attachment upload error:', error);
-      return null;
+  while (retryCount < maxRetries) {
+    try {
+      console.log(`Attempting file upload (attempt ${retryCount + 1}/${maxRetries}):`, file.name);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${messageId}/${Date.now()}_${file.name}`;
+      
+      const { data, error } = await supabase.storage
+        .from('chat-attachments')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error(`Upload attempt ${retryCount + 1} failed:`, error);
+        if (retryCount === maxRetries - 1) {
+          throw error;
+        }
+        retryCount++;
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
+        continue;
+      }
+
+      console.log('File uploaded successfully:', data);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(fileName);
+
+      console.log('Generated public URL:', publicUrl);
+
+      // Save attachment metadata to database with retry logic
+      let dbRetryCount = 0;
+      while (dbRetryCount < maxRetries) {
+        try {
+          const { error: dbError } = await supabase
+            .from('message_attachments')
+            .insert({
+              message_id: messageId,
+              file_name: file.name,
+              file_url: publicUrl,
+              file_type: file.type,
+              file_size: file.size,
+              uploaded_by: userId
+            });
+
+          if (dbError) {
+            console.error(`Database insert attempt ${dbRetryCount + 1} failed:`, dbError);
+            if (dbRetryCount === maxRetries - 1) {
+              throw dbError;
+            }
+            dbRetryCount++;
+            await new Promise(resolve => setTimeout(resolve, 500 * dbRetryCount));
+            continue;
+          }
+
+          console.log('Attachment metadata saved successfully');
+          return publicUrl;
+        } catch (dbError) {
+          console.error(`Database error on attempt ${dbRetryCount + 1}:`, dbError);
+          if (dbRetryCount === maxRetries - 1) {
+            // Try to clean up uploaded file
+            try {
+              await supabase.storage.from('chat-attachments').remove([fileName]);
+              console.log('Cleaned up uploaded file after database failure');
+            } catch (cleanupError) {
+              console.error('Failed to cleanup file:', cleanupError);
+            }
+            return null;
+          }
+          dbRetryCount++;
+          await new Promise(resolve => setTimeout(resolve, 500 * dbRetryCount));
+        }
+      }
+
+      return publicUrl;
+    } catch (error) {
+      console.error(`Upload error on attempt ${retryCount + 1}:`, error);
+      if (retryCount === maxRetries - 1) {
+        return null;
+      }
+      retryCount++;
+      await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
     }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('chat-attachments')
-      .getPublicUrl(fileName);
-
-    // Save attachment metadata to database
-    const { error: dbError } = await supabase
-      .from('message_attachments')
-      .insert({
-        message_id: messageId,
-        file_name: file.name,
-        file_url: publicUrl,
-        file_type: file.type,
-        file_size: file.size,
-        uploaded_by: userId
-      });
-
-    if (dbError) {
-      console.error('Database error saving attachment:', dbError);
-      // Try to clean up uploaded file
-      await supabase.storage.from('chat-attachments').remove([fileName]);
-      return null;
-    }
-
-    return publicUrl;
-  } catch (error) {
-    console.error('Upload error:', error);
-    return null;
   }
+
+  return null;
 };
 
 export const getAttachmentsForMessage = async (messageId: string) => {

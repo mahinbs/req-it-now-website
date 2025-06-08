@@ -17,7 +17,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  // Only show buttons if requirement is completed by admin
+  // Only show buttons if requirement is completed by admin but not yet decided by client
   if (!requirement.completed_by_admin) {
     if (requirement.approved_by_admin) {
       return (
@@ -49,7 +49,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
     );
   }
 
-  // Show Accept/Reject buttons
+  // Show Accept/Reject buttons only when work is completed but not yet decided
   return (
     <>
       <div className="flex items-center space-x-2">
@@ -59,7 +59,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
           className="bg-green-600 hover:bg-green-700 text-white"
         >
           <CheckCircle2 className="h-4 w-4 mr-2" />
-          Accept
+          Accept Work
         </Button>
 
         <Button
@@ -69,7 +69,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
           className="border-red-300 text-red-600 hover:bg-red-50"
         >
           <X className="h-4 w-4 mr-2" />
-          Reject
+          Request Changes
         </Button>
       </div>
 

@@ -45,8 +45,8 @@ export const CompletionButton = ({ requirement, onCompletionUpdate }: Completion
       }
 
       toast({
-        title: "Requirement Completed",
-        description: `${requirement.title} has been marked as completed. Client will be notified to review.`
+        title: "Work Completed",
+        description: `${requirement.title} has been marked as completed. Client will be notified to review and approve the work.`
       });
 
       onCompletionUpdate();
@@ -62,21 +62,23 @@ export const CompletionButton = ({ requirement, onCompletionUpdate }: Completion
     }
   };
 
+  // Show completion status if already completed
   if (requirement.completed_by_admin) {
     return (
       <div className="flex items-center space-x-2 text-green-600">
         <CheckCircle className="h-4 w-4" />
-        <span className="text-sm">Completed</span>
+        <span className="text-sm">Work Completed</span>
         {requirement.accepted_by_client && (
-          <span className="text-xs text-green-700 font-medium">& Accepted</span>
+          <span className="text-xs text-green-700 font-medium">& Approved</span>
         )}
         {requirement.rejected_by_client && (
-          <span className="text-xs text-red-700 font-medium">& Rejected</span>
+          <span className="text-xs text-orange-700 font-medium">& Needs Changes</span>
         )}
       </div>
     );
   }
 
+  // Only show completion button if approved by admin but not yet completed
   if (!requirement.approved_by_admin) {
     return null;
   }
@@ -96,7 +98,7 @@ export const CompletionButton = ({ requirement, onCompletionUpdate }: Completion
       ) : (
         <div className="flex items-center space-x-1">
           <Clock className="h-4 w-4" />
-          <span>Mark Complete</span>
+          <span>Mark Work Complete</span>
         </div>
       )}
     </Button>

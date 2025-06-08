@@ -40,8 +40,12 @@ export const RequirementsList = ({
   };
 
   const getStatusBadgeVariant = (requirement: Requirement) => {
-    if (requirement.approved_by_admin && requirement.accepted_by_client) {
+    if (requirement.rejected_by_client) {
+      return 'bg-orange-100 text-orange-800 border-orange-300';
+    } else if (requirement.accepted_by_client) {
       return 'bg-green-100 text-green-800 border-green-300';
+    } else if (requirement.completed_by_admin) {
+      return 'bg-purple-100 text-purple-800 border-purple-300';
     } else if (requirement.approved_by_admin) {
       return 'bg-blue-100 text-blue-800 border-blue-300';
     }
@@ -49,10 +53,14 @@ export const RequirementsList = ({
   };
 
   const getStatusText = (requirement: Requirement) => {
-    if (requirement.approved_by_admin && requirement.accepted_by_client) {
-      return 'Accepted & Confirmed';
+    if (requirement.rejected_by_client) {
+      return 'Changes Requested';
+    } else if (requirement.accepted_by_client) {
+      return 'Completed & Approved';
+    } else if (requirement.completed_by_admin) {
+      return 'Awaiting Your Review';
     } else if (requirement.approved_by_admin) {
-      return 'Approved by Admin';
+      return 'Work in Progress';
     }
     return requirement.status.replace('_', ' ');
   };
@@ -122,9 +130,10 @@ export const RequirementsList = ({
                   </div>
                 )}
                 
-                {/* Show acceptance button for approved requirements */}
-                {requirement.approved_by_admin && (
-                  <div className="mb-4">
+                {/* Show acceptance button for completed work that needs review */}
+                {requirement.completed_by_admin && !requirement.accepted_by_client && !requirement.rejected_by_client && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2">Work Completed - Please Review</h4>
                     <AcceptanceButton 
                       requirement={requirement} 
                       onAcceptanceUpdate={onRequirementUpdate || (() => {})} 
