@@ -2,22 +2,38 @@
 import React, { useState } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
+import { useAuth } from '@/hooks/useAuthOptimized';
 
-interface AuthPageProps {
-  onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (userData: {
+export const AuthPage = () => {
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  const { signIn, signUp, loading } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      setError(null);
+      await signIn(email, password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    }
+  };
+
+  const handleSignup = async (userData: {
     email: string;
     password: string;
     companyName: string;
     websiteUrl: string;
-  }) => Promise<void>;
-  loading: boolean;
-  error: string | null;
-  setError: (error: string | null) => void;
-}
-
-export const AuthPage = ({ onLogin, onSignup, loading, error, setError }: AuthPageProps) => {
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  }) => {
+    try {
+      setError(null);
+      await signUp(userData.email, userData.password, {
+        company_name: userData.companyName,
+        website_url: userData.websiteUrl
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Signup failed');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-6 relative overflow-hidden">
@@ -66,14 +82,14 @@ export const AuthPage = ({ onLogin, onSignup, loading, error, setError }: AuthPa
         {/* Auth Forms */}
         {authMode === 'login' ? (
           <LoginForm
-            onLogin={onLogin}
+            onLogin={handleLogin}
             onSwitchToSignup={() => setAuthMode('signup')}
             loading={loading}
             error={error}
           />
         ) : (
           <SignupForm
-            onSignup={onSignup}
+            onSignup={handleSignup}
             onSwitchToLogin={() => setAuthMode('login')}
             loading={loading}
             error={error}
