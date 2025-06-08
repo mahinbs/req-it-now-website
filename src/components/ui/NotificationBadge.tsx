@@ -24,9 +24,9 @@ export const NotificationBadge = ({
       {children}
       {shouldShow && (
         <div className={cn(
-          "absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs font-bold min-w-[1.25rem] h-5 flex items-center justify-center px-1",
+          "absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs font-bold min-w-[1.25rem] h-5 flex items-center justify-center px-1 shadow-lg border-2 border-white z-10",
           pulse && "animate-pulse",
-          count > 99 && "text-[10px]"
+          count > 99 && "text-[10px] min-w-[1.5rem]"
         )}>
           {count > 99 ? '99+' : count}
         </div>

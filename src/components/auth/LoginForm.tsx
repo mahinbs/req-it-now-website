@@ -98,26 +98,30 @@ export const LoginForm = ({ onLogin, onSwitchToSignup }: LoginFormProps) => {
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="login-email">Email</Label>
             <Input
-              id="email"
+              id="login-email"
+              name="email"
               type="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
               required
               disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="login-password">Password</Label>
             <div className="relative">
               <Input
-                id="password"
+                id="login-password"
+                name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
                 disabled={isLoading}
               />

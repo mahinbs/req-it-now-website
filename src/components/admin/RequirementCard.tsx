@@ -7,6 +7,7 @@ import { MessageCircle, User, Calendar, Paperclip, Video } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import { useNotificationContext } from '@/hooks/useGlobalNotifications';
 import { getStatusColor, getPriorityColor, formatDate, getUniqueAttachments } from '@/utils/requirementUtils';
+import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -35,7 +36,16 @@ export const RequirementCard = ({ requirement, onOpenChat, isCurrentChat = false
   };
   
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow relative">
+      {/* Top-right notification indicator */}
+      {unreadCount > 0 && (
+        <div className="absolute -top-2 -right-2 z-20">
+          <div className="bg-red-500 text-white rounded-full text-xs font-bold min-w-[1.25rem] h-5 flex items-center justify-center px-1 shadow-lg border-2 border-white animate-pulse">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </div>
+        </div>
+      )}
+      
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <CardTitle className="text-lg font-semibold text-slate-900 leading-tight">
@@ -105,16 +115,24 @@ export const RequirementCard = ({ requirement, onOpenChat, isCurrentChat = false
           <span className="text-xs text-slate-500">
             Website: {requirement.profiles?.website_url || 'Not provided'}
           </span>
-          <NotificationBadge count={unreadCount} pulse={unreadCount > 0}>
+          <div className="relative">
             <Button
               onClick={handleOpenChat}
               size="sm"
-              className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-2"
+              className={cn(
+                "bg-blue-600 hover:bg-blue-700 flex items-center space-x-2",
+                unreadCount > 0 && "ring-2 ring-red-200 ring-offset-1"
+              )}
             >
               <MessageCircle className="h-4 w-4" />
-              <span>Open Chat</span>
+              <span>{unreadCount > 0 ? 'New Message' : 'Open Chat'}</span>
+              {unreadCount > 0 && (
+                <div className="ml-1 bg-red-500 text-white rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </div>
+              )}
             </Button>
-          </NotificationBadge>
+          </div>
         </div>
       </CardContent>
     </Card>
