@@ -1,17 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, MessageCircle, Calendar, LogOut, HelpCircle, File, FileText } from 'lucide-react';
-import { RequirementForm } from '../requirements/RequirementForm';
-import { ChatBox } from '../chat/ChatBox';
-import { Logo } from '../ui/logo';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import type { Tables } from '@/integrations/supabase/types';
 
-type Requirement = Tables<'requirements'>;
+import React from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import { RequirementForm } from '../requirements/RequirementForm';
+import { toast } from '@/hooks/use-toast';
+import { UserDashboardHeader } from './UserDashboardHeader';
+import { WelcomeCard } from './WelcomeCard';
+import { RequirementsList } from './RequirementsList';
+import { UserModals } from './UserModals';
+import { useUserDashboard } from '@/hooks/useUserDashboard';
 
 interface User {
   id: string;
@@ -25,129 +23,19 @@ interface UserDashboardProps {
 }
 
 export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
-  const [showNewRequirement, setShowNewRequirement] = useState(false);
-  const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
-  const [showGeneralChat, setShowGeneralChat] = useState(false);
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    let loadingTimeout: NodeJS.Timeout;
-
-    const initializeDashboard = async () => {
-      try {
-        console.log('Initializing dashboard for user:', user.id);
-        
-        // Set timeout to prevent infinite loading
-        loadingTimeout = setTimeout(() => {
-          if (mounted && loading) {
-            console.warn('User dashboard loading timeout');
-            setLoading(false);
-            setError('Loading timeout. Please refresh to try again.');
-          }
-        }, 10000);
-
-        await fetchRequirements();
-      } catch (error) {
-        console.error('Error initializing dashboard:', error);
-        if (mounted) {
-          setError('Failed to load dashboard data');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-        }
-      }
-    };
-
-    initializeDashboard();
-    
-    // Set up real-time subscription with unique channel name
-    console.log('Setting up real-time subscriptions...');
-    
-    const timestamp = Date.now();
-    const requirementsChannel = supabase
-      .channel(`user-requirements-${user.id}-${timestamp}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'requirements',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Requirements changed:', payload);
-          if (mounted) {
-            fetchRequirements();
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('User requirements subscription status:', status);
-      });
-
-    return () => {
-      console.log('Cleaning up dashboard subscriptions');
-      mounted = false;
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-      }
-      supabase.removeChannel(requirementsChannel);
-    };
-  }, [user.id]);
-
-  const fetchRequirements = async () => {
-    try {
-      console.log('Fetching requirements for user:', user.id);
-      setError(null);
-      
-      // Add timeout to prevent hanging
-      const fetchPromise = supabase
-        .from('requirements')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Fetch timeout')), 8000)
-      );
-
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
-
-      if (error) {
-        console.error('Error fetching requirements:', error);
-        throw error;
-      }
-      
-      console.log('Requirements fetched successfully:', data?.length || 0);
-      setRequirements(data || []);
-    } catch (error) {
-      console.error('Error fetching requirements:', error);
-      setError('Failed to load requirements');
-      toast({
-        title: "Error",
-        description: "Failed to load requirements. Please refresh the page.",
-        variant: "destructive"
-      });
-      setRequirements([]);
-    }
-  };
-
-  const handleSubmitRequirement = async () => {
-    console.log('Requirement submitted successfully');
-    await fetchRequirements();
-    setShowNewRequirement(false);
-    toast({
-      title: "Success!",
-      description: "Your requirement has been submitted successfully."
-    });
-  };
+  const {
+    showNewRequirement,
+    setShowNewRequirement,
+    selectedRequirement,
+    setSelectedRequirement,
+    showGeneralChat,
+    setShowGeneralChat,
+    requirements,
+    loading,
+    error,
+    setError,
+    handleSubmitRequirement
+  } = useUserDashboard(user);
 
   const handleLogout = async () => {
     try {
@@ -160,34 +48,6 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
         description: "Failed to log out",
         variant: "destructive"
       });
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'in-progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusMessage = (status: string) => {
-    switch (status) {
-      case 'pending': return 'Waiting for admin review';
-      case 'in-progress': return 'Being worked on by admin';
-      case 'completed': return 'Completed by admin';
-      default: return '';
     }
   };
 
@@ -215,35 +75,11 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Logo size="md" className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">req-it-now</h1>
-                <p className="text-slate-600">{user.company_name}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Button 
-                onClick={() => setShowGeneralChat(true)}
-                className="bg-green-600 hover:bg-green-700 flex items-center space-x-2"
-              >
-                <HelpCircle className="h-4 w-4" />
-                <span>Chat with Admin</span>
-              </Button>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <UserDashboardHeader 
+        user={user}
+        onShowGeneralChat={() => setShowGeneralChat(true)}
+        onLogout={handleLogout}
+      />
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
@@ -260,34 +96,10 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
 
         {/* Welcome message for new users */}
         {requirements.length === 0 && (
-          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-4">
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <MessageCircle className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-blue-900">Welcome to your Requirements Dashboard!</h3>
-                  <p className="text-blue-700 mt-1">
-                    Need help getting started? You can chat directly with our admin team or submit a detailed requirement.
-                  </p>
-                  <div className="flex space-x-3 mt-3">
-                    <Button 
-                      onClick={() => setShowGeneralChat(true)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Quick Chat
-                    </Button>
-                    <Button onClick={() => setShowNewRequirement(true)} variant="outline">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Submit Requirement
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <WelcomeCard 
+            onShowGeneralChat={() => setShowGeneralChat(true)}
+            onShowNewRequirement={() => setShowNewRequirement(true)}
+          />
         )}
 
         <Tabs defaultValue="requirements" className="space-y-6">
@@ -309,71 +121,11 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
               </Button>
             </div>
 
-            {requirements.length === 0 ? (
-              <Card className="bg-white border-slate-200">
-                <CardContent className="text-center py-12">
-                  <div className="bg-blue-50 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                    <FileText className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <h3 className="text-lg font-medium mb-2 text-slate-900">No requirements yet</h3>
-                  <p className="text-slate-600 mb-4">
-                    Submit your first website requirement to get started
-                  </p>
-                  <Button onClick={() => setShowNewRequirement(true)} className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Submit Requirement
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-6 md:grid-cols-2">
-                {requirements.map((requirement) => (
-                  <Card key={requirement.id} className="bg-white border-slate-200 hover:shadow-lg transition-all duration-200">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-lg text-slate-900">{requirement.title}</CardTitle>
-                        <div className="flex flex-col space-y-2">
-                          <Badge className={`${getPriorityColor(requirement.priority)} border`}>
-                            {requirement.priority}
-                          </Badge>
-                          <Badge className={`${getStatusColor(requirement.status)} border`}>
-                            {requirement.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-slate-600">
-                        {requirement.description}
-                      </p>
-                      
-                      <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-md">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <Calendar className="h-3 w-3 text-blue-500" />
-                          <span>Submitted: {new Date(requirement.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <p className="text-slate-600">{getStatusMessage(requirement.status)}</p>
-                        {(requirement.attachment_urls?.length > 0 || requirement.attachment_metadata) && (
-                          <div className="flex items-center space-x-1 mt-2">
-                            <File className="h-3 w-3 text-green-500" />
-                            <span className="text-green-600">Files attached</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        size="sm"
-                        onClick={() => setSelectedRequirement(requirement)}
-                        className="w-full bg-blue-600 hover:bg-blue-700"
-                      >
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Chat with Admin
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            <RequirementsList 
+              requirements={requirements}
+              onSelectRequirement={setSelectedRequirement}
+              onShowNewRequirement={() => setShowNewRequirement(true)}
+            />
           </TabsContent>
 
           <TabsContent value="new">
@@ -381,77 +133,16 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           </TabsContent>
         </Tabs>
 
-        {/* Modals */}
-        {showNewRequirement && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-4">
-                <h3 className="text-lg font-semibold text-slate-900">Submit New Requirement</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNewRequirement(false)}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  ×
-                </Button>
-              </div>
-              <RequirementForm onSubmit={handleSubmitRequirement} />
-            </div>
-          </div>
-        )}
-
-        {selectedRequirement && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    Chat: {selectedRequirement.title}
-                  </h3>
-                  <p className="text-sm text-slate-600">Communicate with admin about this requirement</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedRequirement(null)}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  ×
-                </Button>
-              </div>
-              <ChatBox
-                requirementId={selectedRequirement.id}
-                currentUserName={user.company_name}
-              />
-            </div>
-          </div>
-        )}
-
-        {showGeneralChat && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Chat with Admin</h3>
-                  <p className="text-sm text-slate-600">Ask questions or get help with your website</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowGeneralChat(false)}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  ×
-                </Button>
-              </div>
-              <ChatBox
-                requirementId=""
-                currentUserName={user.company_name}
-              />
-            </div>
-          </div>
-        )}
+        <UserModals 
+          user={user}
+          showNewRequirement={showNewRequirement}
+          selectedRequirement={selectedRequirement}
+          showGeneralChat={showGeneralChat}
+          onCloseNewRequirement={() => setShowNewRequirement(false)}
+          onCloseRequirementChat={() => setSelectedRequirement(null)}
+          onCloseGeneralChat={() => setShowGeneralChat(false)}
+          onSubmitRequirement={handleSubmitRequirement}
+        />
       </div>
     </div>
   );
