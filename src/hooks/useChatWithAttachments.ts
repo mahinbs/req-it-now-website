@@ -243,16 +243,17 @@ export const useChatWithAttachments = ({
       // Upload attachment if present
       if (file && messageResult) {
         console.log('Uploading attachment for message:', messageResult.id);
-        const attachmentUrl = await uploadChatAttachment(file, messageResult.id, user.id);
+        const uploadResult = await uploadChatAttachment(file, messageResult.id, user.id);
         
-        if (!attachmentUrl) {
+        if (!uploadResult.success) {
+          // Don't throw error for attachment failure, but show warning
           toast({
             title: "Warning",
-            description: "Message sent but attachment upload failed.",
+            description: `Message sent but attachment upload failed: ${uploadResult.error}`,
             variant: "destructive"
           });
         } else {
-          console.log('Attachment uploaded successfully:', attachmentUrl);
+          console.log('Attachment uploaded successfully:', uploadResult.url);
         }
       }
       

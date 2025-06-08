@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, X } from 'lucide-react';
+import { Send, X, Upload } from 'lucide-react';
 import { AttachmentButton } from './AttachmentButton';
 import { validateFile, formatFileSize, getFileIcon } from '@/utils/chatAttachmentUtils';
 import { toast } from '@/hooks/use-toast';
@@ -16,6 +16,7 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,9 +29,19 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
     setNewMessage('');
     setSelectedFile(null);
     setIsLoading(true);
+    setUploadProgress(0);
     
     try {
-      await onSendMessage(messageContent || 'File attachment', fileToSend || undefined);
+      // Show upload progress for files
+      if (fileToSend) {
+        setUploadProgress(25);
+        setTimeout(() => setUploadProgress(50), 200);
+        setTimeout(() => setUploadProgress(75), 500);
+      }
+
+      await onSendMessage(messageContent || `📎 ${fileToSend?.name}`, fileToSend || undefined);
+      
+      setUploadProgress(100);
       
       toast({
         title: "Message sent",
@@ -45,11 +56,12 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
       
       toast({
         title: "Failed to send message",
-        description: "Please try again. Check your connection and try once more.",
+        description: error instanceof Error ? error.message : "Please try again. Check your connection and try once more.",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -60,6 +72,12 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
       toast({
         title: "File selected",
         description: `${file.name} ready to send`
+      });
+    } else {
+      toast({
+        title: "Invalid File",
+        description: validation.error,
+        variant: "destructive"
       });
     }
   };
@@ -97,6 +115,15 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
           </Button>
         </div>
       )}
+
+      {isLoading && uploadProgress > 0 && (
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div 
+            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+            style={{ width: `${uploadProgress}%` }}
+          ></div>
+        </div>
+      )}
       
       <form onSubmit={handleSubmit} className="flex space-x-2">
         <Input
@@ -117,7 +144,7 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
           disabled={!canSend}
           className="flex items-center space-x-1 px-3"
         >
-          <Send className="h-4 w-4" />
+          {isLoading ? <Upload className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
           {isLoading && <span className="text-xs ml-1">Sending...</span>}
         </Button>
       </form>
