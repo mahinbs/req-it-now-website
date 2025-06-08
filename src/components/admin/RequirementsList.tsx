@@ -52,8 +52,7 @@ export const RequirementsList = ({
         <RequirementCard
           key={requirement.id}
           requirement={requirement}
-          onChatClick={onChatClick}
-          onDownloadAttachment={onDownloadAttachment}
+          onOpenChat={onChatClick}
         />
       ))}
     </div>
