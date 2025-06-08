@@ -34,6 +34,7 @@ export const RequirementsManagement = () => {
     <AuthPage
       onLogin={handleLogin}
       onSignup={handleSignup}
+      loading={loading}
       error={error}
       setError={setError}
     />
