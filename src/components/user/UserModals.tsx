@@ -79,6 +79,7 @@ export const UserModals = ({
             <ChatBox
               requirementId={selectedRequirement.id}
               currentUserName={user.company_name}
+              isCurrentChat={true}
             />
           </div>
         </div>
@@ -105,6 +106,7 @@ export const UserModals = ({
             <ChatBox
               requirementId=""
               currentUserName={user.company_name}
+              isCurrentChat={true}
             />
           </div>
         </div>

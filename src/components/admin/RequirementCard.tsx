@@ -1,9 +1,10 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, User, Calendar, Paperclip, Video } from 'lucide-react';
+import { useMessageNotifications } from '@/hooks/useMessageNotifications';
+import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -92,6 +93,7 @@ const getUniqueAttachments = (requirement: Requirement) => {
 
 export const RequirementCard = ({ requirement, onOpenChat }: RequirementCardProps) => {
   const attachments = getUniqueAttachments(requirement);
+  const { unreadCount, hasNewMessage } = useMessageNotifications(requirement.id, false);
   
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -164,14 +166,16 @@ export const RequirementCard = ({ requirement, onOpenChat }: RequirementCardProp
           <span className="text-xs text-slate-500">
             Website: {requirement.profiles?.website_url || 'Not provided'}
           </span>
-          <Button
-            onClick={() => onOpenChat(requirement)}
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <MessageCircle className="h-4 w-4" />
-            <span>Open Chat</span>
-          </Button>
+          <NotificationBadge count={unreadCount} pulse={hasNewMessage}>
+            <Button
+              onClick={() => onOpenChat(requirement)}
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>Open Chat</span>
+            </Button>
+          </NotificationBadge>
         </div>
       </CardContent>
     </Card>
