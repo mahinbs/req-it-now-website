@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChatOptimized } from '@/hooks/useChatOptimized';
-import { useNotificationContext } from '@/hooks/useGlobalNotifications';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
@@ -14,9 +13,16 @@ interface ChatBoxProps {
   currentUserName: string;
   isAdmin?: boolean;
   isCurrentChat?: boolean;
+  onMarkAsRead?: (requirementId: string) => void;
 }
 
-const ChatBoxContent = ({ requirementId, currentUserName, isAdmin = false, isCurrentChat = true }: ChatBoxProps) => {
+const ChatBoxContent = ({ 
+  requirementId, 
+  currentUserName, 
+  isAdmin = false, 
+  isCurrentChat = true,
+  onMarkAsRead 
+}: ChatBoxProps) => {
   const { 
     messages, 
     loading, 
@@ -32,14 +38,13 @@ const ChatBoxContent = ({ requirementId, currentUserName, isAdmin = false, isCur
     isCurrentChat
   });
 
-  const { clearNotifications } = useNotificationContext();
-
-  // Auto-clear notifications when chat is opened
+  // Mark messages as read when chat is opened (for admins)
   useEffect(() => {
-    if (isCurrentChat) {
-      clearNotifications(requirementId || 'general');
+    if (isCurrentChat && isAdmin && onMarkAsRead && requirementId) {
+      console.log('ChatBox opened - marking as read:', requirementId);
+      onMarkAsRead(requirementId);
     }
-  }, [isCurrentChat, requirementId, clearNotifications]);
+  }, [isCurrentChat, isAdmin, onMarkAsRead, requirementId]);
 
   if (loading) {
     return (

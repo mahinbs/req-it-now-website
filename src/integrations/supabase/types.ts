@@ -9,6 +9,41 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_read_status: {
+        Row: {
+          admin_id: string
+          created_at: string
+          id: string
+          last_read_at: string
+          requirement_id: string
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          id?: string
+          last_read_at?: string
+          requirement_id: string
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          id?: string
+          last_read_at?: string
+          requirement_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_read_status_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "requirements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_users: {
         Row: {
           created_at: string
@@ -163,9 +198,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_unread_counts_for_admin: {
+        Args: { admin_user_id: string }
+        Returns: {
+          requirement_id: string
+          unread_count: number
+        }[]
+      }
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
+      }
+      mark_requirement_as_read: {
+        Args: { admin_user_id: string; req_id: string }
+        Returns: undefined
       }
       send_email_notification: {
         Args: {

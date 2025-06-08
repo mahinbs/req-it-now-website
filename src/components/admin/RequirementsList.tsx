@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, RefreshCw } from 'lucide-react';
 import { RequirementCard } from './RequirementCard';
+import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -26,6 +27,12 @@ export const RequirementsList = ({
   onDownloadAttachment, 
   onRefresh 
 }: RequirementsListProps) => {
+  const { getUnreadCount, markAsRead, loading: notificationsLoading } = useAdminNotifications();
+
+  const handleRefresh = () => {
+    onRefresh();
+  };
+
   if (requirements.length === 0) {
     return (
       <Card className="bg-white border-slate-200">
@@ -37,7 +44,7 @@ export const RequirementsList = ({
           <p className="text-slate-600">
             Waiting for users to submit their first requirements
           </p>
-          <Button onClick={onRefresh} className="mt-4" variant="outline">
+          <Button onClick={handleRefresh} className="mt-4" variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh Data
           </Button>
@@ -47,14 +54,24 @@ export const RequirementsList = ({
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {requirements.map((requirement) => (
-        <RequirementCard
-          key={requirement.id}
-          requirement={requirement}
-          onOpenChat={onChatClick}
-        />
-      ))}
+    <div className="space-y-4">
+      {notificationsLoading && (
+        <div className="text-center text-sm text-slate-600 py-2">
+          Loading notification status...
+        </div>
+      )}
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {requirements.map((requirement) => (
+          <RequirementCard
+            key={requirement.id}
+            requirement={requirement}
+            onOpenChat={onChatClick}
+            unreadCount={getUnreadCount(requirement.id)}
+            onMarkAsRead={markAsRead}
+          />
+        ))}
+      </div>
     </div>
   );
 };

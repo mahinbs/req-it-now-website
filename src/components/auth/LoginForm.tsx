@@ -89,7 +89,7 @@ export const LoginForm = ({ onLogin, onSwitchToSignup }: LoginFormProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
           {error && (
             <div className="flex items-start space-x-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -98,24 +98,27 @@ export const LoginForm = ({ onLogin, onSwitchToSignup }: LoginFormProps) => {
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="login-email">Email</Label>
+            <Label htmlFor="user-email">Email</Label>
             <Input
-              id="login-email"
+              id="user-email"
               name="email"
               type="email"
-              placeholder="Enter your email"
+              placeholder="your@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="username"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
               required
               disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="login-password">Password</Label>
+            <Label htmlFor="user-password">Password</Label>
             <div className="relative">
               <Input
-                id="login-password"
+                id="user-password"
                 name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
@@ -132,6 +135,7 @@ export const LoginForm = ({ onLogin, onSwitchToSignup }: LoginFormProps) => {
                 className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
+                tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>

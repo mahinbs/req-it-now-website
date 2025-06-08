@@ -14,9 +14,10 @@ type Requirement = Tables<'requirements'> & {
 interface ChatModalProps {
   requirement: Requirement | null;
   onClose: () => void;
+  onMarkAsRead?: (requirementId: string) => void;
 }
 
-export const ChatModal = ({ requirement, onClose }: ChatModalProps) => {
+export const ChatModal = ({ requirement, onClose, onMarkAsRead }: ChatModalProps) => {
   if (!requirement) return null;
 
   return (
@@ -43,6 +44,7 @@ export const ChatModal = ({ requirement, onClose }: ChatModalProps) => {
           currentUserName="Admin"
           isAdmin={true}
           isCurrentChat={true}
+          onMarkAsRead={onMarkAsRead}
         />
       </div>
     </div>
