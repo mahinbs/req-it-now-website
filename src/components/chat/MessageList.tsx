@@ -1,9 +1,11 @@
 
 import React from 'react';
+import { MessageAttachments } from './MessageAttachments';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Message = Tables<'messages'> & {
   sender_name?: string;
+  attachments?: Tables<'message_attachments'>[];
 };
 
 interface MessageListProps {
@@ -43,6 +45,10 @@ export const MessageList = ({ messages, requirementId, isAdmin, messagesEndRef }
               {message.sender_name} • {new Date(message.created_at).toLocaleTimeString()}
             </div>
             <div className="text-sm">{message.content}</div>
+            
+            {message.attachments && message.attachments.length > 0 && (
+              <MessageAttachments attachments={message.attachments} />
+            )}
           </div>
         </div>
       ))}

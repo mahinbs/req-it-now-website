@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useChatOptimized } from '@/hooks/useChatOptimized';
+import { useChatWithAttachments } from '@/hooks/useChatWithAttachments';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
@@ -33,7 +33,7 @@ const ChatBoxContent = ({
     messagesEndRef, 
     sendMessage, 
     retryConnection
-  } = useChatOptimized({
+  } = useChatWithAttachments({
     requirementId,
     isAdmin,
     isCurrentChat

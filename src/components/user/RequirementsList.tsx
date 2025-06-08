@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Plus, FileText, Paperclip } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
+import { AcceptanceButton } from './AcceptanceButton';
 import { useClientNotifications } from '@/hooks/useClientNotifications';
 import { getStatusColor, getPriorityColor, formatDate, getAttachmentCount } from '@/utils/requirementUtils';
 import type { Tables } from '@/integrations/supabase/types';
@@ -15,12 +16,14 @@ interface RequirementsListProps {
   requirements: Requirement[];
   onSelectRequirement: (requirement: Requirement) => void;
   onShowNewRequirement: () => void;
+  onRequirementUpdate?: () => void;
 }
 
 export const RequirementsList = ({ 
   requirements, 
   onSelectRequirement, 
-  onShowNewRequirement 
+  onShowNewRequirement,
+  onRequirementUpdate 
 }: RequirementsListProps) => {
   const { getUnreadCount, markAsRead, loading: notificationsLoading } = useClientNotifications();
 
@@ -34,6 +37,24 @@ export const RequirementsList = ({
     }
     
     onSelectRequirement(requirement);
+  };
+
+  const getStatusBadgeVariant = (requirement: Requirement) => {
+    if (requirement.approved_by_admin && requirement.accepted_by_client) {
+      return 'bg-green-100 text-green-800 border-green-300';
+    } else if (requirement.approved_by_admin) {
+      return 'bg-blue-100 text-blue-800 border-blue-300';
+    }
+    return getStatusColor(requirement.status);
+  };
+
+  const getStatusText = (requirement: Requirement) => {
+    if (requirement.approved_by_admin && requirement.accepted_by_client) {
+      return 'Accepted & Confirmed';
+    } else if (requirement.approved_by_admin) {
+      return 'Approved by Admin';
+    }
+    return requirement.status.replace('_', ' ');
   };
 
   if (requirements.length === 0) {
@@ -81,8 +102,8 @@ export const RequirementsList = ({
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-2">
-                  <Badge variant="outline" className={getStatusColor(requirement.status)}>
-                    {requirement.status.replace('_', ' ')}
+                  <Badge variant="outline" className={getStatusBadgeVariant(requirement)}>
+                    {getStatusText(requirement)}
                   </Badge>
                   <span className="text-xs text-slate-500">
                     {formatDate(requirement.created_at)}
@@ -98,6 +119,16 @@ export const RequirementsList = ({
                   <div className="flex items-center text-xs text-slate-500 mb-4">
                     <Paperclip className="h-3 w-3 mr-1" />
                     {attachmentCount} attachment{attachmentCount !== 1 ? 's' : ''}
+                  </div>
+                )}
+                
+                {/* Show acceptance button for approved requirements */}
+                {requirement.approved_by_admin && (
+                  <div className="mb-4">
+                    <AcceptanceButton 
+                      requirement={requirement} 
+                      onAcceptanceUpdate={onRequirementUpdate || (() => {})} 
+                    />
                   </div>
                 )}
                 

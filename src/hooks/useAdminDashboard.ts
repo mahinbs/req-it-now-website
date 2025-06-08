@@ -162,12 +162,18 @@ export const useAdminDashboard = () => {
     });
   };
 
+  const handleApprovalUpdate = async () => {
+    console.log('Approval status updated, refreshing data...');
+    await fetchRequirements();
+  };
+
   return {
     requirements,
     loading,
     refreshing,
     error,
     setError,
-    handleRefresh
+    handleRefresh,
+    handleApprovalUpdate
   };
 };

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, User, Calendar, Paperclip, Video } from 'lucide-react';
 import { getStatusColor, getPriorityColor, formatDate, getUniqueAttachments } from '@/utils/requirementUtils';
+import { ApprovalButton } from './ApprovalButton';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -20,13 +21,15 @@ interface RequirementCardProps {
   onOpenChat: (requirement: Requirement) => void;
   unreadCount?: number;
   onMarkAsRead?: (requirementId: string) => void;
+  onApprovalUpdate?: () => void;
 }
 
 export const RequirementCard = ({ 
   requirement, 
   onOpenChat, 
   unreadCount = 0,
-  onMarkAsRead 
+  onMarkAsRead,
+  onApprovalUpdate 
 }: RequirementCardProps) => {
   const attachments = getUniqueAttachments(requirement);
   
@@ -39,6 +42,24 @@ export const RequirementCard = ({
     }
     
     onOpenChat(requirement);
+  };
+
+  const getStatusBadgeVariant = () => {
+    if (requirement.approved_by_admin && requirement.accepted_by_client) {
+      return 'bg-green-100 text-green-800 border-green-300';
+    } else if (requirement.approved_by_admin) {
+      return 'bg-blue-100 text-blue-800 border-blue-300';
+    }
+    return getStatusColor(requirement.status);
+  };
+
+  const getStatusText = () => {
+    if (requirement.approved_by_admin && requirement.accepted_by_client) {
+      return 'Accepted by Client';
+    } else if (requirement.approved_by_admin) {
+      return 'Approved - Awaiting Client';
+    }
+    return requirement.status.replace('_', ' ');
   };
   
   return (
@@ -61,8 +82,8 @@ export const RequirementCard = ({
             <Badge variant="outline" className={getPriorityColor(requirement.priority)}>
               {requirement.priority}
             </Badge>
-            <Badge variant="outline" className={getStatusColor(requirement.status)}>
-              {requirement.status.replace('_', ' ')}
+            <Badge variant="outline" className={getStatusBadgeVariant()}>
+              {getStatusText()}
             </Badge>
           </div>
         </div>
@@ -117,10 +138,19 @@ export const RequirementCard = ({
           </div>
         )}
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <span className="text-xs text-slate-500">
             Website: {requirement.profiles?.website_url || 'Not provided'}
           </span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between space-x-3">
+          <ApprovalButton 
+            requirement={requirement} 
+            onApprovalUpdate={onApprovalUpdate || (() => {})} 
+          />
+          
           <div className="relative">
             <Button
               onClick={handleOpenChat}

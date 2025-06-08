@@ -124,6 +124,47 @@ export type Database = {
         }
         Relationships: []
       }
+      message_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id: string
+          message_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id?: string
+          message_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          id?: string
+          message_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -185,6 +226,11 @@ export type Database = {
       }
       requirements: {
         Row: {
+          acceptance_date: string | null
+          accepted_by_client: boolean | null
+          approval_date: string | null
+          approved_by_admin: boolean | null
+          approved_by_admin_id: string | null
           attachment_metadata: Json | null
           attachment_urls: string[] | null
           created_at: string
@@ -199,6 +245,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          acceptance_date?: string | null
+          accepted_by_client?: boolean | null
+          approval_date?: string | null
+          approved_by_admin?: boolean | null
+          approved_by_admin_id?: string | null
           attachment_metadata?: Json | null
           attachment_urls?: string[] | null
           created_at?: string
@@ -213,6 +264,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          acceptance_date?: string | null
+          accepted_by_client?: boolean | null
+          approval_date?: string | null
+          approved_by_admin?: boolean | null
+          approved_by_admin_id?: string | null
           attachment_metadata?: Json | null
           attachment_urls?: string[] | null
           created_at?: string

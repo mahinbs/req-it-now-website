@@ -51,6 +51,11 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     }
   };
 
+  const handleRequirementUpdate = async () => {
+    // Refresh requirements data when something changes
+    window.location.reload();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
@@ -126,6 +131,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
               requirements={requirements}
               onSelectRequirement={setSelectedRequirement}
               onShowNewRequirement={() => setShowNewRequirement(true)}
+              onRequirementUpdate={handleRequirementUpdate}
             />
           </TabsContent>
 

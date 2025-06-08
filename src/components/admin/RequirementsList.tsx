@@ -19,13 +19,15 @@ interface RequirementsListProps {
   onChatClick: (requirement: Requirement) => void;
   onDownloadAttachment: (url: string, fileName: string) => void;
   onRefresh: () => void;
+  onApprovalUpdate?: () => void;
 }
 
 export const RequirementsList = ({ 
   requirements, 
   onChatClick, 
   onDownloadAttachment, 
-  onRefresh 
+  onRefresh,
+  onApprovalUpdate 
 }: RequirementsListProps) => {
   const { getUnreadCount, markAsRead, loading: notificationsLoading } = useAdminNotifications();
 
@@ -69,6 +71,7 @@ export const RequirementsList = ({
             onOpenChat={onChatClick}
             unreadCount={getUnreadCount(requirement.id)}
             onMarkAsRead={markAsRead}
+            onApprovalUpdate={onApprovalUpdate}
           />
         ))}
       </div>
