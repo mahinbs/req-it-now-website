@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -99,7 +98,11 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <AdminDashboardHeader onLogout={handleLogout} />
+      <AdminDashboardHeader 
+        onLogout={handleLogout}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+      />
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
