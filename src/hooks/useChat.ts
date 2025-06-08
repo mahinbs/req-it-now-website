@@ -19,6 +19,8 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(true);
+  const channelRef = useRef<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,21 +31,25 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
   }, [messages]);
 
   useEffect(() => {
-    let mounted = true;
-    let channel: any = null;
-
+    mountedRef.current = true;
+    
     const initializeChat = async () => {
+      console.log('Initializing chat for requirement:', requirementId || 'general');
+      
       try {
-        console.log('Initializing chat for requirement:', requirementId || 'general');
+        // Clear any existing error
+        setError(null);
         
+        // Fetch initial messages
         await fetchMessages();
         
-        if (mounted) {
+        // Setup realtime subscription only after successful fetch
+        if (mountedRef.current) {
           setupRealtimeSubscription();
         }
       } catch (error) {
         console.error('Error initializing chat:', error);
-        if (mounted) {
+        if (mountedRef.current) {
           setError('Failed to load chat messages');
           setLoading(false);
         }
@@ -51,10 +57,15 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
     };
 
     const setupRealtimeSubscription = () => {
+      // Clean up existing channel first
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+
       const channelName = `chat-${requirementId || 'general'}-${Date.now()}`;
       console.log('Setting up chat subscription:', channelName);
       
-      channel = supabase
+      const channel = supabase
         .channel(channelName)
         .on(
           'postgres_changes',
@@ -66,10 +77,12 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
           },
           (payload) => {
             console.log('New message received:', payload);
-            if (mounted) {
+            if (mountedRef.current) {
               const newMessage = payload.new as Message;
               newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
+              
               setMessages(prev => {
+                // Prevent duplicate messages
                 const exists = prev.some(msg => msg.id === newMessage.id);
                 if (exists) return prev;
                 return [...prev, newMessage];
@@ -79,19 +92,28 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
         )
         .subscribe((status) => {
           console.log('Chat subscription status:', status);
-          if (status === 'SUBSCRIBED' && mounted) {
+          if (status === 'SUBSCRIBED' && mountedRef.current) {
             setLoading(false);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Chat subscription error');
+            if (mountedRef.current) {
+              setError('Real-time connection failed');
+              setLoading(false);
+            }
           }
         });
+
+      channelRef.current = channel;
     };
 
     initializeChat();
 
     return () => {
       console.log('Cleaning up chat component');
-      mounted = false;
-      if (channel) {
-        supabase.removeChannel(channel);
+      mountedRef.current = false;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
   }, [requirementId]);
@@ -99,7 +121,6 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
   const fetchMessages = async () => {
     try {
       console.log('Fetching messages for:', requirementId || 'general chat');
-      setError(null);
       
       let query = supabase
         .from('messages')
@@ -125,25 +146,31 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
       })) || [];
       
       console.log('Messages fetched successfully:', messagesWithNames.length);
-      setMessages(messagesWithNames);
-      setLoading(false);
+      
+      if (mountedRef.current) {
+        setMessages(messagesWithNames);
+        setError(null);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
-      setError('Failed to load messages');
-      setLoading(false);
-      toast({
-        title: "Error",
-        description: "Failed to load messages. Please refresh and try again.",
-        variant: "destructive"
-      });
+      if (mountedRef.current) {
+        setError('Failed to load messages');
+        toast({
+          title: "Error",
+          description: "Failed to load messages. Please refresh and try again.",
+          variant: "destructive"
+        });
+      }
+      throw error;
     }
   };
 
   const sendMessage = async (content: string) => {
-    if (sending) return;
+    if (sending || !mountedRef.current) return;
     
     try {
       setSending(true);
+      setError(null);
       console.log('Sending message...');
       
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -176,22 +203,32 @@ export const useChat = ({ requirementId, isAdmin = false }: UseChatProps) => {
       
     } catch (error) {
       console.error('Error sending message:', error);
-      setError('Failed to send message');
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send message. Please try again.",
-        variant: "destructive"
-      });
+      const errorMessage = error instanceof Error ? error.message : "Failed to send message. Please try again.";
+      
+      if (mountedRef.current) {
+        setError(errorMessage);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
       throw error;
     } finally {
-      setSending(false);
+      if (mountedRef.current) {
+        setSending(false);
+      }
     }
   };
 
   const retryFetch = () => {
+    if (!mountedRef.current) return;
+    
     setError(null);
     setLoading(true);
-    fetchMessages();
+    fetchMessages().catch(() => {
+      // Error already handled in fetchMessages
+    });
   };
 
   return {

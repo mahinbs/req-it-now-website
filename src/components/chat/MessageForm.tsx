@@ -24,6 +24,8 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
     try {
       await onSendMessage(messageContent);
     } catch (error) {
+      console.error('Message send failed:', error);
+      // Restore the message content on error
       setNewMessage(messageContent);
     } finally {
       setIsLoading(false);
@@ -38,15 +40,16 @@ export const MessageForm = ({ onSendMessage, disabled = false }: MessageFormProp
         placeholder="Type your message..."
         disabled={isLoading || disabled}
         className="flex-1"
+        autoComplete="off"
       />
       <Button 
         type="submit" 
         size="sm" 
         disabled={isLoading || disabled || !newMessage.trim()}
-        className="flex items-center space-x-1"
+        className="flex items-center space-x-1 px-3"
       >
         <Send className="h-4 w-4" />
-        {isLoading && <span className="text-xs">Sending...</span>}
+        {isLoading && <span className="text-xs ml-1">Sending...</span>}
       </Button>
     </form>
   );

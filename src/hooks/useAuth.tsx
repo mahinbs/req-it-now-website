@@ -19,67 +19,78 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
+    let authSubscription: any = null;
 
     console.log('Setting up authentication listeners...');
 
-    // Set up auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth event:', event, session?.user?.email);
-      
-      if (!mounted) return;
-      
-      if (session?.user) {
-        setUser(session.user);
-        setError(null);
-        try {
-          await fetchUserProfile(session.user.id);
-        } catch (profileError) {
-          console.error('Profile fetch error:', profileError);
-          setError('Failed to load user profile');
-          if (mounted) {
-            setLoading(false);
-          }
-        }
-      } else {
-        setUser(null);
-        setUserProfile(null);
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    });
-
-    // Check for existing session
-    const getInitialSession = async () => {
+    const initializeAuth = async () => {
       try {
-        console.log('Checking for existing session...');
+        // Check for existing session first
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('Session error:', sessionError);
-          setError(sessionError.message);
-          setLoading(false);
-          return;
+          throw sessionError;
         }
 
-        if (!session?.user && mounted) {
+        if (session?.user && mounted) {
+          console.log('Existing session found:', session.user.email);
+          setUser(session.user);
+          await fetchUserProfile(session.user.id);
+        } else {
           console.log('No existing session found');
+          if (mounted) {
+            setLoading(false);
+          }
+        }
+
+        // Set up auth state listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('Auth event:', event, session?.user?.email);
+          
+          if (!mounted) return;
+          
+          if (session?.user) {
+            setUser(session.user);
+            setError(null);
+            try {
+              await fetchUserProfile(session.user.id);
+            } catch (profileError) {
+              console.error('Profile fetch error:', profileError);
+              setError('Failed to load user profile');
+              if (mounted) {
+                setLoading(false);
+              }
+            }
+          } else {
+            // User logged out
+            setUser(null);
+            setUserProfile(null);
+            if (mounted) {
+              setLoading(false);
+            }
+          }
+        });
+
+        authSubscription = subscription;
+
+      } catch (err) {
+        console.error('Auth initialization failed:', err);
+        if (mounted) {
+          setError('Failed to check authentication status');
           setLoading(false);
         }
-        // If session exists, onAuthStateChange will handle it
-      } catch (err) {
-        console.error('Initial session check failed:', err);
-        setError('Failed to check authentication status');
-        setLoading(false);
       }
     };
 
-    getInitialSession();
+    initializeAuth();
 
     return () => {
       console.log('Cleaning up authentication listeners');
       mounted = false;
-      subscription.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
   }, []);
 
@@ -179,6 +190,8 @@ export const useAuth = () => {
   const handleLogin = async (email: string, password: string) => {
     try {
       setError(null);
+      setLoading(true);
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -190,6 +203,7 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message);
+      setLoading(false);
       throw error;
     }
   };
@@ -203,6 +217,7 @@ export const useAuth = () => {
     try {
       console.log('Starting signup for:', userData.email);
       setError(null);
+      setLoading(true);
       
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
@@ -234,6 +249,7 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error('Signup error:', error);
       setError(error.message);
+      setLoading(false);
       throw error;
     }
   };
@@ -241,6 +257,7 @@ export const useAuth = () => {
   const handleLogout = async () => {
     try {
       console.log('Starting logout...');
+      setLoading(true);
       
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -249,7 +266,12 @@ export const useAuth = () => {
       }
       
       console.log('Logout successful');
-      // State will be cleared by onAuthStateChange
+      
+      // Clear state immediately
+      setUser(null);
+      setUserProfile(null);
+      setError(null);
+      setLoading(false);
       
       toast({
         title: "Signed out",
@@ -258,6 +280,7 @@ export const useAuth = () => {
       
     } catch (error: any) {
       console.error('Logout error:', error);
+      setLoading(false);
       toast({
         title: "Error",
         description: "Failed to sign out. Please try again.",
