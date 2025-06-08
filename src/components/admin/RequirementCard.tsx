@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, User, Calendar, Paperclip, Video, AlertTriangle } from 'lucide-react';
-import { getStatusColor, getPriorityColor, formatDate, getUniqueAttachments } from '@/utils/requirementUtils';
+import { getPriorityColor, formatDate, getUniqueAttachments } from '@/utils/requirementUtils';
 import { StatusDropdown } from './StatusDropdown';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
@@ -54,7 +54,7 @@ export const RequirementCard = ({
     } else if (requirement.approved_by_admin) {
       return 'bg-blue-100 text-blue-800 border-blue-300';
     }
-    return getStatusColor(requirement.status);
+    return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const getStatusText = () => {

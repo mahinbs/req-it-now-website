@@ -82,52 +82,48 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
   const currentConfig = adminStatusConfig[currentStatus as keyof typeof adminStatusConfig];
 
   return (
-    <div className="flex items-center space-x-2">
-      <Badge variant="outline" className={currentConfig?.color || adminStatusConfig.pending.color}>
-        <CurrentIcon className="h-3 w-3 mr-1" />
-        {currentConfig?.label || 'Pending'}
-      </Badge>
-      
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={updating}
-            className="flex items-center space-x-1"
-          >
-            {updating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <span>Change Status</span>
-                <ChevronDown className="h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
-          {Object.entries(adminStatusConfig).map(([status, config]) => {
-            const Icon = statusIcons[status as keyof typeof statusIcons];
-            const isActive = status === currentStatus;
-            
-            return (
-              <DropdownMenuItem
-                key={status}
-                onClick={() => handleStatusChange(status)}
-                className={`flex items-center space-x-2 cursor-pointer ${
-                  isActive ? 'bg-slate-100 font-medium' : ''
-                }`}
-                disabled={isActive || updating}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{config.label}</span>
-                {isActive && <span className="text-xs text-slate-500">(Current)</span>}
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={updating}
+          className="flex items-center space-x-2"
+        >
+          {updating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              <Badge variant="outline" className={currentConfig?.color || adminStatusConfig.pending.color}>
+                <CurrentIcon className="h-3 w-3 mr-1" />
+                {currentConfig?.label || 'Pending'}
+              </Badge>
+              <ChevronDown className="h-4 w-4" />
+            </>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40 bg-white border shadow-lg z-50">
+        {Object.entries(adminStatusConfig).map(([status, config]) => {
+          const Icon = statusIcons[status as keyof typeof statusIcons];
+          const isActive = status === currentStatus;
+          
+          return (
+            <DropdownMenuItem
+              key={status}
+              onClick={() => handleStatusChange(status)}
+              className={`flex items-center space-x-2 cursor-pointer ${
+                isActive ? 'bg-slate-100 font-medium' : ''
+              }`}
+              disabled={isActive || updating}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{config.label}</span>
+              {isActive && <span className="text-xs text-slate-500">(Current)</span>}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
