@@ -3,11 +3,11 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Plus, FileText, Paperclip, Clock, Play, CheckCircle } from 'lucide-react';
+import { MessageCircle, Plus, FileText, Paperclip } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import { AcceptanceButton } from './AcceptanceButton';
 import { useClientNotifications } from '@/hooks/useClientNotifications';
-import { getStatusColor, getPriorityColor, formatDate, getAttachmentCount } from '@/utils/requirementUtils';
+import { getStatusColor, getPriorityColor, formatDate, getAttachmentCount, adminStatusConfig } from '@/utils/requirementUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'>;
@@ -18,24 +18,6 @@ interface RequirementsListProps {
   onShowNewRequirement: () => void;
   onRequirementUpdate?: () => void;
 }
-
-const adminStatusConfig = {
-  pending: {
-    label: 'Pending Review',
-    icon: Clock,
-    color: 'bg-yellow-100 text-yellow-800 border-yellow-300'
-  },
-  ongoing: {
-    label: 'Work in Progress',
-    icon: Play,
-    color: 'bg-blue-100 text-blue-800 border-blue-300'
-  },
-  completed: {
-    label: 'Completed',
-    icon: CheckCircle,
-    color: 'bg-green-100 text-green-800 border-green-300'
-  }
-};
 
 export const RequirementsList = ({ 
   requirements, 

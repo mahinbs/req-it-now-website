@@ -99,6 +99,14 @@ export const useAdminDashboard = () => {
       console.log('Fetching requirements...');
       setError(null);
       
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('Current user:', user.id);
+
       const [requirementsResult, profilesResult] = await Promise.all([
         supabase
           .from('requirements')
@@ -138,15 +146,20 @@ export const useAdminDashboard = () => {
       console.log('Final requirements with profiles:', requirementsWithProfiles.length);
       setRequirements(requirementsWithProfiles);
       setLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in fetchRequirements:', error);
-      setError('Failed to load requirements data');
+      const errorMessage = error.message || 'Failed to load requirements data';
+      setError(errorMessage);
       setLoading(false);
-      toast({
-        title: "Error",
-        description: "Failed to load requirements",
-        variant: "destructive"
-      });
+      
+      // Only show toast for non-auth errors to avoid spam
+      if (!errorMessage.includes('authenticated')) {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
     } finally {
       setRefreshing(false);
     }
