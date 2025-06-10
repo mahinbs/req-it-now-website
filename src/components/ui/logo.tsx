@@ -12,5 +12,5 @@ export const Logo = ({
     md: 'h-8 w-8',
     lg: 'h-12 w-12'
   };
-  return <img src="https://res.cloudinary.com/dknafpppp/image/upload/v1749387988/boostmysites_logo_2_zaj2rr.png" alt="BoostMySites Logo" className="" />;
+  return <img src="https://res.cloudinary.com/dknafpppp/image/upload/v1749387988/boostmysites_logo_2_zaj2rr.png" alt="BoostMySites Logo" className="object-scale-down" />;
 };
