@@ -28,6 +28,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Performance monitoring utility
+  const measurePerformance = (label: string, fn: Function) => {
+    return async (...args: any[]) => {
+      const start = performance.now();
+      try {
+        const result = await fn(...args);
+        const end = performance.now();
+        console.log(`⚡ ${label} took ${(end - start).toFixed(2)}ms`);
+        return result;
+      } catch (error) {
+        const end = performance.now();
+        console.error(`❌ ${label} failed after ${(end - start).toFixed(2)}ms:`, error);
+        throw error;
+      }
+    };
+  };
+
   // Optimized sign out with immediate UI feedback
   const signOut = useCallback(async () => {
     try {
@@ -134,22 +151,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const checkAdminStatus = useCallback(async (userId: string) => {
+  const checkAdminStatus = useCallback(measurePerformance('Admin check', async (userId: string) => {
     try {
-      const { data, error } = await supabase.rpc('is_admin', { user_id: userId });
+      // Add timeout to admin check
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Admin check timeout')), 3000)
+      );
+
+      const adminCheckPromise = supabase.rpc('is_admin', { user_id: userId });
+      
+      const { data, error } = await Promise.race([
+        adminCheckPromise,
+        timeoutPromise
+      ]) as any;
+      
       if (!error) {
         setIsAdmin(data || false);
+        console.log(`✅ Admin status set: ${data || false}`);
+      } else {
+        console.warn('Admin check failed, defaulting to false:', error);
+        setIsAdmin(false);
       }
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      console.warn('Admin check timeout or error, defaulting to false:', error);
       setIsAdmin(false);
     }
-  }, []);
+  }), []);
 
   useEffect(() => {
     let mounted = true;
+    console.log('🚀 Initializing auth...');
 
-    const initializeAuth = async () => {
+    const initializeAuth = measurePerformance('Auth initialization', async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -160,9 +193,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (mounted) {
           setUser(session?.user ?? null);
           if (session?.user) {
-            await checkAdminStatus(session.user.id);
+            // Run admin check in background to not block UI
+            checkAdminStatus(session.user.id);
           }
           setLoading(false);
+          console.log('✅ Auth initialization complete');
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -172,7 +207,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setLoading(false);
         }
       }
-    };
+    });
 
     initializeAuth();
 
@@ -180,7 +215,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       async (event, session) => {
         if (!mounted) return;
 
-        console.log('Auth state changed:', event);
+        console.log('🔄 Auth state changed:', event);
         
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
@@ -188,7 +223,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           setUser(session.user);
           if (session.user) {
-            await checkAdminStatus(session.user.id);
+            // Run admin check in background
+            checkAdminStatus(session.user.id);
           }
         }
         
@@ -197,6 +233,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     return () => {
+      console.log('🧹 Cleaning up auth');
       mounted = false;
       subscription.unsubscribe();
     };
