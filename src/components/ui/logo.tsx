@@ -15,8 +15,8 @@ export const Logo = ({ className = '', size = 'md' }: LogoProps) => {
 
   return (
     <img 
-      src="https://res.cloudinary.com/dknafpppp/image/upload/v1748806784/freepik_br_f976b57b-9b0c-47dc-8aa0-439758154a91_cpevk3.png" 
-      alt="req-it-now Logo" 
+      src="https://res.cloudinary.com/dknafpppp/image/upload/v1749387988/boostmysites_logo_2_zaj2rr.png" 
+      alt="BoostMySites Logo" 
       className={`${sizeClasses[size]} ${className}`}
     />
   );

@@ -35,7 +35,7 @@ export const UserDashboardHeader = ({
               <Logo size="md" className="text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">req-it-now</h1>
+              <h1 className="text-2xl font-bold text-slate-900">BoostMySites</h1>
               <p className="text-slate-600">{user.company_name}</p>
             </div>
           </div>

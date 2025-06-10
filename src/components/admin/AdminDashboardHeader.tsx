@@ -20,7 +20,7 @@ export const AdminDashboardHeader = ({ onRefresh, onLogout, refreshing }: AdminD
               <Logo size="md" className="text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">req-it-now Admin</h1>
+              <h1 className="text-2xl font-bold text-slate-900">BoostMySites Admin</h1>
               <p className="text-slate-600">Manage website requirements and communicate with clients</p>
             </div>
           </div>
