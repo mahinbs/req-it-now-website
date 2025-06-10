@@ -16,8 +16,8 @@ export const AdminDashboardHeader = ({ onRefresh, onLogout, refreshing }: AdminD
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Logo size="md" className="text-white" />
+            <div className="bg-blue-600 p-1.5 rounded-lg">
+              <Logo size="sm" className="text-white" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-900">BoostMySites Admin</h1>
