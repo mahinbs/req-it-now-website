@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider, useAuth } from '@/hooks/useAuthOptimized';
+import { GlobalNotificationProvider } from '@/hooks/useGlobalNotifications';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
 
@@ -52,10 +53,12 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <div className="min-h-screen bg-background">
-          <AppContent />
-          <Toaster />
-        </div>
+        <GlobalNotificationProvider>
+          <div className="min-h-screen bg-background">
+            <AppContent />
+            <Toaster />
+          </div>
+        </GlobalNotificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
