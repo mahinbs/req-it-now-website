@@ -15,12 +15,14 @@ interface GlobalNotificationState {
   notificationCounts: NotificationCounts;
   hasNewMessage: boolean;
   connected: boolean;
+  error: string | null;
 }
 
 interface GlobalNotificationContextType {
   notificationCounts: NotificationCounts;
   hasNewMessage: boolean;
   connected: boolean;
+  error: string | null;
   clearNotifications: (requirementId: string) => void;
   getUnreadCount: (requirementId: string) => number;
 }
@@ -31,13 +33,15 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
   const [state, setState] = useState<GlobalNotificationState>({
     notificationCounts: {},
     hasNewMessage: false,
-    connected: false
+    connected: false,
+    error: null
   });
 
   const mountedRef = useRef(true);
   const channelRef = useRef<any>(null);
   const currentUserIdRef = useRef<string | null>(null);
   const isAdminRef = useRef<boolean>(false);
+  const initializationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateState = (updates: Partial<GlobalNotificationState>) => {
     if (mountedRef.current) {
@@ -50,8 +54,17 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) return { userId: null, isAdmin: false };
 
-      // Check if user is admin
-      const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: user.id });
+      // Check if user is admin with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Admin check timeout')), 5000)
+      );
+
+      const adminCheckPromise = supabase.rpc('is_admin', { user_id: user.id });
+      
+      const { data: adminCheck, error: adminError } = await Promise.race([
+        adminCheckPromise,
+        timeoutPromise
+      ]) as any;
       
       return {
         userId: user.id,
@@ -59,74 +72,126 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
       };
     } catch (error) {
       console.error('Error getting current user info:', error);
+      updateState({ error: 'Failed to load user information' });
       return { userId: null, isAdmin: false };
     }
   };
 
   const setupGlobalSubscription = async () => {
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
+    try {
+      // Clear any existing timeout
+      if (initializationTimeoutRef.current) {
+        clearTimeout(initializationTimeoutRef.current);
+      }
 
-    // Get current user info for proper notification logic
-    const { userId, isAdmin } = await getCurrentUserInfo();
-    currentUserIdRef.current = userId;
-    isAdminRef.current = isAdmin;
-    
-    console.log('Setting up global notifications for user:', userId, isAdmin ? '(Admin)' : '(User)');
+      // Set timeout for initialization
+      initializationTimeoutRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          console.warn('Notification setup timeout - continuing without notifications');
+          updateState({ connected: false, error: null });
+        }
+      }, 10000);
 
-    const channel = supabase
-      .channel('global-messages-optimized')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
-        (payload) => {
-          console.log('Global message received:', payload);
-          if (mountedRef.current && currentUserIdRef.current) {
-            const newMessage = payload.new as Message;
-            
-            // Notification logic based on user type
-            let shouldNotify = false;
-            
-            if (isAdminRef.current) {
-              // Admin should get notifications for client messages only
-              shouldNotify = !newMessage.is_admin && newMessage.sender_id !== currentUserIdRef.current;
-            } else {
-              // Client should get notifications for admin messages only
-              shouldNotify = newMessage.is_admin && newMessage.sender_id !== currentUserIdRef.current;
-            }
-            
-            if (shouldNotify) {
-              const requirementId = newMessage.requirement_id || 'general';
-              
-              setState(prev => ({
-                ...prev,
-                notificationCounts: {
-                  ...prev.notificationCounts,
-                  [requirementId]: (prev.notificationCounts[requirementId] || 0) + 1
-                },
-                hasNewMessage: true
-              }));
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
 
-              console.log('Notification added for requirement:', requirementId, 'Admin:', isAdminRef.current);
+      // Get current user info for proper notification logic
+      const { userId, isAdmin } = await getCurrentUserInfo();
+      currentUserIdRef.current = userId;
+      isAdminRef.current = isAdmin;
+      
+      console.log('Setting up global notifications for user:', userId, isAdmin ? '(Admin)' : '(User)');
+
+      if (!userId) {
+        // Clear timeout since we're done
+        if (initializationTimeoutRef.current) {
+          clearTimeout(initializationTimeoutRef.current);
+          initializationTimeoutRef.current = null;
+        }
+        updateState({ connected: false, error: null });
+        return;
+      }
+
+      const channel = supabase
+        .channel('global-messages-optimized')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+          },
+          (payload) => {
+            if (mountedRef.current && currentUserIdRef.current) {
+              try {
+                console.log('Global message received:', payload);
+                const newMessage = payload.new as Message;
+                
+                // Notification logic based on user type
+                let shouldNotify = false;
+                
+                if (isAdminRef.current) {
+                  // Admin should get notifications for client messages only
+                  shouldNotify = !newMessage.is_admin && newMessage.sender_id !== currentUserIdRef.current;
+                } else {
+                  // Client should get notifications for admin messages only
+                  shouldNotify = newMessage.is_admin && newMessage.sender_id !== currentUserIdRef.current;
+                }
+                
+                if (shouldNotify) {
+                  const requirementId = newMessage.requirement_id || 'general';
+                  
+                  setState(prev => ({
+                    ...prev,
+                    notificationCounts: {
+                      ...prev.notificationCounts,
+                      [requirementId]: (prev.notificationCounts[requirementId] || 0) + 1
+                    },
+                    hasNewMessage: true
+                  }));
+
+                  console.log('Notification added for requirement:', requirementId, 'Admin:', isAdminRef.current);
+                }
+              } catch (error) {
+                console.error('Error processing notification:', error);
+              }
             }
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Global notification subscription status:', status);
-        if (mountedRef.current) {
-          updateState({ 
-            connected: status === 'SUBSCRIBED'
-          });
-        }
-      });
+        )
+        .subscribe((status) => {
+          console.log('Global notification subscription status:', status);
+          if (mountedRef.current) {
+            // Clear timeout on successful subscription
+            if (status === 'SUBSCRIBED' && initializationTimeoutRef.current) {
+              clearTimeout(initializationTimeoutRef.current);
+              initializationTimeoutRef.current = null;
+            }
+            
+            updateState({ 
+              connected: status === 'SUBSCRIBED',
+              error: status === 'CHANNEL_ERROR' ? 'Failed to connect to notifications' : null
+            });
+          }
+        });
 
-    channelRef.current = channel;
+      channelRef.current = channel;
+
+    } catch (error) {
+      console.error('Error setting up global subscription:', error);
+      if (mountedRef.current) {
+        updateState({ 
+          connected: false, 
+          error: 'Failed to initialize notifications' 
+        });
+      }
+      
+      // Clear timeout on error
+      if (initializationTimeoutRef.current) {
+        clearTimeout(initializationTimeoutRef.current);
+        initializationTimeoutRef.current = null;
+      }
+    }
   };
 
   useEffect(() => {
@@ -136,6 +201,12 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
     return () => {
       console.log('Cleaning up global notifications');
       mountedRef.current = false;
+      
+      // Clear timeout
+      if (initializationTimeoutRef.current) {
+        clearTimeout(initializationTimeoutRef.current);
+        initializationTimeoutRef.current = null;
+      }
       
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
@@ -167,6 +238,7 @@ export const useGlobalNotifications = (): GlobalNotificationContextType => {
     notificationCounts: state.notificationCounts,
     hasNewMessage: state.hasNewMessage,
     connected: state.connected,
+    error: state.error,
     clearNotifications,
     getUnreadCount
   };
