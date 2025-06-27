@@ -1,16 +1,19 @@
 
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, MessageCircle, AlertCircle } from 'lucide-react';
+import { Loader2, MessageCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ChatLoadingProps {
   error?: string | null;
   loadingMessage?: string;
+  onRetry?: () => void;
 }
 
 export const ChatLoading = ({ 
   error, 
-  loadingMessage = "Loading messages..." 
+  loadingMessage = "Loading messages...",
+  onRetry
 }: ChatLoadingProps) => {
   return (
     <Card className="w-full">
@@ -29,9 +32,22 @@ export const ChatLoading = ({
               {error ? 'Connection Error' : loadingMessage}
             </p>
             {error && (
-              <p className="mt-2 text-xs text-red-600 bg-red-50 px-3 py-1 rounded">
-                {error}
-              </p>
+              <div className="mt-2 space-y-2">
+                <p className="text-xs text-red-600 bg-red-50 px-3 py-1 rounded max-w-md">
+                  {error}
+                </p>
+                {onRetry && (
+                  <Button 
+                    onClick={onRetry} 
+                    size="sm" 
+                    variant="outline"
+                    className="mt-2"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Try Again
+                  </Button>
+                )}
+              </div>
             )}
             {!error && (
               <p className="mt-1 text-xs text-gray-500">
