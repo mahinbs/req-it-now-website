@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -270,15 +269,13 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
               <h2 className="text-2xl font-bold text-white font-space-grotesk">All Requirements</h2>
             </div>
             
-            {/* Enhanced Filters */}
-            {requirements.length > 0 && (
-              <div className="glass bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-6">
-                <RequirementsFilter 
-                  filters={filters}
-                  onFiltersChange={setFilters}
-                />
-              </div>
-            )}
+            {/* Always show filters */}
+            <div className="glass bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-6">
+              <RequirementsFilter 
+                filters={filters}
+                onFiltersChange={setFilters}
+              />
+            </div>
             
             <div className="scale-in">
               <RequirementsList
