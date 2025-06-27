@@ -34,7 +34,7 @@ const ChatBoxContent = ({
     hasMore,
     loadingMore,
     messagesEndRef, 
-    sendMessage, 
+    sendMessage: originalSendMessage, 
     retryConnection,
     loadMoreMessages
   } = useChatWithAttachments({
@@ -44,6 +44,13 @@ const ChatBoxContent = ({
   });
 
   const { markAsRead: unifiedMarkAsRead } = useUnifiedNotificationContext();
+
+  // Wrapper to match MessageForm interface
+  const sendMessage = useCallback(async (content: string, file?: File) => {
+    // Convert single file to array for compatibility with useChatWithAttachments
+    const attachments = file ? [file] : undefined;
+    await originalSendMessage(content, attachments);
+  }, [originalSendMessage]);
 
   // Mark messages as read only once when chat is opened
   const handleMarkAsRead = useCallback(async () => {

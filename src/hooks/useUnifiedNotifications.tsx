@@ -65,11 +65,15 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
         ? 'get_unread_counts_for_admin'
         : 'get_unread_counts_for_client';
       
-      const paramName = isAdmin ? 'admin_user_id' : 'client_user_id';
+      // Fix: Use explicit parameter objects instead of dynamic ones
+      let rpcParams;
+      if (isAdmin) {
+        rpcParams = { admin_user_id: user.id };
+      } else {
+        rpcParams = { client_user_id: user.id };
+      }
       
-      const { data, error } = await supabase.rpc(rpcFunction, {
-        [paramName]: user.id
-      });
+      const { data, error } = await supabase.rpc(rpcFunction, rpcParams);
 
       if (error) {
         console.error('Error fetching unread counts:', error);
@@ -201,11 +205,15 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
         ? 'mark_requirement_as_read'
         : 'mark_requirement_as_read_for_client';
       
-      const params = isAdmin 
-        ? { admin_user_id: user.id, req_id: requirementId }
-        : { client_user_id: user.id, req_id: requirementId };
+      // Fix: Use explicit parameter objects instead of dynamic ones
+      let rpcParams;
+      if (isAdmin) {
+        rpcParams = { admin_user_id: user.id, req_id: requirementId };
+      } else {
+        rpcParams = { client_user_id: user.id, req_id: requirementId };
+      }
 
-      const { error } = await supabase.rpc(rpcFunction, params);
+      const { error } = await supabase.rpc(rpcFunction, rpcParams);
 
       if (error) {
         console.error('Error marking as read:', error);
