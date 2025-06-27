@@ -56,7 +56,10 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
   };
 
   const fetchInitialUnreadCounts = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      updateState({ loading: false });
+      return;
+    }
 
     try {
       console.log('Fetching initial unread counts for:', user.id, isAdmin ? '(Admin)' : '(Client)');
@@ -65,7 +68,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
         ? 'get_unread_counts_for_admin'
         : 'get_unread_counts_for_client';
       
-      // Fix: Use explicit parameter objects instead of dynamic ones
       let rpcParams;
       if (isAdmin) {
         rpcParams = { admin_user_id: user.id };
@@ -77,6 +79,11 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
 
       if (error) {
         console.error('Error fetching unread counts:', error);
+        updateState({ 
+          loading: false, 
+          error: 'Failed to load notifications',
+          connected: false
+        });
         return;
       }
 
@@ -87,11 +94,16 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
 
       updateState({ 
         notificationCounts: unreadCounts,
-        loading: false 
+        loading: false,
+        error: null
       });
     } catch (error) {
       console.error('Error in fetchInitialUnreadCounts:', error);
-      updateState({ loading: false, error: 'Failed to load notifications' });
+      updateState({ 
+        loading: false, 
+        error: 'Failed to connect to notification service',
+        connected: false
+      });
     }
   };
 
@@ -105,8 +117,8 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       
       subscriptionActiveRef.current = true;
       
-      // Use a single, consistent channel name based on user role
-      const channelName = `unified-notifications-${isAdmin ? 'admin' : 'client'}-${user.id}`;
+      // Use a unique channel name to prevent conflicts
+      const channelName = `unified-notifications-${isAdmin ? 'admin' : 'client'}-${user.id}-${Date.now()}`;
       
       const channel = supabase
         .channel(channelName)
@@ -159,17 +171,17 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
           if (mountedRef.current) {
             if (status === 'SUBSCRIBED') {
               updateState({ connected: true, error: null });
-              retryCountRef.current = 0; // Reset retry count on success
+              retryCountRef.current = 0;
             } else if (status === 'CHANNEL_ERROR') {
               subscriptionActiveRef.current = false;
               updateState({ 
                 connected: false, 
-                error: retryCountRef.current < 3 ? null : 'Connection failed after retries'
+                error: retryCountRef.current >= 3 ? 'Connection failed after retries' : null
               });
               
               // Retry with exponential backoff
               if (retryCountRef.current < 3) {
-                const delay = Math.pow(2, retryCountRef.current) * 1000; // 1s, 2s, 4s
+                const delay = Math.pow(2, retryCountRef.current) * 1000;
                 retryTimeoutRef.current = setTimeout(() => {
                   retryCountRef.current++;
                   setupUnifiedSubscription();
@@ -189,7 +201,7 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       subscriptionActiveRef.current = false;
       updateState({ 
         connected: false, 
-        error: 'Failed to initialize notifications',
+        error: 'Failed to initialize real-time notifications',
         loading: false
       });
     }
@@ -205,7 +217,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
         ? 'mark_requirement_as_read'
         : 'mark_requirement_as_read_for_client';
       
-      // Fix: Use explicit parameter objects instead of dynamic ones
       let rpcParams;
       if (isAdmin) {
         rpcParams = { admin_user_id: user.id, req_id: requirementId };

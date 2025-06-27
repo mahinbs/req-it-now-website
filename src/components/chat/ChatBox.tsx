@@ -47,12 +47,16 @@ const ChatBoxContent = ({
 
   // Wrapper to match MessageForm interface
   const sendMessage = useCallback(async (content: string, file?: File) => {
-    // Convert single file to array for compatibility with useChatWithAttachments
-    const attachments = file ? [file] : undefined;
-    await originalSendMessage(content, attachments);
+    try {
+      // Convert single file to array for compatibility with useChatWithAttachments
+      const attachments = file ? [file] : undefined;
+      await originalSendMessage(content, attachments);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   }, [originalSendMessage]);
 
-  // Mark messages as read only once when chat is opened
+  // Mark messages as read when chat is opened
   const handleMarkAsRead = useCallback(async () => {
     if (!isCurrentChat || !requirementId) return;
     
@@ -69,14 +73,13 @@ const ChatBoxContent = ({
     }
   }, [isCurrentChat, requirementId, isAdmin, onMarkAsRead, unifiedMarkAsRead]);
 
-  // Mark as read only when chat is first opened with messages
+  // Mark as read when chat is opened with messages
   useEffect(() => {
     if (isCurrentChat && messages.length > 0) {
-      // Debounce the mark as read to prevent multiple calls
       const timeoutId = setTimeout(handleMarkAsRead, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [isCurrentChat, messages.length > 0]); // Only depend on these specific values
+  }, [isCurrentChat, messages.length, handleMarkAsRead]);
 
   if (loading) {
     return <ChatLoading error={error} />;
