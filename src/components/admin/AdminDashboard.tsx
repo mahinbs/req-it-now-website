@@ -31,7 +31,11 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [filters, setFilters] = useState<FilterState>({
     dateFilter: 'newest',
-    statusFilter: 'all'
+    statusFilter: 'all',
+    priorityFilter: 'all',
+    searchTerm: '',
+    startDate: undefined,
+    endDate: undefined
   });
   
   const {
@@ -54,8 +58,16 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
   // Memoized filtered requirements for better performance
   const filteredRequirements = useMemo(() => {
-    return applyFilters(requirements, filters.dateFilter, filters.statusFilter);
-  }, [requirements, filters.dateFilter, filters.statusFilter]);
+    return applyFilters(
+      requirements, 
+      filters.dateFilter, 
+      filters.statusFilter, 
+      filters.priorityFilter,
+      filters.searchTerm,
+      filters.startDate,
+      filters.endDate
+    );
+  }, [requirements, filters.dateFilter, filters.statusFilter, filters.priorityFilter, filters.searchTerm, filters.startDate, filters.endDate]);
 
   // Memoized recent requirements for overview tab
   const recentRequirements = useMemo(() => {
@@ -256,13 +268,17 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
           <TabsContent value="requirements" className="space-y-8">
             <div className="flex items-center justify-between flex-wrap gap-6">
               <h2 className="text-2xl font-bold text-white font-space-grotesk">All Requirements</h2>
-              {requirements.length > 0 && (
+            </div>
+            
+            {/* Enhanced Filters */}
+            {requirements.length > 0 && (
+              <div className="glass bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-6">
                 <RequirementsFilter 
                   filters={filters}
                   onFiltersChange={setFilters}
                 />
-              )}
-            </div>
+              </div>
+            )}
             
             <div className="scale-in">
               <RequirementsList

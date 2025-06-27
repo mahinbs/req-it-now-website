@@ -1,6 +1,6 @@
 
 import type { Tables } from '@/integrations/supabase/types';
-import type { DateFilter, StatusFilter } from '@/components/filters/RequirementsFilter';
+import type { DateFilter, StatusFilter, PriorityFilter } from '@/components/filters/RequirementsFilter';
 
 type Requirement = Tables<'requirements'> & {
   profiles?: {
@@ -36,6 +36,67 @@ export const filterRequirementsByStatus = (
   });
 };
 
+export const filterRequirementsByPriority = (
+  requirements: Requirement[], 
+  priorityFilter: PriorityFilter
+): Requirement[] => {
+  if (priorityFilter === 'all') {
+    return requirements;
+  }
+
+  return requirements.filter(requirement => {
+    return requirement.priority === priorityFilter;
+  });
+};
+
+export const filterRequirementsByDateRange = (
+  requirements: Requirement[], 
+  startDate?: Date,
+  endDate?: Date
+): Requirement[] => {
+  if (!startDate && !endDate) {
+    return requirements;
+  }
+
+  return requirements.filter(requirement => {
+    const reqDate = new Date(requirement.created_at);
+    
+    if (startDate && reqDate < startDate) {
+      return false;
+    }
+    
+    if (endDate) {
+      // Set end date to end of day
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (reqDate > endOfDay) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+};
+
+export const filterRequirementsBySearch = (
+  requirements: Requirement[], 
+  searchTerm: string
+): Requirement[] => {
+  if (!searchTerm.trim()) {
+    return requirements;
+  }
+
+  const searchLower = searchTerm.toLowerCase();
+  
+  return requirements.filter(requirement => {
+    const titleMatch = requirement.title.toLowerCase().includes(searchLower);
+    const descriptionMatch = requirement.description.toLowerCase().includes(searchLower);
+    const companyMatch = requirement.profiles?.company_name?.toLowerCase().includes(searchLower) || false;
+    
+    return titleMatch || descriptionMatch || companyMatch;
+  });
+};
+
 export const sortRequirementsByDate = (
   requirements: Requirement[], 
   dateFilter: DateFilter
@@ -56,13 +117,29 @@ export const sortRequirementsByDate = (
 export const applyFilters = (
   requirements: Requirement[],
   dateFilter: DateFilter,
-  statusFilter: StatusFilter
+  statusFilter: StatusFilter,
+  priorityFilter: PriorityFilter,
+  searchTerm: string,
+  startDate?: Date,
+  endDate?: Date
 ): Requirement[] => {
-  // First filter by status
-  const statusFiltered = filterRequirementsByStatus(requirements, statusFilter);
+  // Apply all filters in sequence
+  let filtered = requirements;
   
-  // Then sort by date
-  const dateSorted = sortRequirementsByDate(statusFiltered, dateFilter);
+  // Filter by status
+  filtered = filterRequirementsByStatus(filtered, statusFilter);
   
-  return dateSorted;
+  // Filter by priority
+  filtered = filterRequirementsByPriority(filtered, priorityFilter);
+  
+  // Filter by date range
+  filtered = filterRequirementsByDateRange(filtered, startDate, endDate);
+  
+  // Filter by search term
+  filtered = filterRequirementsBySearch(filtered, searchTerm);
+  
+  // Sort by date
+  filtered = sortRequirementsByDate(filtered, dateFilter);
+  
+  return filtered;
 };

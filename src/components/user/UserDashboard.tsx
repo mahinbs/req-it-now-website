@@ -27,7 +27,11 @@ interface UserDashboardProps {
 export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
   const [filters, setFilters] = useState<FilterState>({
     dateFilter: 'newest',
-    statusFilter: 'all'
+    statusFilter: 'all',
+    priorityFilter: 'all',
+    searchTerm: '',
+    startDate: undefined,
+    endDate: undefined
   });
 
   const {
@@ -44,7 +48,15 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
   } = useUserDashboard(user);
 
   // Apply filters to requirements
-  const filteredRequirements = applyFilters(requirements, filters.dateFilter, filters.statusFilter);
+  const filteredRequirements = applyFilters(
+    requirements, 
+    filters.dateFilter, 
+    filters.statusFilter, 
+    filters.priorityFilter,
+    filters.searchTerm,
+    filters.startDate,
+    filters.endDate
+  );
 
   const handleLogout = async () => {
     try {
@@ -158,23 +170,25 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           <TabsContent value="requirements" className="space-y-8">
             <div className="flex items-center justify-between flex-wrap gap-6">
               <h2 className="text-2xl font-bold text-white font-space-grotesk">Your Requirements</h2>
-              <div className="flex items-center space-x-4">
-                {requirements.length > 0 && (
-                  <RequirementsFilter 
-                    filters={filters}
-                    onFiltersChange={setFilters}
-                  />
-                )}
-                <Button 
-                  onClick={() => setShowNewRequirement(true)} 
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 rounded-xl font-medium neon-glow group relative overflow-hidden text-white"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
-                  <Plus className="h-4 w-4 mr-2 relative z-10" />
-                  <span className="relative z-10">New Requirement</span>
-                </Button>
-              </div>
+              <Button 
+                onClick={() => setShowNewRequirement(true)} 
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 rounded-xl font-medium neon-glow group relative overflow-hidden text-white"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+                <Plus className="h-4 w-4 mr-2 relative z-10" />
+                <span className="relative z-10">New Requirement</span>
+              </Button>
             </div>
+
+            {/* Enhanced Filters */}
+            {requirements.length > 0 && (
+              <div className="glass bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-6">
+                <RequirementsFilter 
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                />
+              </div>
+            )}
 
             <div className="scale-in">
               <RequirementsList 
