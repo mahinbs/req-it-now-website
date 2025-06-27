@@ -1,9 +1,15 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { MessageCache, createRetryLogic } from './performanceUtils';
+import type { Tables } from '@/integrations/supabase/types';
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
-type MessageCallback = (message: any) => void;
+
+type RealtimeMessage = Tables<'messages'> & {
+  sender_name?: string;
+};
+
+type MessageCallback = (message: RealtimeMessage | { type: string; data: any }) => void;
 type StatusCallback = (status: ConnectionStatus) => void;
 
 interface ChatSubscription {
@@ -100,9 +106,9 @@ class ChatConnectionManager {
             : 'requirement_id=is.null'
         },
         (payload) => {
-          const message = {
-            ...payload.new,
-            sender_name: payload.new.is_admin ? 'Admin' : 'User'
+          const message: RealtimeMessage = {
+            ...(payload.new as Tables<'messages'>),
+            sender_name: (payload.new as Tables<'messages'>).is_admin ? 'Admin' : 'User'
           };
           
           // Cache the message
