@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,32 +7,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
-
 type Requirement = Tables<'requirements'>;
-
 interface RejectionModalProps {
   requirement: Requirement;
   onClose: () => void;
   onReject: () => void;
 }
-
-const rejectionReasons = [
-  'Not as per requirements',
-  'Quality issues',
-  'Missing functionality',
-  'Design concerns',
-  'Performance issues',
-  'Other (please specify)'
-];
-
-export const RejectionModal = ({ requirement, onClose, onReject }: RejectionModalProps) => {
+const rejectionReasons = ['Not as per requirements', 'Quality issues', 'Missing functionality', 'Design concerns', 'Performance issues', 'Other (please specify)'];
+export const RejectionModal = ({
+  requirement,
+  onClose,
+  onReject
+}: RejectionModalProps) => {
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
-
   const handleReject = async () => {
     const finalReason = selectedReason === 'Other (please specify)' ? customReason : selectedReason;
-    
     if (!finalReason.trim()) {
       toast({
         title: "Please select a reason",
@@ -42,34 +32,32 @@ export const RejectionModal = ({ requirement, onClose, onReject }: RejectionModa
       });
       return;
     }
-
     try {
       setIsRejecting(true);
-      
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        },
+        error: authError
+      } = await supabase.auth.getUser();
       if (authError || !user) {
         throw new Error('You must be logged in to reject requirements');
       }
-
-      const { error } = await supabase
-        .from('requirements')
-        .update({
-          rejected_by_client: true,
-          rejection_reason: finalReason,
-          status: 'rejected_by_client'
-        })
-        .eq('id', requirement.id);
-
+      const {
+        error
+      } = await supabase.from('requirements').update({
+        rejected_by_client: true,
+        rejection_reason: finalReason,
+        status: 'rejected_by_client'
+      }).eq('id', requirement.id);
       if (error) {
         console.error('Error rejecting requirement:', error);
         throw error;
       }
-
       toast({
         title: "Requirement Rejected",
         description: "Your feedback has been sent to the admin team. They will review and respond."
       });
-
       onReject();
       onClose();
     } catch (error) {
@@ -83,9 +71,7 @@ export const RejectionModal = ({ requirement, onClose, onReject }: RejectionModa
       setIsRejecting(false);
     }
   };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+  return <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -93,12 +79,7 @@ export const RejectionModal = ({ requirement, onClose, onReject }: RejectionModa
               <AlertTriangle className="h-5 w-5 text-red-600" />
               <span>Reject Requirement</span>
             </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-600"
-            >
+            <Button variant="ghost" size="sm" onClick={onClose} className="text-slate-400 hover:text-slate-600">
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -120,38 +101,22 @@ export const RejectionModal = ({ requirement, onClose, onReject }: RejectionModa
 
           {/* Rejection Reasons */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-slate-800">Please select a reason for rejection:</h3>
+            <h3 className="font-semibold text-zinc-100">Please select a reason for rejection:</h3>
             <div className="grid gap-2">
-              {rejectionReasons.map((reason) => (
-                <label key={reason} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="rejectionReason"
-                    value={reason}
-                    checked={selectedReason === reason}
-                    onChange={(e) => setSelectedReason(e.target.value)}
-                    className="text-red-600"
-                  />
+              {rejectionReasons.map(reason => <label key={reason} className="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" name="rejectionReason" value={reason} checked={selectedReason === reason} onChange={e => setSelectedReason(e.target.value)} className="text-red-600" />
                   <span className="text-sm">{reason}</span>
-                </label>
-              ))}
+                </label>)}
             </div>
           </div>
 
           {/* Custom Reason Input */}
-          {selectedReason === 'Other (please specify)' && (
-            <div className="space-y-2">
+          {selectedReason === 'Other (please specify)' && <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">
                 Please specify the reason:
               </label>
-              <Textarea
-                value={customReason}
-                onChange={(e) => setCustomReason(e.target.value)}
-                placeholder="Please describe the specific issues you found..."
-                className="min-h-[100px]"
-              />
-            </div>
-          )}
+              <Textarea value={customReason} onChange={e => setCustomReason(e.target.value)} placeholder="Please describe the specific issues you found..." className="min-h-[100px]" />
+            </div>}
 
           {/* Communication Note */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -171,33 +136,20 @@ export const RejectionModal = ({ requirement, onClose, onReject }: RejectionModa
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end space-x-3 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              disabled={isRejecting}
-            >
+            <Button variant="outline" onClick={onClose} disabled={isRejecting}>
               Cancel
             </Button>
-            <Button
-              onClick={handleReject}
-              disabled={isRejecting || !selectedReason}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {isRejecting ? (
-                <div className="flex items-center space-x-2">
+            <Button onClick={handleReject} disabled={isRejecting || !selectedReason} className="bg-red-600 hover:bg-red-700 text-white">
+              {isRejecting ? <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   <span>Rejecting...</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
+                </div> : <div className="flex items-center space-x-2">
                   <AlertTriangle className="h-4 w-4" />
                   <span>Confirm Rejection</span>
-                </div>
-              )}
+                </div>}
             </Button>
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
