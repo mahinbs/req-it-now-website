@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, Clock, Play, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronDown, Clock, Play, CheckCircle, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { adminStatusConfig } from '@/utils/requirementUtils';
@@ -39,6 +39,11 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
 
   const CurrentIcon = statusIcons[currentStatus as keyof typeof statusIcons] || Clock;
 
+  // Check if task was recently reopened
+  const wasRecentlyReopened = requirement.admin_response_to_rejection && 
+                              !requirement.rejected_by_client && 
+                              requirement.rejection_reason;
+
   const handleStatusChange = async (newStatus: string) => {
     if (newStatus === currentStatus || updating) return;
     
@@ -57,7 +62,8 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
       requirementId: requirement.id,
       currentStatus,
       newStatus,
-      userId: requirement.user_id
+      userId: requirement.user_id,
+      wasReopened: wasRecentlyReopened
     });
 
     // Optimistic update - immediately show the new status
@@ -65,12 +71,21 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
     setCurrentStatus(newStatus);
 
     try {
+      const updateData: any = { 
+        admin_status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      // Handle completion properly
+      if (newStatus === 'completed') {
+        updateData.completed_by_admin = true;
+        updateData.completion_date = new Date().toISOString();
+        updateData.status = 'completed_by_admin';
+      }
+
       const { error } = await supabase
         .from('requirements')
-        .update({ 
-          admin_status: newStatus,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', requirement.id);
 
       if (error) {
@@ -81,9 +96,10 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
       }
 
       console.log('Requirement status updated successfully');
+      const statusLabel = adminStatusConfig[newStatus as keyof typeof adminStatusConfig]?.label || newStatus;
       toast({
         title: "Status Updated",
-        description: `Requirement status changed to ${adminStatusConfig[newStatus as keyof typeof adminStatusConfig]?.label || newStatus}`,
+        description: `Requirement status changed to ${statusLabel}${wasRecentlyReopened ? ' (Reopened Task)' : ''}`,
       });
 
       // Call the callback to refresh data in parent components
@@ -127,9 +143,15 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <>
-              <Badge variant="outline" className={currentConfig?.color || adminStatusConfig.pending.color}>
+              <Badge 
+                variant="outline" 
+                className={`${currentConfig?.color || adminStatusConfig.pending.color} ${
+                  wasRecentlyReopened ? 'ring-2 ring-green-200' : ''
+                }`}
+              >
+                {wasRecentlyReopened && <RotateCcw className="h-3 w-3 mr-1" />}
                 <CurrentIcon className="h-3 w-3 mr-1" />
-                {currentConfig?.label || 'Pending'}
+                {wasRecentlyReopened ? 'Reopened' : currentConfig?.label || 'Pending'}
               </Badge>
               <ChevronDown className="h-4 w-4" />
             </>

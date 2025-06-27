@@ -7,7 +7,7 @@ import { RequirementCardAttachments } from './RequirementCardAttachments';
 import { RequirementCardActions } from './RequirementCardActions';
 import { RejectionResponseModal } from './RejectionResponseModal';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, MessageSquare } from 'lucide-react';
+import { AlertTriangle, MessageSquare, RotateCcw } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -55,10 +55,34 @@ export const RequirementCard = ({
     setShowRejectionModal(false);
     handleStatusUpdate();
   };
+
+  // Check if task was recently reopened
+  const wasRecentlyReopened = requirement.admin_response_to_rejection && 
+                              !requirement.rejected_by_client && 
+                              requirement.rejection_reason;
   
   return (
     <>
       <Card className="hover:shadow-md transition-shadow relative">
+        {/* Reopened Task Banner */}
+        {wasRecentlyReopened && (
+          <div className="bg-green-50 border-b border-green-200 p-3">
+            <div className="flex items-start space-x-2">
+              <RotateCcw className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-medium text-green-800">Task Reopened</h4>
+                <p className="text-xs text-green-700 mt-1">
+                  This task was reopened after addressing client concerns. Continue working and mark as complete when ready.
+                </p>
+                <div className="mt-2 p-2 bg-white border border-green-200 rounded text-xs">
+                  <span className="font-medium text-green-800">Your Response: </span>
+                  <span className="text-green-700">{requirement.admin_response_to_rejection}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Rejection Alert Banner */}
         {requirement.rejected_by_client && (
           <div className="bg-red-50 border-b border-red-200 p-3">

@@ -148,3 +148,14 @@ export const wasRequirementReopened = (requirement: Requirement): boolean => {
     requirement.admin_response_to_rejection
   );
 };
+
+// Helper function to get reopened task display info
+export const getReopenedTaskInfo = (requirement: Requirement) => {
+  const wasReopened = wasRequirementReopened(requirement);
+  return {
+    wasReopened,
+    responseToRejection: requirement.admin_response_to_rejection,
+    originalRejectionReason: requirement.rejection_reason,
+    canCompleteTask: wasReopened || (!requirement.rejected_by_client && requirement.admin_status !== 'completed')
+  };
+};
