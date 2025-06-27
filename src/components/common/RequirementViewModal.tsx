@@ -60,9 +60,9 @@ export const RequirementViewModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-700">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
+          <DialogTitle className="flex items-center space-x-2 text-white">
             <Eye className="h-5 w-5" />
             <span>Requirement Details</span>
           </DialogTitle>
@@ -73,7 +73,7 @@ export const RequirementViewModal = ({
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between">
-                <CardTitle className="text-xl font-semibold text-slate-900">
+                <CardTitle className="text-xl font-semibold text-white">
                   {requirement.title}
                 </CardTitle>
                 <div className="flex items-center space-x-2">
@@ -94,7 +94,7 @@ export const RequirementViewModal = ({
                     {wasRecentlyReopened ? 'Reopened' : statusConfig.label}
                   </Badge>
                 </div>
-                <div className="flex items-center text-sm text-slate-500">
+                <div className="flex items-center text-sm text-slate-300">
                   <Calendar className="h-4 w-4 mr-1" />
                   {formatDate(requirement.created_at, true)}
                 </div>
@@ -105,7 +105,7 @@ export const RequirementViewModal = ({
           {/* Company Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center">
+              <CardTitle className="text-lg flex items-center text-white">
                 <User className="h-5 w-5 mr-2" />
                 Company Information
               </CardTitle>
@@ -113,18 +113,18 @@ export const RequirementViewModal = ({
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-slate-600">Company Name</label>
-                  <p className="text-slate-900">{requirement.profiles?.company_name || 'Not provided'}</p>
+                  <label className="text-sm font-medium text-slate-300">Company Name</label>
+                  <p className="text-slate-100">{requirement.profiles?.company_name || 'Not provided'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-600">Website URL</label>
+                  <label className="text-sm font-medium text-slate-300">Website URL</label>
                   <div className="flex items-center space-x-2">
-                    <Globe className="h-4 w-4 text-slate-500" />
+                    <Globe className="h-4 w-4 text-slate-400" />
                     <a 
                       href={requirement.profiles?.website_url || '#'} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline"
+                      className="text-blue-400 hover:text-blue-300 hover:underline"
                     >
                       {requirement.profiles?.website_url || 'Not provided'}
                     </a>
@@ -137,10 +137,10 @@ export const RequirementViewModal = ({
           {/* Description */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Description</CardTitle>
+              <CardTitle className="text-lg text-white">Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+              <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
                 {requirement.description}
               </p>
             </CardContent>
@@ -148,9 +148,9 @@ export const RequirementViewModal = ({
 
           {/* Rejection/Reopened Information */}
           {requirement.rejected_by_client && (
-            <Card className="border-red-200 bg-red-50">
+            <Card className="border-red-500/50 bg-red-900/30">
               <CardHeader>
-                <CardTitle className="text-lg text-red-800 flex items-center">
+                <CardTitle className="text-lg text-red-300 flex items-center">
                   <AlertTriangle className="h-5 w-5 mr-2" />
                   Rejection Details
                 </CardTitle>
@@ -158,13 +158,13 @@ export const RequirementViewModal = ({
               <CardContent>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-medium text-red-700">Rejection Reason</label>
-                    <p className="text-red-800 mt-1">{requirement.rejection_reason || 'No specific reason provided'}</p>
+                    <label className="text-sm font-medium text-red-200">Rejection Reason</label>
+                    <p className="text-red-100 mt-1">{requirement.rejection_reason || 'No specific reason provided'}</p>
                   </div>
                   {requirement.admin_response_to_rejection && (
                     <div>
-                      <label className="text-sm font-medium text-red-700">Admin Response</label>
-                      <p className="text-red-800 mt-1">{requirement.admin_response_to_rejection}</p>
+                      <label className="text-sm font-medium text-red-200">Admin Response</label>
+                      <p className="text-red-100 mt-1">{requirement.admin_response_to_rejection}</p>
                     </div>
                   )}
                 </div>
@@ -174,28 +174,28 @@ export const RequirementViewModal = ({
 
           {/* Reopened Task Information */}
           {wasRecentlyReopened && (
-            <Card className="border-green-200 bg-green-50">
+            <Card className="border-green-500/50 bg-green-900/30">
               <CardHeader>
-                <CardTitle className="text-lg text-green-800 flex items-center">
+                <CardTitle className="text-lg text-green-300 flex items-center">
                   <RotateCcw className="h-5 w-5 mr-2" />
                   Task Reopened
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <p className="text-green-700">
+                  <p className="text-green-200">
                     This task was reopened after addressing client concerns. Work is continuing.
                   </p>
                   {requirement.rejection_reason && (
                     <div>
-                      <label className="text-sm font-medium text-green-700">Original Rejection Reason</label>
-                      <p className="text-green-800 mt-1">{requirement.rejection_reason}</p>
+                      <label className="text-sm font-medium text-green-200">Original Rejection Reason</label>
+                      <p className="text-green-100 mt-1">{requirement.rejection_reason}</p>
                     </div>
                   )}
                   {requirement.admin_response_to_rejection && (
                     <div>
-                      <label className="text-sm font-medium text-green-700">Admin Response</label>
-                      <p className="text-green-800 mt-1">{requirement.admin_response_to_rejection}</p>
+                      <label className="text-sm font-medium text-green-200">Admin Response</label>
+                      <p className="text-green-100 mt-1">{requirement.admin_response_to_rejection}</p>
                     </div>
                   )}
                 </div>
@@ -206,30 +206,30 @@ export const RequirementViewModal = ({
           {/* Status Timeline */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Status Timeline</CardTitle>
+              <CardTitle className="text-lg text-white">Status Timeline</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm text-slate-600">Created: {formatDate(requirement.created_at, true)}</span>
+                  <span className="text-sm text-slate-300">Created: {formatDate(requirement.created_at, true)}</span>
                 </div>
                 {requirement.approval_date && (
                   <div className="flex items-center space-x-3">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-slate-600">Approved: {formatDate(requirement.approval_date, true)}</span>
+                    <span className="text-sm text-slate-300">Approved: {formatDate(requirement.approval_date, true)}</span>
                   </div>
                 )}
                 {requirement.completion_date && (
                   <div className="flex items-center space-x-3">
                     <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <span className="text-sm text-slate-600">Completed: {formatDate(requirement.completion_date, true)}</span>
+                    <span className="text-sm text-slate-300">Completed: {formatDate(requirement.completion_date, true)}</span>
                   </div>
                 )}
                 {requirement.acceptance_date && (
                   <div className="flex items-center space-x-3">
                     <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                    <span className="text-sm text-slate-600">Accepted: {formatDate(requirement.acceptance_date, true)}</span>
+                    <span className="text-sm text-slate-300">Accepted: {formatDate(requirement.acceptance_date, true)}</span>
                   </div>
                 )}
               </div>
@@ -240,26 +240,26 @@ export const RequirementViewModal = ({
           {attachments.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Attachments ({attachments.length})</CardTitle>
+                <CardTitle className="text-lg text-white">Attachments ({attachments.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {attachments.map((attachment, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                    <div key={index} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-600">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                        <div className="w-8 h-8 bg-blue-600/20 rounded flex items-center justify-center">
                           {attachment.type === 'video' ? '🎥' : '📄'}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{attachment.name}</p>
-                          <p className="text-xs text-slate-500">{attachment.type === 'video' ? 'Video' : 'File'}</p>
+                          <p className="text-sm font-medium text-slate-200">{attachment.name}</p>
+                          <p className="text-xs text-slate-400">{attachment.type === 'video' ? 'Video' : 'File'}</p>
                         </div>
                       </div>
                       <Button
                         onClick={() => handleDownload(attachment.url, attachment.name)}
                         size="sm"
                         variant="outline"
-                        className="flex items-center space-x-1"
+                        className="flex items-center space-x-1 border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white"
                       >
                         <Download className="h-3 w-3" />
                         <span>Download</span>
