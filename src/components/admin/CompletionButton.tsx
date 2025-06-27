@@ -65,14 +65,14 @@ export const CompletionButton = ({ requirement, onCompletionUpdate }: Completion
   // Show completion status if already completed
   if (requirement.completed_by_admin) {
     return (
-      <div className="flex items-center space-x-2 text-green-600">
+      <div className="flex items-center space-x-2 text-green-300">
         <CheckCircle className="h-4 w-4" />
         <span className="text-sm">Work Completed</span>
         {requirement.accepted_by_client && (
-          <span className="text-xs text-green-700 font-medium">& Approved</span>
+          <span className="text-xs text-green-400 font-medium">& Approved</span>
         )}
         {requirement.rejected_by_client && (
-          <span className="text-xs text-orange-700 font-medium">& Needs Changes</span>
+          <span className="text-xs text-orange-400 font-medium">& Needs Changes</span>
         )}
       </div>
     );
@@ -88,7 +88,7 @@ export const CompletionButton = ({ requirement, onCompletionUpdate }: Completion
       onClick={handleMarkComplete}
       disabled={isCompleting}
       size="sm"
-      className="bg-blue-600 hover:bg-blue-700 text-white"
+      className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
     >
       {isCompleting ? (
         <div className="flex items-center space-x-1">

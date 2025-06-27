@@ -22,7 +22,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
   if (!requirement.completed_by_admin) {
     if (requirement.approved_by_admin) {
       return (
-        <div className="flex items-center space-x-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+        <div className="flex items-center space-x-2 text-blue-300 bg-blue-900/30 px-3 py-2 rounded-lg border border-blue-500/30">
           <Clock className="h-4 w-4 animate-pulse" />
           <span className="text-sm font-medium">Work in Progress</span>
         </div>
@@ -34,7 +34,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
   // Show final status if already decided
   if (requirement.accepted_by_client) {
     return (
-      <div className="flex items-center space-x-2 text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200 shadow-sm">
+      <div className="flex items-center space-x-2 text-green-300 bg-green-900/30 px-3 py-2 rounded-lg border border-green-500/30 shadow-sm">
         <CheckCircle2 className="h-4 w-4" />
         <span className="text-sm font-medium">Accepted & Confirmed</span>
       </div>
@@ -43,7 +43,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
 
   if (requirement.rejected_by_client) {
     return (
-      <div className="flex items-center space-x-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200 shadow-sm">
+      <div className="flex items-center space-x-2 text-red-300 bg-red-900/30 px-3 py-2 rounded-lg border border-red-500/30 shadow-sm">
         <X className="h-4 w-4" />
         <span className="text-sm font-medium">Rejected - Under Review</span>
       </div>
@@ -84,13 +84,13 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
   // Show Accept/Reject buttons only when work is completed but not yet decided
   return (
     <>
-      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200 shadow-sm">
+      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 rounded-lg border border-slate-500/50 shadow-sm">
         <div className="flex items-center space-x-2 ml-auto">
           <Button
             onClick={handleAcceptStart}
             size="sm"
             disabled={isProcessing}
-            className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+            className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 font-medium"
           >
             <CheckCircle2 className="h-4 w-4 mr-2" />
             Accept Work
@@ -101,7 +101,7 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
             size="sm"
             variant="outline"
             disabled={isProcessing}
-            className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 shadow-md hover:shadow-lg transition-all duration-200"
+            className="bg-slate-700/50 border-red-400/50 text-red-300 hover:bg-red-900/30 hover:border-red-400 hover:text-red-200 shadow-md hover:shadow-lg transition-all duration-200 font-medium"
           >
             <X className="h-4 w-4 mr-2" />
             Request Changes

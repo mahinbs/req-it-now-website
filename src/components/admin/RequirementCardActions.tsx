@@ -49,7 +49,7 @@ export const RequirementCardActions = ({
           onClick={onViewRequirement}
           size="sm"
           variant="outline"
-          className="w-full h-10 bg-slate-800/80 border-slate-600 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500 hover:text-white transition-all duration-200 font-medium"
+          className="w-full h-10 bg-slate-700/60 border-slate-500 text-slate-100 hover:bg-slate-600/80 hover:border-slate-400 hover:text-white transition-all duration-200 font-medium"
         >
           <Eye className="h-4 w-4 mr-2 flex-shrink-0" />
           <span className="truncate">View Details</span>
@@ -60,8 +60,10 @@ export const RequirementCardActions = ({
             onClick={handleOpenChat}
             size="sm"
             className={cn(
-              "w-full h-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg transition-all duration-200 font-medium",
-              unreadCount > 0 && "ring-2 ring-yellow-400/50 shadow-yellow-400/20 animate-pulse"
+              "w-full h-10 text-white shadow-lg transition-all duration-200 font-medium",
+              unreadCount > 0 
+                ? "bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 ring-2 ring-yellow-400/50 shadow-yellow-400/20 animate-pulse" 
+                : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             )}
           >
             <MessageCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -69,7 +71,7 @@ export const RequirementCardActions = ({
               {unreadCount > 0 ? 'New Messages' : 'Open Chat'}
             </span>
             {unreadCount > 0 && (
-              <div className="absolute -top-1 -right-1 bg-yellow-400 text-black rounded-full text-xs font-bold min-w-[1.25rem] h-5 flex items-center justify-center px-1 shadow-lg">
+              <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs font-bold min-w-[1.25rem] h-5 flex items-center justify-center px-1 shadow-lg">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </div>
             )}

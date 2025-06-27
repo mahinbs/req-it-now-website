@@ -72,14 +72,14 @@ export const ApprovalButton = ({ requirement, onApprovalUpdate }: ApprovalButton
   // Show completion status if already completed
   if (requirement.completed_by_admin) {
     return (
-      <div className="flex items-center space-x-2 text-green-600">
+      <div className="flex items-center space-x-2 text-green-300">
         <CheckCircle className="h-4 w-4" />
         <span className="text-sm">Completed</span>
         {requirement.accepted_by_client && (
-          <span className="text-xs text-green-700 font-medium">& Accepted</span>
+          <span className="text-xs text-green-400 font-medium">& Accepted</span>
         )}
         {requirement.rejected_by_client && (
-          <span className="text-xs text-red-700 font-medium">& Rejected</span>
+          <span className="text-xs text-red-400 font-medium">& Rejected</span>
         )}
       </div>
     );
@@ -92,7 +92,7 @@ export const ApprovalButton = ({ requirement, onApprovalUpdate }: ApprovalButton
         onClick={handleApprove}
         disabled={isApproving}
         size="sm"
-        className="bg-green-600 hover:bg-green-700 text-white"
+        className="bg-green-600 hover:bg-green-700 text-white font-medium"
       >
         {isApproving ? (
           <div className="flex items-center space-x-1">

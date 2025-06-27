@@ -98,7 +98,7 @@ export const RequirementsList = ({
           <p className="text-sm text-slate-300 text-center mb-6 max-w-md">
             Get started by submitting your first website requirement. Our team will review it and get back to you soon.
           </p>
-          <Button onClick={onShowNewRequirement} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={onShowNewRequirement} className="bg-blue-600 hover:bg-blue-700 text-white font-medium">
             <Plus className="h-4 w-4 mr-2" />
             Submit Your First Requirement
           </Button>
@@ -240,7 +240,7 @@ export const RequirementsList = ({
                       onClick={() => setSelectedViewRequirement(requirement)}
                       variant="outline"
                       size="sm"
-                      className="flex items-center space-x-2 border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white"
+                      className="flex items-center space-x-2 bg-slate-700/50 border-slate-500 text-slate-100 hover:bg-slate-600/80 hover:text-white hover:border-slate-400 font-medium"
                     >
                       <Eye className="h-4 w-4" />
                       <span>View</span>
@@ -251,14 +251,16 @@ export const RequirementsList = ({
                         onClick={() => handleSelectRequirement(requirement)}
                         variant="outline"
                         size="sm"
-                        className={`flex-1 flex items-center justify-center space-x-2 border-slate-600 text-slate-200 hover:bg-blue-700/50 hover:border-blue-400 hover:text-white ${
-                          unreadCount > 0 ? 'ring-2 ring-blue-400/50 ring-offset-1 shadow-lg bg-blue-800/30' : ''
+                        className={`flex-1 flex items-center justify-center space-x-2 font-medium ${
+                          unreadCount > 0 
+                            ? 'bg-blue-700/60 border-blue-400/60 text-white hover:bg-blue-600/80 hover:border-blue-300 ring-2 ring-blue-400/50 ring-offset-1 shadow-lg' 
+                            : 'bg-slate-700/50 border-slate-500 text-slate-100 hover:bg-blue-700/50 hover:border-blue-400 hover:text-white'
                         }`}
                       >
                         <MessageCircle className="h-4 w-4" />
                         <span>{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
                         {unreadCount > 0 && (
-                          <div className="ml-1 bg-blue-500 text-white rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
+                          <div className="ml-1 bg-blue-400 text-slate-900 rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
                             {unreadCount > 9 ? '9+' : unreadCount}
                           </div>
                         )}
