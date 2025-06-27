@@ -34,22 +34,22 @@ export const RequirementCardActions = ({
   };
 
   return (
-    <div className="space-y-4 mt-6">
+    <div className="space-y-3">
       {/* Status Dropdown - Full Width */}
-      <div className="flex justify-start">
+      <div className="w-full">
         <StatusDropdown 
           requirement={requirement} 
           onStatusUpdate={onStatusUpdate} 
         />
       </div>
       
-      {/* Action Buttons - Fixed Grid Layout */}
+      {/* Action Buttons - Consistent Grid Layout */}
       <div className="grid grid-cols-2 gap-3">
         <Button
           onClick={onViewRequirement}
           size="sm"
           variant="outline"
-          className="w-full h-10 bg-slate-700/60 border-slate-500 text-slate-100 hover:bg-slate-600/80 hover:border-slate-400 hover:text-white transition-all duration-200 font-medium"
+          className="w-full h-9 bg-slate-700/60 border-slate-500 text-slate-100 hover:bg-slate-600/80 hover:border-slate-400 hover:text-white transition-all duration-200 font-medium"
         >
           <Eye className="h-4 w-4 mr-2 flex-shrink-0" />
           <span className="truncate">View Details</span>
@@ -60,7 +60,7 @@ export const RequirementCardActions = ({
             onClick={handleOpenChat}
             size="sm"
             className={cn(
-              "w-full h-10 text-white shadow-lg transition-all duration-200 font-medium",
+              "w-full h-9 text-white shadow-lg transition-all duration-200 font-medium",
               unreadCount > 0 
                 ? "bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 ring-2 ring-yellow-400/50 shadow-yellow-400/20 animate-pulse" 
                 : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"

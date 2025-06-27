@@ -63,18 +63,20 @@ export const RequirementsList = ({
         </div>
       )}
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {requirements.map((requirement) => (
-          <RequirementCard
-            key={requirement.id}
-            requirement={requirement}
-            onOpenChat={onChatClick}
-            unreadCount={getUnreadCount(requirement.id)}
-            onMarkAsRead={markAsRead}
-            onApprovalUpdate={onApprovalUpdate}
-            onDownloadAttachment={onDownloadAttachment}
-          />
-        ))}
+      <div className="grid gap-6 auto-rows-fr">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+          {requirements.map((requirement) => (
+            <RequirementCard
+              key={requirement.id}
+              requirement={requirement}
+              onOpenChat={onChatClick}
+              unreadCount={getUnreadCount(requirement.id)}
+              onMarkAsRead={markAsRead}
+              onApprovalUpdate={onApprovalUpdate}
+              onDownloadAttachment={onDownloadAttachment}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

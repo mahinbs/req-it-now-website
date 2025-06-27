@@ -69,29 +69,35 @@ export const RequirementCardHeader = ({ requirement, unreadCount }: RequirementC
         </div>
       )}
       
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-lg font-semibold text-white leading-tight">
-            {requirement.title}
-          </CardTitle>
-          <div className="flex items-center space-x-2 ml-4">
-            <Badge variant="outline" className={getPriorityColor(requirement.priority)}>
-              {requirement.priority}
-            </Badge>
-            <Badge variant="outline" className={getStatusBadgeVariant()}>
-              {getStatusText()}
-            </Badge>
+      <CardHeader className="pb-3 flex-shrink-0">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="text-lg font-semibold text-white leading-tight flex-1 min-w-0">
+              {requirement.title}
+            </CardTitle>
+            <div className="flex flex-col items-end space-y-2 flex-shrink-0">
+              <Badge variant="outline" className={getPriorityColor(requirement.priority)}>
+                {requirement.priority}
+              </Badge>
+              <Badge variant="outline" className={getStatusBadgeVariant()}>
+                {getStatusText()}
+              </Badge>
+            </div>
           </div>
-        </div>
-        
-        <div className="flex items-center space-x-4 text-sm text-slate-300 mt-2">
-          <div className="flex items-center">
-            <User className="h-4 w-4 mr-1" />
-            {requirement.profiles?.company_name || 'Unknown Company'}
-          </div>
-          <div className="flex items-center">
-            <Calendar className="h-4 w-4 mr-1" />
-            {formatDate(requirement.created_at, true)}
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-300">
+            <div className="flex items-center min-w-0">
+              <User className="h-4 w-4 mr-1 flex-shrink-0" />
+              <span className="truncate">
+                {requirement.profiles?.company_name || 'Unknown Company'}
+              </span>
+            </div>
+            <div className="flex items-center">
+              <Calendar className="h-4 w-4 mr-1 flex-shrink-0" />
+              <span className="whitespace-nowrap">
+                {formatDate(requirement.created_at, true)}
+              </span>
+            </div>
           </div>
         </div>
       </CardHeader>

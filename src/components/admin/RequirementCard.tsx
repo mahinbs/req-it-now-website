@@ -67,10 +67,10 @@ export const RequirementCard = ({
   
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow relative">
+      <Card className="hover:shadow-lg transition-shadow relative h-full flex flex-col">
         {/* Reopened Task Banner */}
         {wasRecentlyReopened && (
-          <div className="bg-green-900/30 border-b border-green-500/30 p-3">
+          <div className="bg-green-900/30 border-b border-green-500/30 p-3 flex-shrink-0">
             <div className="flex items-start space-x-2">
               <RotateCcw className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
               <div className="min-w-0 flex-1">
@@ -89,9 +89,9 @@ export const RequirementCard = ({
 
         {/* Rejection Alert Banner */}
         {requirement.rejected_by_client && (
-          <div className="bg-red-900/30 border-b border-red-500/30 p-3">
+          <div className="bg-red-900/30 border-b border-red-500/30 p-3 flex-shrink-0">
             <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-2">
+              <div className="flex items-start space-x-2 min-w-0 flex-1">
                 <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
                   <h4 className="text-sm font-medium text-red-300">Rejected by Client</h4>
@@ -124,24 +124,26 @@ export const RequirementCard = ({
           unreadCount={unreadCount} 
         />
         
-        <CardContent className="pt-0">
-          <RequirementCardContent requirement={requirement} />
-          
-          <RequirementCardAttachments requirement={requirement} />
-          
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-slate-400">
+        <CardContent className="pt-0 flex-1 flex flex-col">
+          <div className="flex-1 space-y-4">
+            <RequirementCardContent requirement={requirement} />
+            
+            <RequirementCardAttachments requirement={requirement} />
+            
+            <div className="text-xs text-slate-400">
               Website: {requirement.profiles?.website_url || 'Not provided'}
-            </span>
+            </div>
           </div>
 
-          <RequirementCardActions
-            requirement={requirement}
-            unreadCount={unreadCount}
-            onOpenChat={handleOpenChat}
-            onStatusUpdate={handleStatusUpdate}
-            onViewRequirement={() => setShowViewModal(true)}
-          />
+          <div className="mt-4 pt-4 border-t border-slate-600/30">
+            <RequirementCardActions
+              requirement={requirement}
+              unreadCount={unreadCount}
+              onOpenChat={handleOpenChat}
+              onStatusUpdate={handleStatusUpdate}
+              onViewRequirement={() => setShowViewModal(true)}
+            />
+          </div>
         </CardContent>
       </Card>
 
