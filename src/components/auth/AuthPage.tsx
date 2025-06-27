@@ -50,10 +50,10 @@ export const AuthPage = () => {
           <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg mb-4">
             <Logo size="md" className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-3xl font-bold text-white mb-2">
             BoostMySites
           </h1>
-          <p className="text-slate-600 text-lg">
+          <p className="text-slate-200 text-lg">
             Manage your website changes and requirements efficiently
           </p>
         </div>
@@ -96,12 +96,12 @@ export const AuthPage = () => {
         )}
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-slate-600 space-y-2">
+        <div className="mt-8 text-center text-sm text-slate-200 space-y-2">
           <div className="flex items-center justify-center space-x-2">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <p className="text-green-600 font-medium">Ready to submit requirements!</p>
+            <p className="text-green-200 font-medium">Ready to submit requirements!</p>
           </div>
-          <p>Create your account and start submitting website changes</p>
+          <p className="text-slate-300">Create your account and start submitting website changes</p>
         </div>
       </div>
     </div>
