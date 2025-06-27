@@ -1,5 +1,5 @@
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -44,11 +44,12 @@ const ChatBoxContent = ({
   });
 
   const { markAsRead: unifiedMarkAsRead } = useUnifiedNotificationContext();
+  const hasMarkedAsReadRef = useRef(false);
+  const lastMessageCountRef = useRef(0);
 
   // Wrapper to match MessageForm interface
   const sendMessage = useCallback(async (content: string, file?: File) => {
     try {
-      // Convert single file to array for compatibility with useChatWithAttachments
       const attachments = file ? [file] : undefined;
       await originalSendMessage(content, attachments);
     } catch (error) {
@@ -56,9 +57,9 @@ const ChatBoxContent = ({
     }
   }, [originalSendMessage]);
 
-  // Mark messages as read when chat is opened
+  // Mark messages as read only after user interaction or visibility
   const handleMarkAsRead = useCallback(async () => {
-    if (!isCurrentChat || !requirementId) return;
+    if (!isCurrentChat || !requirementId || hasMarkedAsReadRef.current) return;
     
     console.log('ChatBox marking messages as read for requirement:', requirementId);
     
@@ -68,18 +69,32 @@ const ChatBoxContent = ({
       } else {
         await unifiedMarkAsRead(requirementId);
       }
+      hasMarkedAsReadRef.current = true;
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
   }, [isCurrentChat, requirementId, isAdmin, onMarkAsRead, unifiedMarkAsRead]);
 
-  // Mark as read when chat is opened with messages
+  // Only mark as read when user has interacted with the chat
   useEffect(() => {
-    if (isCurrentChat && messages.length > 0) {
-      const timeoutId = setTimeout(handleMarkAsRead, 500);
+    if (isCurrentChat && messages.length > lastMessageCountRef.current && messages.length > 0) {
+      // Only mark as read if there are new messages and user is actively viewing
+      const timeoutId = setTimeout(() => {
+        if (isCurrentChat) {
+          handleMarkAsRead();
+        }
+      }, 2000); // 2 second delay to ensure user actually sees the messages
+      
+      lastMessageCountRef.current = messages.length;
       return () => clearTimeout(timeoutId);
     }
   }, [isCurrentChat, messages.length, handleMarkAsRead]);
+
+  // Reset read status when switching chats
+  useEffect(() => {
+    hasMarkedAsReadRef.current = false;
+    lastMessageCountRef.current = 0;
+  }, [requirementId]);
 
   if (loading) {
     return <ChatLoading error={error} />;
@@ -123,7 +138,10 @@ const ChatBoxContent = ({
             </div>
           )}
           
-          <div className="h-64 overflow-y-auto border rounded-md p-3 space-y-3">
+          <div 
+            className="h-64 overflow-y-auto border rounded-md p-3 space-y-3"
+            onClick={handleMarkAsRead} // Mark as read when user clicks in chat area
+          >
             <MessageList 
               messages={messages}
               requirementId={requirementId}

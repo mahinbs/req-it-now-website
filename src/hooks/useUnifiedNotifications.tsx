@@ -29,6 +29,7 @@ interface UnifiedNotificationContextType {
   clearNotifications: (requirementId: string) => void;
   getUnreadCount: (requirementId: string) => number;
   markAsRead: (requirementId: string) => Promise<void>;
+  refreshNotifications: () => Promise<void>;
 }
 
 const UnifiedNotificationContext = createContext<UnifiedNotificationContextType | null>(null);
@@ -48,6 +49,7 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
   const subscriptionActiveRef = useRef(false);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const retryCountRef = useRef(0);
+  const lastNotificationCheckRef = useRef(Date.now());
 
   const updateState = (updates: Partial<NotificationState>) => {
     if (mountedRef.current) {
@@ -92,10 +94,14 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
         unreadCounts[item.requirement_id || 'general'] = item.unread_count;
       });
 
+      console.log('Fetched unread counts:', unreadCounts);
+      lastNotificationCheckRef.current = Date.now();
+
       updateState({ 
         notificationCounts: unreadCounts,
         loading: false,
-        error: null
+        error: null,
+        hasNewMessage: Object.values(unreadCounts).some(count => count > 0)
       });
     } catch (error) {
       console.error('Error in fetchInitialUnreadCounts:', error);
@@ -117,7 +123,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       
       subscriptionActiveRef.current = true;
       
-      // Use a unique channel name to prevent conflicts
       const channelName = `unified-notifications-${isAdmin ? 'admin' : 'client'}-${user.id}-${Date.now()}`;
       
       const channel = supabase
@@ -133,16 +138,31 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
             if (mountedRef.current && user) {
               try {
                 const newMessage = payload.new as Message;
+                console.log('New message received:', newMessage);
                 
-                // Determine if this message should create a notification
+                // Enhanced logic for determining notification eligibility
                 let shouldNotify = false;
                 
                 if (isAdmin) {
                   // Admin gets notifications for client messages only
+                  // Make sure the message is NOT from an admin and NOT from current user
                   shouldNotify = !newMessage.is_admin && newMessage.sender_id !== user.id;
+                  console.log('Admin notification check:', { 
+                    isAdmin: newMessage.is_admin, 
+                    senderId: newMessage.sender_id, 
+                    currentUserId: user.id,
+                    shouldNotify 
+                  });
                 } else {
-                  // Client gets notifications for admin messages only
+                  // Client gets notifications for admin messages only  
+                  // Make sure the message IS from an admin and NOT from current user
                   shouldNotify = newMessage.is_admin && newMessage.sender_id !== user.id;
+                  console.log('Client notification check:', { 
+                    isAdmin: newMessage.is_admin, 
+                    senderId: newMessage.sender_id, 
+                    currentUserId: user.id,
+                    shouldNotify 
+                  });
                 }
                 
                 if (shouldNotify) {
@@ -150,14 +170,19 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
                   
                   console.log('Adding notification for:', requirementId, 'User:', isAdmin ? 'Admin' : 'Client');
                   
-                  setState(prev => ({
-                    ...prev,
-                    notificationCounts: {
+                  setState(prev => {
+                    const newCount = (prev.notificationCounts[requirementId] || 0) + 1;
+                    const updatedCounts = {
                       ...prev.notificationCounts,
-                      [requirementId]: (prev.notificationCounts[requirementId] || 0) + 1
-                    },
-                    hasNewMessage: true
-                  }));
+                      [requirementId]: newCount
+                    };
+                    
+                    return {
+                      ...prev,
+                      notificationCounts: updatedCounts,
+                      hasNewMessage: Object.values(updatedCounts).some(count => count > 0)
+                    };
+                  });
                 }
               } catch (error) {
                 console.error('Error processing notification:', error);
@@ -179,7 +204,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
                 error: retryCountRef.current >= 3 ? 'Connection failed after retries' : null
               });
               
-              // Retry with exponential backoff
               if (retryCountRef.current < 3) {
                 const delay = Math.pow(2, retryCountRef.current) * 1000;
                 retryTimeoutRef.current = setTimeout(() => {
@@ -232,21 +256,27 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       }
 
       // Update local state immediately
-      setState(prev => ({
-        ...prev,
-        notificationCounts: {
+      setState(prev => {
+        const updatedCounts = {
           ...prev.notificationCounts,
           [requirementId]: 0
-        },
-        hasNewMessage: Object.values({
-          ...prev.notificationCounts,
-          [requirementId]: 0
-        }).some(count => count > 0)
-      }));
+        };
+        
+        return {
+          ...prev,
+          notificationCounts: updatedCounts,
+          hasNewMessage: Object.values(updatedCounts).some(count => count > 0)
+        };
+      });
 
     } catch (error) {
       console.error('Error in markAsRead:', error);
     }
+  };
+
+  const refreshNotifications = async () => {
+    console.log('Manually refreshing notifications...');
+    await fetchInitialUnreadCounts();
   };
 
   useEffect(() => {
@@ -259,10 +289,20 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       updateState({ loading: false });
     }
 
+    // Periodic refresh as fallback (every 30 seconds)
+    const interval = setInterval(() => {
+      if (user?.id && Date.now() - lastNotificationCheckRef.current > 30000) {
+        console.log('Periodic notification refresh');
+        fetchInitialUnreadCounts();
+      }
+    }, 30000);
+
     return () => {
       console.log('Cleaning up unified notifications');
       mountedRef.current = false;
       subscriptionActiveRef.current = false;
+      
+      clearInterval(interval);
       
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
@@ -278,17 +318,18 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
 
   const clearNotifications = (requirementId: string) => {
     console.log('Clearing notifications for:', requirementId);
-    setState(prev => ({
-      ...prev,
-      notificationCounts: {
+    setState(prev => {
+      const updatedCounts = {
         ...prev.notificationCounts,
         [requirementId]: 0
-      },
-      hasNewMessage: Object.values({
-        ...prev.notificationCounts,
-        [requirementId]: 0
-      }).some(count => count > 0)
-    }));
+      };
+      
+      return {
+        ...prev,
+        notificationCounts: updatedCounts,
+        hasNewMessage: Object.values(updatedCounts).some(count => count > 0)
+      };
+    });
   };
 
   const getUnreadCount = (requirementId: string) => {
@@ -303,7 +344,8 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
     loading: state.loading,
     clearNotifications,
     getUnreadCount,
-    markAsRead
+    markAsRead,
+    refreshNotifications
   };
 };
 

@@ -1,11 +1,13 @@
+
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Bell } from 'lucide-react';
 import { RequirementsList } from './RequirementsList';
 import { ChatModal } from './ChatModal';
 import { AnalyticsCards } from './AnalyticsCards';
 import { AdminDashboardHeader } from './AdminDashboardHeader';
+import { NotificationDebugger } from './NotificationDebugger';
 import { RequirementsFilter, type FilterState } from '@/components/filters/RequirementsFilter';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { useUnifiedNotificationContext } from '@/hooks/useUnifiedNotifications';
@@ -41,7 +43,14 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     handleRefresh
   } = useAdminDashboard();
 
-  const { markAsRead } = useUnifiedNotificationContext();
+  const { 
+    markAsRead, 
+    refreshNotifications, 
+    hasNewMessage, 
+    notificationCounts,
+    connected,
+    error: notificationError 
+  } = useUnifiedNotificationContext();
 
   // Memoized filtered requirements for better performance
   const filteredRequirements = useMemo(() => {
@@ -90,6 +99,27 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     }
   };
 
+  const handleRefreshNotifications = async () => {
+    try {
+      await refreshNotifications();
+      toast({
+        title: "Refreshed",
+        description: "Notifications have been refreshed"
+      });
+    } catch (error) {
+      console.error('Failed to refresh notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh notifications",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const totalUnreadCount = useMemo(() => {
+    return Object.values(notificationCounts).reduce((sum, count) => sum + count, 0);
+  }, [notificationCounts]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
@@ -121,9 +151,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
       />
 
       <div className="max-w-7xl mx-auto p-6">
-        {error && (
+        {(error || notificationError) && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
-            {error}
+            {error || notificationError}
             <button 
               onClick={() => setError(null)} 
               className="ml-2 underline hover:no-underline"
@@ -136,16 +166,38 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-            <Button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              variant="outline"
-              size="sm"
-              className="flex items-center space-x-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
-            </Button>
+            <div className="flex items-center space-x-2">
+              {/* Notification status indicator */}
+              <div className="flex items-center space-x-2 px-3 py-1 bg-white border rounded-lg">
+                <Bell className={`h-4 w-4 ${hasNewMessage ? 'text-red-500' : 'text-slate-400'}`} />
+                <span className="text-sm text-slate-600">
+                  {totalUnreadCount > 0 ? `${totalUnreadCount} unread` : 'No new messages'}
+                </span>
+                <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-orange-500'}`} 
+                     title={connected ? 'Connected' : 'Reconnecting...'} />
+              </div>
+              
+              <Button
+                onClick={handleRefreshNotifications}
+                variant="outline"
+                size="sm"
+                className="flex items-center space-x-2"
+              >
+                <Bell className="h-4 w-4" />
+                <span>Refresh Notifications</span>
+              </Button>
+              
+              <Button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                variant="outline"
+                size="sm"
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -177,6 +229,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                 onRefresh={handleRefresh}
               />
             </div>
+
+            {/* Debug tool for troubleshooting notifications */}
+            <NotificationDebugger />
           </TabsContent>
 
           <TabsContent value="requirements" className="space-y-6">
