@@ -34,38 +34,42 @@ export const RequirementCardActions = ({
   };
 
   return (
-    <div className="space-y-3 mt-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 mt-6">
+      {/* Status Dropdown - Full Width */}
+      <div className="flex justify-start">
         <StatusDropdown 
           requirement={requirement} 
           onStatusUpdate={onStatusUpdate} 
         />
       </div>
       
-      <div className="flex items-center space-x-2 w-full">
+      {/* Action Buttons - Fixed Grid Layout */}
+      <div className="grid grid-cols-2 gap-3">
         <Button
           onClick={onViewRequirement}
           size="sm"
           variant="outline"
-          className="flex-1 bg-gradient-to-r from-slate-700 to-slate-600 border-slate-500 text-white hover:from-slate-600 hover:to-slate-500 hover:border-slate-400 transition-all duration-300"
+          className="w-full h-10 bg-slate-800/80 border-slate-600 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500 hover:text-white transition-all duration-200 font-medium"
         >
-          <Eye className="h-4 w-4 mr-2" />
-          <span>View</span>
+          <Eye className="h-4 w-4 mr-2 flex-shrink-0" />
+          <span className="truncate">View Details</span>
         </Button>
         
-        <div className="flex-1 relative">
+        <div className="relative">
           <Button
             onClick={handleOpenChat}
             size="sm"
             className={cn(
-              "w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg transition-all duration-300",
-              unreadCount > 0 && "ring-2 ring-yellow-400/50 shadow-yellow-400/20"
+              "w-full h-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg transition-all duration-200 font-medium",
+              unreadCount > 0 && "ring-2 ring-yellow-400/50 shadow-yellow-400/20 animate-pulse"
             )}
           >
-            <MessageCircle className="h-4 w-4 mr-2" />
-            <span className="truncate">{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
+            <MessageCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+            <span className="truncate">
+              {unreadCount > 0 ? 'New Messages' : 'Open Chat'}
+            </span>
             {unreadCount > 0 && (
-              <div className="ml-2 bg-yellow-400 text-black rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
+              <div className="absolute -top-1 -right-1 bg-yellow-400 text-black rounded-full text-xs font-bold min-w-[1.25rem] h-5 flex items-center justify-center px-1 shadow-lg">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </div>
             )}
