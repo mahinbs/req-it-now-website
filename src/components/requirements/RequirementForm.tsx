@@ -6,10 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, X, File, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, X, File, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { uploadRequirementFile, type UploadProgress } from '@/utils/storageUtils';
 
 interface RequirementFormData {
   title: string;
@@ -22,18 +23,12 @@ interface RequirementFormProps {
   onSubmit: (data: RequirementFormData) => void;
 }
 
-interface AttachmentFile {
-  url: string;
-  name: string;
-  size: number;
-  type: string;
-}
-
 interface FileUploadState {
   file: File;
   progress: number;
   status: 'pending' | 'uploading' | 'completed' | 'error';
   url?: string;
+  error?: string;
 }
 
 export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
@@ -50,7 +45,7 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const uploadFileOptimized = useCallback(async (file: File): Promise<AttachmentFile> => {
+  const uploadFileOptimized = useCallback(async (file: File): Promise<string | null> => {
     const fileId = `${file.name}-${Date.now()}`;
     
     // Initialize upload state
@@ -61,62 +56,47 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
     })));
 
     try {
-      // Simulate progress for better UX
-      const progressInterval = setInterval(() => {
-        setUploadStates(prev => {
-          const newMap = new Map(prev);
-          const current = newMap.get(fileId);
-          if (current && current.progress < 90) {
-            newMap.set(fileId, { ...current, progress: current.progress + 10 });
-          }
-          return newMap;
-        });
-      }, 200);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      const timestamp = Date.now();
-      const randomSuffix = Math.random().toString(36).substring(2, 8);
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `${timestamp}_${randomSuffix}.${fileExtension}`;
-      
-      const { data, error } = await supabase.storage
-        .from('requirement-attachments')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      clearInterval(progressInterval);
-
-      if (error) {
-        throw new Error(`Upload failed: ${error.message}`);
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('requirement-attachments')
-        .getPublicUrl(fileName);
-
-      // Complete upload state
-      setUploadStates(prev => new Map(prev.set(fileId, {
+      const url = await uploadRequirementFile(
         file,
-        progress: 100,
-        status: 'completed',
-        url: publicUrl
-      })));
+        user.id,
+        'temp-' + Date.now(),
+        (progressInfo: UploadProgress) => {
+          setUploadStates(prev => {
+            const newMap = new Map(prev);
+            newMap.set(fileId, {
+              file,
+              progress: progressInfo.progress,
+              status: progressInfo.status,
+              error: progressInfo.error,
+              url: progressInfo.status === 'completed' ? 'uploading-complete' : undefined
+            });
+            return newMap;
+          });
+        }
+      );
 
-      return {
-        url: publicUrl,
-        name: file.name,
-        size: file.size,
-        type: file.type
-      };
-
+      if (url) {
+        setUploadStates(prev => new Map(prev.set(fileId, {
+          file,
+          progress: 100,
+          status: 'completed',
+          url
+        })));
+        return url;
+      } else {
+        throw new Error('Upload failed');
+      }
     } catch (error) {
       setUploadStates(prev => new Map(prev.set(fileId, {
         file,
         progress: 0,
-        status: 'error'
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Upload failed'
       })));
-      throw error;
+      return null;
     }
   }, []);
 
@@ -124,22 +104,46 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
     const files = event.target.files;
     if (files) {
       const newFiles = Array.from(files);
-      setFormData(prev => ({
-        ...prev,
-        attachments: [...(prev.attachments || []), ...newFiles]
-      }));
-
-      // Start optimistic upload
-      newFiles.forEach(file => {
-        uploadFileOptimized(file).catch(error => {
-          console.error(`Upload failed for ${file.name}:`, error);
+      
+      // Validate files
+      const validFiles = newFiles.filter(file => {
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        const allowedTypes = ['image/', 'application/pdf', 'application/msword', 'text/'];
+        
+        if (file.size > maxSize) {
           toast({
-            title: "Upload Warning",
-            description: `Failed to upload ${file.name}`,
+            title: "File too large",
+            description: `${file.name} is larger than 10MB`,
             variant: "destructive"
           });
-        });
+          return false;
+        }
+        
+        if (!allowedTypes.some(type => file.type.startsWith(type))) {
+          toast({
+            title: "Invalid file type",
+            description: `${file.name} is not a supported file type`,
+            variant: "destructive"
+          });
+          return false;
+        }
+        
+        return true;
       });
+
+      if (validFiles.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          attachments: [...(prev.attachments || []), ...validFiles]
+        }));
+
+        // Start uploads
+        validFiles.forEach(file => {
+          uploadFileOptimized(file).catch(error => {
+            console.error(`Upload failed for ${file.name}:`, error);
+          });
+        });
+      }
     }
   }, [uploadFileOptimized]);
 
@@ -149,6 +153,12 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
       attachments: prev.attachments?.filter((_, i) => i !== index) || []
     }));
   }, []);
+
+  const retryUpload = useCallback((file: File) => {
+    uploadFileOptimized(file).catch(error => {
+      console.error(`Retry upload failed for ${file.name}:`, error);
+    });
+  }, [uploadFileOptimized]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,15 +172,22 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
       return;
     }
 
+    // Check if any uploads are in progress
+    const uploadStatesArray = Array.from(uploadStates.values());
+    const hasUploadingFiles = uploadStatesArray.some(state => state.status === 'uploading');
+    
+    if (hasUploadingFiles) {
+      toast({
+        title: "Upload in Progress",
+        description: "Please wait for all files to finish uploading",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
-      // Optimistic UI update
-      toast({
-        title: "Submitting...",
-        description: "Your requirement is being processed"
-      });
-
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
@@ -178,7 +195,7 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
       }
 
       // Get completed uploads
-      const completedUploads = Array.from(uploadStates.values())
+      const completedUploads = uploadStatesArray
         .filter(state => state.status === 'completed' && state.url)
         .map(state => state.url!);
 
@@ -202,7 +219,7 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
         throw new Error(`Failed to save requirement: ${error.message}`);
       }
 
-      // Reset form with smooth transition
+      // Reset form
       setFormData({
         title: '',
         description: '',
@@ -245,6 +262,19 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
     const totalProgress = states.reduce((sum, state) => sum + state.progress, 0);
     return Math.round(totalProgress / states.length);
   }, [uploadStates]);
+
+  const getFileStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'error':
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      case 'uploading':
+        return <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />;
+      default:
+        return <File className="h-4 w-4 text-slate-500" />;
+    }
+  };
 
   return (
     <Card className="w-full max-w-2xl mx-auto bg-white border-slate-200">
@@ -347,38 +377,48 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
               <div className="space-y-2 mt-4">
                 <Label className="text-sm font-medium text-slate-700">Selected Files:</Label>
                 {formData.attachments.map((file, index) => {
-                  const fileId = `${file.name}-${Date.now()}`;
                   const uploadState = Array.from(uploadStates.values()).find(state => state.file.name === file.name);
                   
                   return (
                     <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                          <File className="h-4 w-4 text-slate-500" />
-                          {uploadState?.status === 'completed' && (
-                            <CheckCircle className="h-3 w-3 text-green-500 absolute -top-1 -right-1" />
-                          )}
-                        </div>
+                      <div className="flex items-center space-x-3 flex-1">
+                        {getFileStatusIcon(uploadState?.status || 'pending')}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
                           <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
                           {uploadState && (
-                            <div className="mt-1">
+                            <div className="mt-1 space-y-1">
                               <Progress value={uploadState.progress} className="h-1" />
+                              {uploadState.error && (
+                                <p className="text-xs text-red-600">{uploadState.error}</p>
+                              )}
                             </div>
                           )}
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(index)}
-                        className="h-6 w-6 p-0"
-                        disabled={isSubmitting}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                        {uploadState?.status === 'error' && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => retryUpload(file)}
+                            className="text-blue-600 hover:text-blue-700 text-xs"
+                          >
+                            Retry
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          className="h-6 w-6 p-0"
+                          disabled={isSubmitting}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
