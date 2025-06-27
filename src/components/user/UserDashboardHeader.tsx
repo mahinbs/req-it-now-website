@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { LogOut, HelpCircle } from 'lucide-react';
 import { Logo } from '../ui/logo';
-import { useOptimizedNotificationContext } from '@/hooks/useOptimizedNotifications';
+import { useUnifiedNotificationContext } from '@/hooks/useUnifiedNotifications';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 
 interface User {
@@ -23,7 +23,7 @@ export const UserDashboardHeader = ({
   onLogout, 
   isGeneralChatOpen = false 
 }: UserDashboardHeaderProps) => {
-  const { getUnreadCount } = useOptimizedNotificationContext();
+  const { getUnreadCount } = useUnifiedNotificationContext();
   const unreadCount = getUnreadCount('general');
 
   return (

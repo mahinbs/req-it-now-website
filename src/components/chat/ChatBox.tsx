@@ -8,8 +8,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
 import { ChatLoading } from './ChatLoading';
-import { useClientNotifications } from '@/hooks/useClientNotifications';
-import { useDebounce } from '@/utils/performanceUtils';
+import { useUnifiedNotificationContext } from '@/hooks/useUnifiedNotifications';
 
 interface ChatBoxProps {
   requirementId: string;
@@ -44,26 +43,33 @@ const ChatBoxContent = ({
     isCurrentChat
   });
 
-  const { markAsRead: clientMarkAsRead } = useClientNotifications();
+  const { markAsRead: unifiedMarkAsRead } = useUnifiedNotificationContext();
 
-  // Debounce the markAsRead function to prevent infinite loops
-  const debouncedMarkAsRead = useDebounce(useCallback((reqId: string) => {
-    console.log('Debounced mark as read called for:', reqId);
+  // Mark messages as read only once when chat is opened
+  const handleMarkAsRead = useCallback(async () => {
+    if (!isCurrentChat || !requirementId) return;
     
-    if (isAdmin && onMarkAsRead) {
-      onMarkAsRead(reqId);
-    } else if (!isAdmin) {
-      clientMarkAsRead(reqId);
+    console.log('ChatBox marking messages as read for requirement:', requirementId);
+    
+    try {
+      if (isAdmin && onMarkAsRead) {
+        onMarkAsRead(requirementId);
+      } else {
+        await unifiedMarkAsRead(requirementId);
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
     }
-  }, [isAdmin, onMarkAsRead, clientMarkAsRead]), 1000);
+  }, [isCurrentChat, requirementId, isAdmin, onMarkAsRead, unifiedMarkAsRead]);
 
-  // Mark messages as read when chat is opened (only once when component mounts)
+  // Mark as read only when chat is first opened with messages
   useEffect(() => {
-    if (isCurrentChat && requirementId && messages.length > 0) {
-      console.log('ChatBox marking messages as read for requirement:', requirementId);
-      debouncedMarkAsRead(requirementId);
+    if (isCurrentChat && messages.length > 0) {
+      // Debounce the mark as read to prevent multiple calls
+      const timeoutId = setTimeout(handleMarkAsRead, 500);
+      return () => clearTimeout(timeoutId);
     }
-  }, [isCurrentChat, requirementId, messages.length > 0, debouncedMarkAsRead]);
+  }, [isCurrentChat, messages.length > 0]); // Only depend on these specific values
 
   if (loading) {
     return <ChatLoading error={error} />;
