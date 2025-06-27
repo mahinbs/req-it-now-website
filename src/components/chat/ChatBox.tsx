@@ -3,7 +3,7 @@ import React, { useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, WifiOff, RefreshCw, AlertCircle, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useChatWithAttachments } from '@/hooks/useChatWithAttachments';
+import { useChatOptimizedFast } from '@/hooks/useChatOptimizedFast';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
@@ -37,7 +37,7 @@ const ChatBoxContent = ({
     sendMessage: originalSendMessage, 
     retryConnection,
     loadMoreMessages
-  } = useChatWithAttachments({
+  } = useChatOptimizedFast({
     requirementId,
     isAdmin,
     isCurrentChat
@@ -165,7 +165,7 @@ const ChatBoxContent = ({
           
           <div 
             className="h-64 overflow-y-auto glass bg-white/5 border border-white/10 rounded-xl p-4 space-y-4"
-            onClick={handleMarkAsRead} // Mark as read when user clicks in chat area
+            onClick={handleMarkAsRead}
           >
             {messages.length === 0 && !loading ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-400">

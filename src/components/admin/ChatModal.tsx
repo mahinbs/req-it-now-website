@@ -21,31 +21,36 @@ export const ChatModal = ({ requirement, onClose, onMarkAsRead }: ChatModalProps
   if (!requirement) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="glass bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">
+            <h3 className="text-xl font-semibold text-white font-space-grotesk">
               Chat: {requirement.title}
             </h3>
-            <p className="text-sm text-slate-600">{requirement.profiles?.company_name || 'Unknown Company'}</p>
+            <p className="text-sm text-slate-300 mt-1">
+              {requirement.profiles?.company_name || 'Unknown Company'}
+            </p>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600"
+            className="text-slate-400 hover:text-white hover:bg-white/10 text-xl h-8 w-8 p-0"
           >
             ×
           </Button>
         </div>
-        <ChatBox
-          requirementId={requirement.id}
-          currentUserName="Admin"
-          isAdmin={true}
-          isCurrentChat={true}
-          onMarkAsRead={onMarkAsRead}
-        />
+        
+        <div className="min-h-[500px]">
+          <ChatBox
+            requirementId={requirement.id}
+            currentUserName="Admin"
+            isAdmin={true}
+            isCurrentChat={true}
+            onMarkAsRead={onMarkAsRead}
+          />
+        </div>
       </div>
     </div>
   );
