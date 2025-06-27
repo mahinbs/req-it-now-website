@@ -31,7 +31,7 @@ export const MessageList = ({
 }: MessageListProps) => {
   if (messages.length === 0) {
     return (
-      <div className="text-center text-muted-foreground text-sm py-8">
+      <div className="text-center text-slate-300 text-sm py-8">
         {requirementId ? 
           'No messages yet. Start the conversation!' : 
           'Welcome! How can we help you today?'
@@ -50,7 +50,7 @@ export const MessageList = ({
             size="sm"
             onClick={onLoadMore}
             disabled={loadingMore}
-            className="text-xs"
+            className="text-xs border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white"
           >
             {loadingMore ? (
               <>
@@ -73,8 +73,8 @@ export const MessageList = ({
           <div
             className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg ${
               message.is_admin === isAdmin
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-700 text-slate-100'
             }`}
           >
             <div className="text-xs opacity-75 mb-1">

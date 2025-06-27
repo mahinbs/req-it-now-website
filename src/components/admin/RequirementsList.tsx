@@ -37,13 +37,13 @@ export const RequirementsList = ({
 
   if (requirements.length === 0) {
     return (
-      <Card className="bg-white border-slate-200">
+      <Card className="border-slate-600/50">
         <CardContent className="text-center py-12">
-          <div className="bg-blue-50 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-            <MessageCircle className="h-8 w-8 text-blue-600" />
+          <div className="bg-blue-500/20 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <MessageCircle className="h-8 w-8 text-blue-400" />
           </div>
-          <h3 className="text-lg font-medium mb-2 text-slate-900">No requirements yet</h3>
-          <p className="text-slate-600">
+          <h3 className="text-lg font-medium mb-2 text-white">No requirements yet</h3>
+          <p className="text-slate-300">
             Waiting for users to submit their first requirements
           </p>
           <Button onClick={handleRefresh} className="mt-4" variant="outline">
@@ -58,7 +58,7 @@ export const RequirementsList = ({
   return (
     <div className="space-y-4">
       {notificationsLoading && (
-        <div className="text-center text-sm text-slate-600 py-2">
+        <div className="text-center text-sm text-slate-300 py-2">
           Loading notification status...
         </div>
       )}
