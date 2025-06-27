@@ -82,7 +82,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="flex-1">
-                  <p className="font-medium">{error}</p>
+                  <p className="font-medium text-red-200">{error}</p>
                   <button 
                     onClick={() => setError(null)} 
                     className="mt-2 text-red-400 underline hover:no-underline font-medium transition-colors"
@@ -116,7 +116,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div className="flex-1">
-                <p>{error}</p>
+                <p className="text-red-200">{error}</p>
                 <button 
                   onClick={() => setError(null)} 
                   className="mt-2 text-red-400 underline hover:no-underline font-medium"
@@ -141,14 +141,14 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           <TabsList className="glass bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-2">
             <TabsTrigger 
               value="requirements" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl rounded-xl transition-all duration-300 font-medium"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl rounded-xl transition-all duration-300 font-medium text-slate-200 hover:text-white"
             >
               <Sparkles className="h-4 w-4 mr-2" />
               My Requirements
             </TabsTrigger>
             <TabsTrigger 
               value="new" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl rounded-xl transition-all duration-300 font-medium"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-xl rounded-xl transition-all duration-300 font-medium text-slate-200 hover:text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
               Submit New
@@ -167,7 +167,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
                 )}
                 <Button 
                   onClick={() => setShowNewRequirement(true)} 
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 rounded-xl font-medium neon-glow group relative overflow-hidden"
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 rounded-xl font-medium neon-glow group relative overflow-hidden text-white"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
                   <Plus className="h-4 w-4 mr-2 relative z-10" />
