@@ -84,16 +84,16 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
   // Show Accept/Reject buttons only when work is completed but not yet decided
   return (
     <>
-      <div className="w-full p-4 bg-gradient-to-r from-slate-700/50 to-slate-600/50 rounded-lg border border-slate-500/50 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      <div className="max-w-full p-2 bg-gradient-to-r from-slate-700/50 to-slate-600/50 rounded-lg border border-slate-500/50 shadow-sm overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-stretch gap-2">
           <Button
             onClick={handleAcceptStart}
             size="sm"
             disabled={isProcessing}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 font-medium"
+            className="flex-1 min-w-0 bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 font-medium"
           >
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            Accept Work
+            <CheckCircle2 className="h-4 w-4 mr-2 flex-shrink-0" />
+            <span className="truncate">Accept Work</span>
           </Button>
 
           <Button
@@ -101,10 +101,10 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
             size="sm"
             variant="outline"
             disabled={isProcessing}
-            className="flex-1 bg-slate-700/50 border-red-400/50 text-red-300 hover:bg-red-900/30 hover:border-red-400 hover:text-red-200 shadow-md hover:shadow-lg transition-all duration-200 font-medium"
+            className="flex-1 min-w-0 bg-slate-700/50 border-red-400/50 text-red-300 hover:bg-red-900/30 hover:border-red-400 hover:text-red-200 shadow-md hover:shadow-lg transition-all duration-200 font-medium"
           >
-            <X className="h-4 w-4 mr-2" />
-            Request Changes
+            <X className="h-4 w-4 mr-2 flex-shrink-0" />
+            <span className="truncate">Request Changes</span>
           </Button>
         </div>
       </div>
