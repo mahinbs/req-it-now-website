@@ -7,6 +7,7 @@ import { useChatWithAttachments } from '@/hooks/useChatWithAttachments';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
+import { ChatLoading } from './ChatLoading';
 import { useClientNotifications } from '@/hooks/useClientNotifications';
 
 interface ChatBoxProps {
@@ -30,9 +31,12 @@ const ChatBoxContent = ({
     error, 
     sending, 
     connected,
+    hasMore,
+    loadingMore,
     messagesEndRef, 
     sendMessage, 
-    retryConnection
+    retryConnection,
+    loadMoreMessages
   } = useChatWithAttachments({
     requirementId,
     isAdmin,
@@ -57,16 +61,7 @@ const ChatBoxContent = ({
   }, [isCurrentChat, isAdmin, onMarkAsRead, requirementId, clientMarkAsRead]);
 
   if (loading) {
-    return (
-      <Card className="w-full">
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-sm text-gray-600">Loading chat...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <ChatLoading error={error} />;
   }
 
   return (
@@ -113,6 +108,9 @@ const ChatBoxContent = ({
               requirementId={requirementId}
               isAdmin={isAdmin}
               messagesEndRef={messagesEndRef}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={loadMoreMessages}
             />
           </div>
           

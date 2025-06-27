@@ -31,56 +31,18 @@ export const measurePerformance = (label: string, fn: Function) => {
     try {
       const result = await fn(...args);
       const end = performance.now();
-      console.log(`${label} took ${end - start} milliseconds`);
+      console.log(`⚡ ${label} took ${(end - start).toFixed(2)}ms`);
       return result;
     } catch (error) {
       const end = performance.now();
-      console.error(`${label} failed after ${end - start} milliseconds:`, error);
+      console.error(`❌ ${label} failed after ${(end - start).toFixed(2)}ms:`, error);
       throw error;
     }
   };
 };
 
-// Optimize large list rendering
-export const createVirtualScrollConfig = (itemHeight: number, containerHeight: number) => {
-  const visibleItems = Math.ceil(containerHeight / itemHeight);
-  const bufferSize = Math.ceil(visibleItems * 0.5); // 50% buffer
-  
-  return {
-    itemHeight,
-    visibleItems,
-    bufferSize,
-    totalVisible: visibleItems + bufferSize * 2
-  };
-};
-
-// Optimize image loading
-export const createOptimizedImageLoader = () => {
-  const imageCache = new Map();
-  
-  return {
-    loadImage: (src: string): Promise<HTMLImageElement> => {
-      if (imageCache.has(src)) {
-        return Promise.resolve(imageCache.get(src));
-      }
-      
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          imageCache.set(src, img);
-          resolve(img);
-        };
-        img.onerror = reject;
-        img.src = src;
-      });
-    },
-    clearCache: () => imageCache.clear(),
-    getCacheSize: () => imageCache.size
-  };
-};
-
-// Batch operations for better performance
-export const createBatchProcessor = <T>(batchSize: number = 10, delay: number = 16) => {
+// Batch message processing for better performance
+export const createMessageBatchProcessor = <T>(batchSize: number = 10, delay: number = 16) => {
   const queue: T[] = [];
   let processing = false;
   
@@ -117,4 +79,66 @@ export const createBatchProcessor = <T>(batchSize: number = 10, delay: number = 
     },
     getQueueSize: () => queue.length
   };
+};
+
+// Message cache for preventing duplicate fetches
+export class MessageCache {
+  private cache = new Map<string, any>();
+  private timestamps = new Map<string, number>();
+  private maxAge = 5 * 60 * 1000; // 5 minutes
+  
+  set(key: string, value: any) {
+    this.cache.set(key, value);
+    this.timestamps.set(key, Date.now());
+  }
+  
+  get(key: string) {
+    const timestamp = this.timestamps.get(key);
+    if (!timestamp || Date.now() - timestamp > this.maxAge) {
+      this.cache.delete(key);
+      this.timestamps.delete(key);
+      return null;
+    }
+    return this.cache.get(key);
+  }
+  
+  has(key: string) {
+    return this.get(key) !== null;
+  }
+  
+  clear() {
+    this.cache.clear();
+    this.timestamps.clear();
+  }
+  
+  size() {
+    return this.cache.size;
+  }
+}
+
+// Connection retry logic with exponential backoff
+export const createRetryLogic = (maxAttempts: number = 3, baseDelay: number = 1000) => {
+  let attempts = 0;
+  
+  const retry = async (fn: () => Promise<any>): Promise<any> => {
+    try {
+      const result = await fn();
+      attempts = 0; // Reset on success
+      return result;
+    } catch (error) {
+      attempts++;
+      
+      if (attempts >= maxAttempts) {
+        throw new Error(`Max retry attempts (${maxAttempts}) exceeded: ${error}`);
+      }
+      
+      const delay = baseDelay * Math.pow(2, attempts - 1);
+      console.log(`Retry attempt ${attempts}/${maxAttempts} in ${delay}ms`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return retry(fn);
+    }
+  };
+  
+  return { retry, getAttempts: () => attempts };
 };

@@ -1,6 +1,8 @@
 
 import React from 'react';
+import { Button } from '@/components/ui/button';
 import { MessageAttachments } from './MessageAttachments';
+import { Loader2 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Message = Tables<'messages'> & {
@@ -13,9 +15,20 @@ interface MessageListProps {
   requirementId: string;
   isAdmin: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
-export const MessageList = ({ messages, requirementId, isAdmin, messagesEndRef }: MessageListProps) => {
+export const MessageList = ({ 
+  messages, 
+  requirementId, 
+  isAdmin, 
+  messagesEndRef,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore
+}: MessageListProps) => {
   if (messages.length === 0) {
     return (
       <div className="text-center text-muted-foreground text-sm py-8">
@@ -29,6 +42,29 @@ export const MessageList = ({ messages, requirementId, isAdmin, messagesEndRef }
 
   return (
     <>
+      {/* Load More Button */}
+      {hasMore && (
+        <div className="flex justify-center mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="text-xs"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                Loading...
+              </>
+            ) : (
+              'Load More Messages'
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Messages */}
       {messages.map((message) => (
         <div
           key={message.id}
