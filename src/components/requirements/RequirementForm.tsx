@@ -277,18 +277,18 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto bg-white border-slate-200">
+    <Card className="w-full max-w-2xl mx-auto bg-gradient-to-br from-slate-800/95 to-slate-700/95 backdrop-blur-xl border-slate-600/50 shadow-2xl">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold text-slate-900">Submit Website Requirement</CardTitle>
-        <CardDescription className="text-slate-600">
+        <CardTitle className="text-xl font-semibold text-white">Submit Website Requirement</CardTitle>
+        <CardDescription className="text-slate-300">
           Describe what you need help with on your website. Be as detailed as possible.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="title" className="text-sm font-medium text-slate-700">
-              Title <span className="text-red-500">*</span>
+            <Label htmlFor="title" className="text-sm font-medium text-slate-200">
+              Title <span className="text-red-400">*</span>
             </Label>
             <Input
               id="title"
@@ -296,29 +296,29 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
               placeholder="Brief description of what you need"
               value={formData.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
-              className="w-full"
+              className="w-full bg-slate-700/50 border-slate-500 text-white placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400"
               disabled={isSubmitting}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-sm font-medium text-slate-700">
-              Description <span className="text-red-500">*</span>
+            <Label htmlFor="description" className="text-sm font-medium text-slate-200">
+              Description <span className="text-red-400">*</span>
             </Label>
             <Textarea
               id="description"
               placeholder="Provide detailed information about your requirement..."
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
-              className="w-full min-h-[120px] resize-none"
+              className="w-full min-h-[120px] resize-none bg-slate-700/50 border-slate-500 text-white placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400"
               disabled={isSubmitting}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="priority" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="priority" className="text-sm font-medium text-slate-200">
               Priority
             </Label>
             <Select
@@ -326,23 +326,23 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
               onValueChange={(value) => handleInputChange('priority', value)}
               disabled={isSubmitting}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full bg-slate-700/50 border-slate-500 text-white focus:border-slate-400 focus:ring-slate-400">
                 <SelectValue placeholder="Select priority level" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low - Can wait</SelectItem>
-                <SelectItem value="medium">Medium - Normal priority</SelectItem>
-                <SelectItem value="high">High - Important</SelectItem>
-                <SelectItem value="urgent">Urgent - Needs immediate attention</SelectItem>
+              <SelectContent className="bg-slate-700 border-slate-600 text-white">
+                <SelectItem value="low" className="text-white hover:bg-slate-600">Low - Can wait</SelectItem>
+                <SelectItem value="medium" className="text-white hover:bg-slate-600">Medium - Normal priority</SelectItem>
+                <SelectItem value="high" className="text-white hover:bg-slate-600">High - Important</SelectItem>
+                <SelectItem value="urgent" className="text-white hover:bg-slate-600">Urgent - Needs immediate attention</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700">
+            <Label className="text-sm font-medium text-slate-200">
               Attachments (Optional)
             </Label>
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-slate-400 transition-colors">
+            <div className="border-2 border-dashed border-slate-500 rounded-lg p-6 text-center hover:border-slate-400 transition-colors bg-slate-700/30">
               <input
                 type="file"
                 multiple
@@ -354,10 +354,10 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
               />
               <label htmlFor="file-upload" className="cursor-pointer">
                 <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-300">
                   Click to upload files or drag and drop
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-400 mt-1">
                   Images, PDFs, documents up to 10MB each
                 </p>
               </label>
@@ -366,31 +366,31 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
             {uploadStates.size > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-slate-700">Upload Progress:</Label>
-                  <span className="text-sm text-slate-600">{totalUploadProgress}%</span>
+                  <Label className="text-sm font-medium text-slate-200">Upload Progress:</Label>
+                  <span className="text-sm text-slate-300">{totalUploadProgress}%</span>
                 </div>
-                <Progress value={totalUploadProgress} className="w-full" />
+                <Progress value={totalUploadProgress} className="w-full bg-slate-600" />
               </div>
             )}
 
             {formData.attachments && formData.attachments.length > 0 && (
               <div className="space-y-2 mt-4">
-                <Label className="text-sm font-medium text-slate-700">Selected Files:</Label>
+                <Label className="text-sm font-medium text-slate-200">Selected Files:</Label>
                 {formData.attachments.map((file, index) => {
                   const uploadState = Array.from(uploadStates.values()).find(state => state.file.name === file.name);
                   
                   return (
-                    <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600">
                       <div className="flex items-center space-x-3 flex-1">
                         {getFileStatusIcon(uploadState?.status || 'pending')}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-                          <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
+                          <p className="text-sm font-medium text-slate-200 truncate">{file.name}</p>
+                          <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
                           {uploadState && (
                             <div className="mt-1 space-y-1">
-                              <Progress value={uploadState.progress} className="h-1" />
+                              <Progress value={uploadState.progress} className="h-1 bg-slate-600" />
                               {uploadState.error && (
-                                <p className="text-xs text-red-600">{uploadState.error}</p>
+                                <p className="text-xs text-red-400">{uploadState.error}</p>
                               )}
                             </div>
                           )}
@@ -403,7 +403,7 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
                             variant="ghost"
                             size="sm"
                             onClick={() => retryUpload(file)}
-                            className="text-blue-600 hover:text-blue-700 text-xs"
+                            className="text-blue-400 hover:text-blue-300 text-xs hover:bg-slate-600"
                           >
                             Retry
                           </Button>
@@ -413,7 +413,7 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeFile(index)}
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 p-0 text-slate-400 hover:text-white hover:bg-slate-600"
                           disabled={isSubmitting}
                         >
                           <X className="h-3 w-3" />
@@ -426,16 +426,16 @@ export const RequirementForm = ({ onSubmit }: RequirementFormProps) => {
             )}
           </div>
 
-          <div className="flex items-center space-x-2 p-4 bg-blue-50 rounded-lg">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <p className="text-xs text-blue-800">
+          <div className="flex items-center space-x-2 p-4 bg-blue-900/30 rounded-lg border border-blue-500/30">
+            <AlertCircle className="h-4 w-4 text-blue-400" />
+            <p className="text-xs text-blue-200">
               Our admin team will review your requirement and get back to you as soon as possible.
             </p>
           </div>
 
           <Button 
             type="submit" 
-            className="w-full bg-blue-600 hover:bg-blue-700"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
             disabled={isSubmitting || !formData.title.trim() || !formData.description.trim()}
           >
             {isSubmitting ? (
