@@ -48,7 +48,7 @@ export const AuthPage = () => {
           <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg mb-4">
             <Logo size="md" className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-3xl font-bold mb-2 text-zinc-950">
             BoostMySites
           </h1>
           <p className="text-lg text-zinc-950">
