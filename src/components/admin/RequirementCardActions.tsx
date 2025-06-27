@@ -47,7 +47,7 @@ export const RequirementCardActions = ({
           onClick={onViewRequirement}
           size="sm"
           variant="outline"
-          className="flex-1 glass border-white/20 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all duration-300"
+          className="flex-1 bg-gradient-to-r from-slate-700 to-slate-600 border-slate-500 text-white hover:from-slate-600 hover:to-slate-500 hover:border-slate-400 transition-all duration-300"
         >
           <Eye className="h-4 w-4 mr-2" />
           <span>View</span>
