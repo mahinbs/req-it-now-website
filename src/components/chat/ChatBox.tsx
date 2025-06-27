@@ -97,7 +97,7 @@ const ChatBoxContent = ({
   }, [requirementId]);
 
   if (loading) {
-    return <ChatLoading error={error} loadingMessage="Loading messages..." />;
+    return <ChatLoading error={error} loadingMessage="Loading messages..." onRetry={retryConnection} />;
   }
 
   return (
@@ -176,8 +176,7 @@ const ChatBoxContent = ({
           
           <MessageForm 
             onSendMessage={sendMessage} 
-            disabled={sending}
-            placeholder={connected ? "Type your message..." : "Connecting..."}
+            disabled={sending || !connected}
           />
         </div>
       </CardContent>
