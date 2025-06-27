@@ -72,6 +72,7 @@ export const RequirementsList = ({
             unreadCount={getUnreadCount(requirement.id)}
             onMarkAsRead={markAsRead}
             onApprovalUpdate={onApprovalUpdate}
+            onDownloadAttachment={onDownloadAttachment}
           />
         ))}
       </div>

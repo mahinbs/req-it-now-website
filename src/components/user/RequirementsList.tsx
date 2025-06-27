@@ -1,11 +1,11 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Plus, FileText, Paperclip, AlertTriangle, RotateCcw } from 'lucide-react';
+import { MessageCircle, Plus, FileText, Paperclip, AlertTriangle, RotateCcw, Eye } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import { AcceptanceButton } from './AcceptanceButton';
+import { RequirementViewModal } from '../common/RequirementViewModal';
 import { useClientNotifications } from '@/hooks/useClientNotifications';
 import { getStatusColor, getPriorityColor, formatDate, getAttachmentCount, adminStatusConfig } from '@/utils/requirementUtils';
 import type { Tables } from '@/integrations/supabase/types';
@@ -26,6 +26,7 @@ export const RequirementsList = ({
   onRequirementUpdate 
 }: RequirementsListProps) => {
   const { getUnreadCount, markAsRead, loading: notificationsLoading } = useClientNotifications();
+  const [selectedViewRequirement, setSelectedViewRequirement] = useState<Requirement | null>(null);
 
   const handleSelectRequirement = (requirement: Requirement) => {
     console.log('Selecting requirement for chat:', requirement.id);
@@ -106,155 +107,178 @@ export const RequirementsList = ({
   }
 
   return (
-    <div className="space-y-4">
-      {notificationsLoading && (
-        <div className="text-center text-sm text-slate-600 py-2">
-          Loading notification status...
-        </div>
-      )}
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {requirements.map((requirement) => {
-          const attachmentCount = getAttachmentCount(requirement);
-          const unreadCount = getUnreadCount(requirement.id);
-          const adminStatus = getAdminStatusDisplay(requirement);
-          const AdminStatusIcon = adminStatus.icon;
-          const recentlyReopened = wasRecentlyReopened(requirement);
-          
-          return (
-            <Card key={requirement.id} className="hover:shadow-md transition-shadow relative">
-              {/* Rejection indicator */}
-              {requirement.rejected_by_client && (
-                <div className="absolute top-2 right-2 z-10">
-                  <div className="bg-red-500 text-white rounded-full p-1">
-                    <AlertTriangle className="h-3 w-3" />
-                  </div>
-                </div>
-              )}
-
-              {/* Recently Reopened indicator */}
-              {recentlyReopened && (
-                <div className="absolute top-2 right-2 z-10">
-                  <div className="bg-green-500 text-white rounded-full p-1">
-                    <RotateCcw className="h-3 w-3" />
-                  </div>
-                </div>
-              )}
-
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-base font-medium text-slate-900 leading-tight">
-                    {requirement.title}
-                  </CardTitle>
-                  <div className="flex items-center space-x-1 ml-2">
-                    <Badge variant="outline" className={getPriorityColor(requirement.priority)}>
-                      {requirement.priority}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between mt-2">
-                  <Badge variant="outline" className={getStatusBadgeVariant(requirement)}>
-                    {getStatusText(requirement)}
-                  </Badge>
-                  <span className="text-xs text-slate-500">
-                    {formatDate(requirement.created_at)}
-                  </span>
-                </div>
-
-                {/* Admin Status Section */}
-                <div className="mt-3 p-2 bg-slate-50 rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-600">Admin Status:</span>
-                    <Badge variant="outline" className={adminStatus.color}>
-                      <AdminStatusIcon className="h-3 w-3 mr-1" />
-                      {adminStatus.label}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="pt-0">
-                <p className="text-sm text-slate-600 mb-4 line-clamp-3">
-                  {requirement.description}
-                </p>
-
-                {/* Show reopened notice */}
-                {recentlyReopened && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                    <div className="flex items-start space-x-2">
-                      <RotateCcw className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <h4 className="text-sm font-medium text-green-800">Task Reopened</h4>
-                        <p className="text-xs text-green-700 mt-1">
-                          The admin has addressed your concerns and reopened this task for further work.
-                        </p>
-                        {requirement.admin_response_to_rejection && (
-                          <div className="mt-2 p-2 bg-white border border-green-200 rounded text-xs">
-                            <span className="font-medium text-green-800">Admin Response: </span>
-                            <span className="text-green-700">{requirement.admin_response_to_rejection}</span>
-                          </div>
-                        )}
-                      </div>
+    <>
+      <div className="space-y-4">
+        {notificationsLoading && (
+          <div className="text-center text-sm text-slate-600 py-2">
+            Loading notification status...
+          </div>
+        )}
+        
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {requirements.map((requirement) => {
+            const attachmentCount = getAttachmentCount(requirement);
+            const unreadCount = getUnreadCount(requirement.id);
+            const adminStatus = getAdminStatusDisplay(requirement);
+            const AdminStatusIcon = adminStatus.icon;
+            const recentlyReopened = wasRecentlyReopened(requirement);
+            
+            return (
+              <Card key={requirement.id} className="hover:shadow-md transition-shadow relative">
+                {/* Rejection indicator */}
+                {requirement.rejected_by_client && (
+                  <div className="absolute top-2 right-2 z-10">
+                    <div className="bg-red-500 text-white rounded-full p-1">
+                      <AlertTriangle className="h-3 w-3" />
                     </div>
                   </div>
                 )}
 
-                {/* Show rejection reason if client rejected */}
-                {requirement.rejected_by_client && requirement.rejection_reason && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
-                    <h4 className="text-sm font-medium text-orange-800 mb-1">Your Rejection Reason:</h4>
-                    <p className="text-sm text-orange-700">{requirement.rejection_reason}</p>
-                    {requirement.admin_response_to_rejection && (
-                      <>
-                        <h4 className="text-sm font-medium text-orange-800 mb-1 mt-2">Admin Response:</h4>
-                        <p className="text-sm text-orange-700">{requirement.admin_response_to_rejection}</p>
-                      </>
-                    )}
+                {/* Recently Reopened indicator */}
+                {recentlyReopened && (
+                  <div className="absolute top-2 right-2 z-10">
+                    <div className="bg-green-500 text-white rounded-full p-1">
+                      <RotateCcw className="h-3 w-3" />
+                    </div>
                   </div>
                 )}
-                
-                {attachmentCount > 0 && (
-                  <div className="flex items-center text-xs text-slate-500 mb-4">
-                    <Paperclip className="h-3 w-3 mr-1" />
-                    {attachmentCount} attachment{attachmentCount !== 1 ? 's' : ''}
+
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-base font-medium text-slate-900 leading-tight">
+                      {requirement.title}
+                    </CardTitle>
+                    <div className="flex items-center space-x-1 ml-2">
+                      <Badge variant="outline" className={getPriorityColor(requirement.priority)}>
+                        {requirement.priority}
+                      </Badge>
+                    </div>
                   </div>
-                )}
-                
-                {/* Show acceptance button for completed work that needs review */}
-                {requirement.completed_by_admin && !requirement.accepted_by_client && !requirement.rejected_by_client && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-800 mb-2">Work Completed - Please Review</h4>
-                    <AcceptanceButton 
-                      requirement={requirement} 
-                      onAcceptanceUpdate={onRequirementUpdate || (() => {})} 
-                    />
+                  
+                  <div className="flex items-center justify-between mt-2">
+                    <Badge variant="outline" className={getStatusBadgeVariant(requirement)}>
+                      {getStatusText(requirement)}
+                    </Badge>
+                    <span className="text-xs text-slate-500">
+                      {formatDate(requirement.created_at)}
+                    </span>
                   </div>
-                )}
+
+                  {/* Admin Status Section */}
+                  <div className="mt-3 p-2 bg-slate-50 rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-600">Admin Status:</span>
+                      <Badge variant="outline" className={adminStatus.color}>
+                        <AdminStatusIcon className="h-3 w-3 mr-1" />
+                        {adminStatus.label}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
                 
-                <NotificationBadge count={unreadCount} pulse={unreadCount > 0}>
-                  <Button
-                    onClick={() => handleSelectRequirement(requirement)}
-                    variant="outline"
-                    size="sm"
-                    className={`w-full flex items-center justify-center space-x-2 hover:bg-blue-50 hover:border-blue-300 ${
-                      unreadCount > 0 ? 'ring-2 ring-blue-200 ring-offset-1 shadow-lg bg-blue-50' : ''
-                    }`}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    <span>{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
-                    {unreadCount > 0 && (
-                      <div className="ml-1 bg-blue-500 text-white rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
-                        {unreadCount > 9 ? '9+' : unreadCount}
+                <CardContent className="pt-0">
+                  <p className="text-sm text-slate-600 mb-4 line-clamp-3">
+                    {requirement.description}
+                  </p>
+
+                  {/* Show reopened notice */}
+                  {recentlyReopened && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-start space-x-2">
+                        <RotateCcw className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <h4 className="text-sm font-medium text-green-800">Task Reopened</h4>
+                          <p className="text-xs text-green-700 mt-1">
+                            The admin has addressed your concerns and reopened this task for further work.
+                          </p>
+                          {requirement.admin_response_to_rejection && (
+                            <div className="mt-2 p-2 bg-white border border-green-200 rounded text-xs">
+                              <span className="font-medium text-green-800">Admin Response: </span>
+                              <span className="text-green-700">{requirement.admin_response_to_rejection}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </Button>
-                </NotificationBadge>
-              </CardContent>
-            </Card>
-          );
-        })}
+                    </div>
+                  )}
+
+                  {/* Show rejection reason if client rejected */}
+                  {requirement.rejected_by_client && requirement.rejection_reason && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                      <h4 className="text-sm font-medium text-orange-800 mb-1">Your Rejection Reason:</h4>
+                      <p className="text-sm text-orange-700">{requirement.rejection_reason}</p>
+                      {requirement.admin_response_to_rejection && (
+                        <>
+                          <h4 className="text-sm font-medium text-orange-800 mb-1 mt-2">Admin Response:</h4>
+                          <p className="text-sm text-orange-700">{requirement.admin_response_to_rejection}</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  
+                  {attachmentCount > 0 && (
+                    <div className="flex items-center text-xs text-slate-500 mb-4">
+                      <Paperclip className="h-3 w-3 mr-1" />
+                      {attachmentCount} attachment{attachmentCount !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                  
+                  {/* Show acceptance button for completed work that needs review */}
+                  {requirement.completed_by_admin && !requirement.accepted_by_client && !requirement.rejected_by_client && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-sm font-medium text-blue-800 mb-2">Work Completed - Please Review</h4>
+                      <AcceptanceButton 
+                        requirement={requirement} 
+                        onAcceptanceUpdate={onRequirementUpdate || (() => {})} 
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center space-x-2 mt-4">
+                    <Button
+                      onClick={() => setSelectedViewRequirement(requirement)}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center space-x-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span>View</span>
+                    </Button>
+                    
+                    <NotificationBadge count={unreadCount} pulse={unreadCount > 0}>
+                      <Button
+                        onClick={() => handleSelectRequirement(requirement)}
+                        variant="outline"
+                        size="sm"
+                        className={`flex-1 flex items-center justify-center space-x-2 hover:bg-blue-50 hover:border-blue-300 ${
+                          unreadCount > 0 ? 'ring-2 ring-blue-200 ring-offset-1 shadow-lg bg-blue-50' : ''
+                        }`}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        <span>{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
+                        {unreadCount > 0 && (
+                          <div className="ml-1 bg-blue-500 text-white rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </div>
+                        )}
+                      </Button>
+                    </NotificationBadge>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Requirement View Modal */}
+      {selectedViewRequirement && (
+        <RequirementViewModal
+          requirement={selectedViewRequirement}
+          isOpen={!!selectedViewRequirement}
+          onClose={() => setSelectedViewRequirement(null)}
+        />
+      )}
+    </>
   );
 };

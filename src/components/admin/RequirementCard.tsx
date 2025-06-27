@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { RequirementCardHeader } from './RequirementCardHeader';
@@ -6,6 +5,7 @@ import { RequirementCardContent } from './RequirementCardContent';
 import { RequirementCardAttachments } from './RequirementCardAttachments';
 import { RequirementCardActions } from './RequirementCardActions';
 import { RejectionResponseModal } from './RejectionResponseModal';
+import { RequirementViewModal } from '../common/RequirementViewModal';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, MessageSquare, RotateCcw } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
@@ -23,6 +23,7 @@ interface RequirementCardProps {
   unreadCount?: number;
   onMarkAsRead?: (requirementId: string) => void;
   onApprovalUpdate?: () => void;
+  onDownloadAttachment?: (url: string, fileName: string) => void;
 }
 
 export const RequirementCard = ({ 
@@ -30,9 +31,11 @@ export const RequirementCard = ({
   onOpenChat, 
   unreadCount = 0,
   onMarkAsRead,
-  onApprovalUpdate 
+  onApprovalUpdate,
+  onDownloadAttachment 
 }: RequirementCardProps) => {
   const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
 
   const handleOpenChat = (req: Requirement) => {
     // Mark as read when opening chat
@@ -136,6 +139,7 @@ export const RequirementCard = ({
             unreadCount={unreadCount}
             onOpenChat={handleOpenChat}
             onStatusUpdate={handleStatusUpdate}
+            onViewRequirement={() => setShowViewModal(true)}
           />
         </CardContent>
       </Card>
@@ -146,6 +150,16 @@ export const RequirementCard = ({
           requirement={requirement}
           onClose={() => setShowRejectionModal(false)}
           onUpdate={handleRejectionUpdate}
+        />
+      )}
+
+      {/* Requirement View Modal */}
+      {showViewModal && (
+        <RequirementViewModal
+          requirement={requirement}
+          isOpen={showViewModal}
+          onClose={() => setShowViewModal(false)}
+          onDownloadAttachment={onDownloadAttachment}
         />
       )}
     </>

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Eye } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
@@ -18,13 +18,15 @@ interface RequirementCardActionsProps {
   unreadCount: number;
   onOpenChat: (requirement: Requirement) => void;
   onStatusUpdate: () => void;
+  onViewRequirement: () => void;
 }
 
 export const RequirementCardActions = ({ 
   requirement, 
   unreadCount, 
   onOpenChat, 
-  onStatusUpdate 
+  onStatusUpdate,
+  onViewRequirement 
 }: RequirementCardActionsProps) => {
   const handleOpenChat = () => {
     console.log('Opening chat for requirement:', requirement.id, 'Unread count:', unreadCount);
@@ -38,23 +40,35 @@ export const RequirementCardActions = ({
         onStatusUpdate={onStatusUpdate} 
       />
       
-      <div className="relative">
+      <div className="flex items-center space-x-2">
         <Button
-          onClick={handleOpenChat}
+          onClick={onViewRequirement}
           size="sm"
-          className={cn(
-            "bg-blue-600 hover:bg-blue-700 flex items-center space-x-2",
-            unreadCount > 0 && "ring-2 ring-red-200 ring-offset-1 shadow-lg"
-          )}
+          variant="outline"
+          className="flex items-center space-x-2"
         >
-          <MessageCircle className="h-4 w-4" />
-          <span>{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
-          {unreadCount > 0 && (
-            <div className="ml-1 bg-red-500 text-white rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </div>
-          )}
+          <Eye className="h-4 w-4" />
+          <span>View</span>
         </Button>
+        
+        <div className="relative">
+          <Button
+            onClick={handleOpenChat}
+            size="sm"
+            className={cn(
+              "bg-blue-600 hover:bg-blue-700 flex items-center space-x-2",
+              unreadCount > 0 && "ring-2 ring-red-200 ring-offset-1 shadow-lg"
+            )}
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span>{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
+            {unreadCount > 0 && (
+              <div className="ml-1 bg-red-500 text-white rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </div>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
