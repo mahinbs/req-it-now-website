@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +8,7 @@ import { AnalyticsCards } from './AnalyticsCards';
 import { AdminDashboardHeader } from './AdminDashboardHeader';
 import { RequirementsFilter, type FilterState } from '@/components/filters/RequirementsFilter';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
-import { useAdminNotifications } from '@/hooks/useAdminNotifications';
+import { useUnifiedNotificationContext } from '@/hooks/useUnifiedNotifications';
 import { applyFilters } from '@/utils/filterUtils';
 import { toast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
@@ -42,7 +41,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     handleRefresh
   } = useAdminDashboard();
 
-  const { markAsRead } = useAdminNotifications();
+  const { markAsRead } = useUnifiedNotificationContext();
 
   // Memoized filtered requirements for better performance
   const filteredRequirements = useMemo(() => {

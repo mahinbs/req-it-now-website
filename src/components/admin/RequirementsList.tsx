@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, RefreshCw } from 'lucide-react';
 import { RequirementCard } from './RequirementCard';
-import { useAdminNotifications } from '@/hooks/useAdminNotifications';
+import { useUnifiedNotificationContext } from '@/hooks/useUnifiedNotifications';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -29,7 +29,7 @@ export const RequirementsList = ({
   onRefresh,
   onApprovalUpdate 
 }: RequirementsListProps) => {
-  const { getUnreadCount, markAsRead, loading: notificationsLoading } = useAdminNotifications();
+  const { getUnreadCount, markAsRead, loading: notificationsLoading } = useUnifiedNotificationContext();
 
   const handleRefresh = () => {
     onRefresh();
