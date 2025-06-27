@@ -34,36 +34,38 @@ export const RequirementCardActions = ({
   };
 
   return (
-    <div className="flex items-center justify-between space-x-3">
-      <StatusDropdown 
-        requirement={requirement} 
-        onStatusUpdate={onStatusUpdate} 
-      />
+    <div className="space-y-3 mt-4">
+      <div className="flex items-center justify-between">
+        <StatusDropdown 
+          requirement={requirement} 
+          onStatusUpdate={onStatusUpdate} 
+        />
+      </div>
       
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 w-full">
         <Button
           onClick={onViewRequirement}
           size="sm"
           variant="outline"
-          className="flex items-center space-x-2"
+          className="flex-1 glass border-white/20 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all duration-300"
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-4 w-4 mr-2" />
           <span>View</span>
         </Button>
         
-        <div className="relative">
+        <div className="flex-1 relative">
           <Button
             onClick={handleOpenChat}
             size="sm"
             className={cn(
-              "bg-blue-600 hover:bg-blue-700 flex items-center space-x-2",
-              unreadCount > 0 && "ring-2 ring-red-200 ring-offset-1 shadow-lg"
+              "w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg transition-all duration-300",
+              unreadCount > 0 && "ring-2 ring-yellow-400/50 shadow-yellow-400/20"
             )}
           >
-            <MessageCircle className="h-4 w-4" />
-            <span>{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
+            <MessageCircle className="h-4 w-4 mr-2" />
+            <span className="truncate">{unreadCount > 0 ? 'New Messages' : 'Open Chat'}</span>
             {unreadCount > 0 && (
-              <div className="ml-1 bg-red-500 text-white rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
+              <div className="ml-2 bg-yellow-400 text-black rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </div>
             )}
