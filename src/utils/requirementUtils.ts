@@ -127,7 +127,7 @@ export const isRequirementStuck = (requirement: Requirement): boolean => {
          !requirement.admin_response_to_rejection;
 };
 
-// Helper function to get the appropriate action text for requirement status
+// Enhanced function to get the appropriate action text for requirement status
 export const getRequirementActionText = (requirement: Requirement): string => {
   if (requirement.rejected_by_client) {
     return requirement.admin_response_to_rejection ? 'View Response' : 'Respond to Rejection';
@@ -158,4 +158,56 @@ export const getReopenedTaskInfo = (requirement: Requirement) => {
     originalRejectionReason: requirement.rejection_reason,
     canCompleteTask: wasReopened || (!requirement.rejected_by_client && requirement.admin_status !== 'completed')
   };
+};
+
+// Helper function to get the most accurate status based on admin_status and flags
+export const getEffectiveStatus = (requirement: Requirement): string => {
+  // Always prioritize admin_status as the source of truth
+  const adminStatus = requirement.admin_status || 'pending';
+  
+  // Handle special cases
+  if (requirement.rejected_by_client) {
+    return 'rejected_by_client';
+  }
+  
+  if (requirement.accepted_by_client) {
+    return 'accepted_by_client';
+  }
+  
+  // Map admin status to effective status
+  switch (adminStatus) {
+    case 'pending':
+      return 'pending';
+    case 'ongoing':
+      return 'approved_by_admin';
+    case 'completed':
+      return 'completed_by_admin';
+    default:
+      return requirement.status;
+  }
+};
+
+// Helper function to check if status is consistent
+export const isStatusConsistent = (requirement: Requirement): boolean => {
+  const adminStatus = requirement.admin_status || 'pending';
+  
+  switch (adminStatus) {
+    case 'pending':
+      return !requirement.approved_by_admin && 
+             !requirement.completed_by_admin && 
+             !requirement.accepted_by_client &&
+             requirement.status === 'pending';
+    case 'ongoing':
+      return requirement.approved_by_admin && 
+             !requirement.completed_by_admin && 
+             !requirement.accepted_by_client &&
+             requirement.status === 'approved_by_admin';
+    case 'completed':
+      return requirement.approved_by_admin && 
+             requirement.completed_by_admin && 
+             !requirement.accepted_by_client &&
+             requirement.status === 'completed_by_admin';
+    default:
+      return true;
+  }
 };

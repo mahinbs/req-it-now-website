@@ -44,7 +44,7 @@ export const RequirementsList = ({
       return 'bg-red-100 text-red-800 border-red-300';
     } else if (requirement.accepted_by_client) {
       return 'bg-green-100 text-green-800 border-green-300';
-    } else if (requirement.completed_by_admin) {
+    } else if (requirement.completed_by_admin && !requirement.accepted_by_client) {
       return 'bg-purple-100 text-purple-800 border-purple-300';
     } else if (requirement.approved_by_admin) {
       return 'bg-blue-100 text-blue-800 border-blue-300';
@@ -53,15 +53,24 @@ export const RequirementsList = ({
   };
 
   const getStatusText = (requirement: Requirement) => {
+    // Prioritize admin_status for clearer status display
+    const adminStatus = requirement.admin_status || 'pending';
+    
     if (requirement.rejected_by_client) {
       return 'You Rejected This Work';
     } else if (requirement.accepted_by_client) {
       return 'Completed & Approved';
-    } else if (requirement.completed_by_admin) {
+    } else if (requirement.completed_by_admin && !requirement.accepted_by_client) {
       return 'Awaiting Your Review';
-    } else if (requirement.approved_by_admin) {
+    } else if (adminStatus === 'ongoing') {
       return 'Work in Progress';
+    } else if (adminStatus === 'completed') {
+      return 'Completed - Awaiting Review';
+    } else if (adminStatus === 'pending') {
+      return 'Pending Review';
     }
+    
+    // Fallback to original status
     return requirement.status.replace('_', ' ');
   };
 

@@ -71,21 +71,14 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
     setCurrentStatus(newStatus);
 
     try {
-      const updateData: any = { 
-        admin_status: newStatus,
-        updated_at: new Date().toISOString()
-      };
-
-      // Handle completion properly
-      if (newStatus === 'completed') {
-        updateData.completed_by_admin = true;
-        updateData.completion_date = new Date().toISOString();
-        updateData.status = 'completed_by_admin';
-      }
-
+      // The database trigger will handle all the status synchronization
+      // We just need to update the admin_status field
       const { error } = await supabase
         .from('requirements')
-        .update(updateData)
+        .update({ 
+          admin_status: newStatus,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', requirement.id);
 
       if (error) {
@@ -95,7 +88,7 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
         throw error;
       }
 
-      console.log('Requirement status updated successfully');
+      console.log('Requirement status updated successfully - database trigger handled synchronization');
       const statusLabel = adminStatusConfig[newStatus as keyof typeof adminStatusConfig]?.label || newStatus;
       toast({
         title: "Status Updated",
