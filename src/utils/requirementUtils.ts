@@ -1,3 +1,4 @@
+
 import type { Tables } from '@/integrations/supabase/types';
 import { Clock, Play, CheckCircle } from 'lucide-react';
 
@@ -118,4 +119,32 @@ export const getUniqueAttachments = (requirement: Requirement) => {
   }
   
   return attachments;
+};
+
+// Helper function to determine if a requirement is in a "stuck" state
+export const isRequirementStuck = (requirement: Requirement): boolean => {
+  return requirement.rejected_by_client === true && 
+         !requirement.admin_response_to_rejection;
+};
+
+// Helper function to get the appropriate action text for requirement status
+export const getRequirementActionText = (requirement: Requirement): string => {
+  if (requirement.rejected_by_client) {
+    return requirement.admin_response_to_rejection ? 'View Response' : 'Respond to Rejection';
+  }
+  
+  if (requirement.completed_by_admin && !requirement.accepted_by_client) {
+    return 'Review Completed Work';
+  }
+  
+  return 'Open Chat';
+};
+
+// Helper function to check if a requirement was recently reopened
+export const wasRequirementReopened = (requirement: Requirement): boolean => {
+  return Boolean(
+    requirement.rejection_reason && 
+    !requirement.rejected_by_client && 
+    requirement.admin_response_to_rejection
+  );
 };

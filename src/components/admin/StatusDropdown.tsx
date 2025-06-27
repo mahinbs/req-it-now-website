@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, Clock, Play, CheckCircle, Loader2 } from 'lucide-react';
+import { ChevronDown, Clock, Play, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { adminStatusConfig } from '@/utils/requirementUtils';
@@ -41,6 +41,16 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
 
   const handleStatusChange = async (newStatus: string) => {
     if (newStatus === currentStatus || updating) return;
+    
+    // Don't allow status changes on rejected requirements through this dropdown
+    if (requirement.rejected_by_client) {
+      toast({
+        title: "Cannot Change Status",
+        description: "This requirement was rejected by the client. Use the 'Respond' button to address the rejection.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setUpdating(true);
     console.log('Updating requirement status:', {
@@ -91,6 +101,16 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
       setUpdating(false);
     }
   };
+
+  // Show rejection status if requirement is rejected
+  if (requirement.rejected_by_client) {
+    return (
+      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
+        <AlertTriangle className="h-3 w-3 mr-1" />
+        Rejected by Client
+      </Badge>
+    );
+  }
 
   const currentConfig = adminStatusConfig[currentStatus as keyof typeof adminStatusConfig];
 

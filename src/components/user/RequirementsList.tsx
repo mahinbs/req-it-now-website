@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Plus, FileText, Paperclip, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Plus, FileText, Paperclip, AlertTriangle, RotateCcw } from 'lucide-react';
 import { NotificationBadge } from '@/components/ui/NotificationBadge';
 import { AcceptanceButton } from './AcceptanceButton';
 import { useClientNotifications } from '@/hooks/useClientNotifications';
@@ -71,6 +71,13 @@ export const RequirementsList = ({
     return config || adminStatusConfig.pending;
   };
 
+  // Check if requirement was recently reopened (rejected but now has pending/ongoing status)
+  const wasRecentlyReopened = (requirement: Requirement) => {
+    return requirement.rejection_reason && 
+           !requirement.rejected_by_client && 
+           requirement.admin_response_to_rejection;
+  };
+
   if (requirements.length === 0) {
     return (
       <Card className="border-dashed border-2 border-slate-300">
@@ -103,6 +110,7 @@ export const RequirementsList = ({
           const unreadCount = getUnreadCount(requirement.id);
           const adminStatus = getAdminStatusDisplay(requirement);
           const AdminStatusIcon = adminStatus.icon;
+          const recentlyReopened = wasRecentlyReopened(requirement);
           
           return (
             <Card key={requirement.id} className="hover:shadow-md transition-shadow relative">
@@ -111,6 +119,15 @@ export const RequirementsList = ({
                 <div className="absolute top-2 right-2 z-10">
                   <div className="bg-red-500 text-white rounded-full p-1">
                     <AlertTriangle className="h-3 w-3" />
+                  </div>
+                </div>
+              )}
+
+              {/* Recently Reopened indicator */}
+              {recentlyReopened && (
+                <div className="absolute top-2 right-2 z-10">
+                  <div className="bg-green-500 text-white rounded-full p-1">
+                    <RotateCcw className="h-3 w-3" />
                   </div>
                 </div>
               )}
@@ -152,6 +169,27 @@ export const RequirementsList = ({
                 <p className="text-sm text-slate-600 mb-4 line-clamp-3">
                   {requirement.description}
                 </p>
+
+                {/* Show reopened notice */}
+                {recentlyReopened && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start space-x-2">
+                      <RotateCcw className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h4 className="text-sm font-medium text-green-800">Task Reopened</h4>
+                        <p className="text-xs text-green-700 mt-1">
+                          The admin has addressed your concerns and reopened this task for further work.
+                        </p>
+                        {requirement.admin_response_to_rejection && (
+                          <div className="mt-2 p-2 bg-white border border-green-200 rounded text-xs">
+                            <span className="font-medium text-green-800">Admin Response: </span>
+                            <span className="text-green-700">{requirement.admin_response_to_rejection}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Show rejection reason if client rejected */}
                 {requirement.rejected_by_client && requirement.rejection_reason && (
