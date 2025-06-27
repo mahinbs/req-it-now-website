@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Eye, Download, Calendar, User, Globe, AlertTriangle, CheckCircle, Clock, RotateCcw } from 'lucide-react';
+import { Eye, Download, ExternalLink, Calendar, User, Globe, AlertTriangle, CheckCircle, Clock, RotateCcw } from 'lucide-react';
 import { getStatusColor, getPriorityColor, formatDate, getUniqueAttachments, adminStatusConfig } from '@/utils/requirementUtils';
+import { downloadFile } from '@/utils/downloadUtils';
+import { toast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
+
 type Requirement = Tables<'requirements'> & {
   profiles?: {
     company_name: string;
@@ -19,12 +22,15 @@ interface RequirementViewModalProps {
   onClose: () => void;
   onDownloadAttachment?: (url: string, fileName: string) => void;
 }
+
 export const RequirementViewModal = ({
   requirement,
   isOpen,
   onClose,
   onDownloadAttachment
 }: RequirementViewModalProps) => {
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+  
   const attachments = getUniqueAttachments(requirement);
   const adminStatus = requirement.admin_status || 'pending';
   const adminStatusConfig = {
@@ -49,19 +55,57 @@ export const RequirementViewModal = ({
 
   // Check if task was recently reopened
   const wasRecentlyReopened = requirement.admin_response_to_rejection && !requirement.rejected_by_client && requirement.rejection_reason;
-  const handleDownload = (url: string, fileName: string) => {
+  
+  const setLoading = (url: string, loading: boolean) => {
+    setLoadingStates(prev => ({ ...prev, [url]: loading }));
+  };
+
+  const handleDownload = async (url: string, fileName: string) => {
     if (onDownloadAttachment) {
       onDownloadAttachment(url, fileName);
-    } else {
-      // Fallback download method
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      return;
+    }
+
+    setLoading(url, true);
+    
+    try {
+      const result = await downloadFile(url, fileName, { forceDownload: true });
+
+      if (!result.success) {
+        toast({
+          title: "Download Failed",
+          description: result.error || "Failed to download file",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Download Started",
+          description: `${fileName} is being downloaded`,
+        });
+      }
+    } finally {
+      setLoading(url, false);
     }
   };
+
+  const handleOpenInNewTab = async (url: string, fileName: string) => {
+    setLoading(url, true);
+    
+    try {
+      const result = await downloadFile(url, fileName, { openInNewTab: true });
+
+      if (!result.success) {
+        toast({
+          title: "Failed to Open",
+          description: result.error || "Failed to open file in new tab",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setLoading(url, false);
+    }
+  };
+
   return <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-700">
         <DialogHeader>
@@ -219,30 +263,64 @@ export const RequirementViewModal = ({
           </Card>
 
           {/* Attachments */}
-          {attachments.length > 0 && <Card>
+          {attachments.length > 0 && (
+            <Card>
               <CardHeader>
                 <CardTitle className="text-lg text-white">Attachments ({attachments.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {attachments.map((attachment, index) => <div key={index} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-600">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-600/20 rounded flex items-center justify-center">
-                          {attachment.type === 'video' ? '🎥' : '📄'}
+                  {attachments.map((attachment, index) => {
+                    const isLoading = loadingStates[attachment.url];
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-600">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-blue-600/20 rounded flex items-center justify-center">
+                            {attachment.type === 'video' ? '🎥' : '📄'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-200">{attachment.name}</p>
+                            <p className="text-xs text-slate-400">{attachment.type === 'video' ? 'Video' : 'File'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-200">{attachment.name}</p>
-                          <p className="text-xs text-slate-400">{attachment.type === 'video' ? 'Video' : 'File'}</p>
+                        <div className="flex items-center space-x-1">
+                          <Button 
+                            onClick={() => handleOpenInNewTab(attachment.url, attachment.name)}
+                            size="sm" 
+                            variant="outline" 
+                            className="flex items-center space-x-1 border-slate-600 hover:bg-slate-700 text-gray-400 h-8 w-8 p-0"
+                            title="Open in new tab"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? (
+                              <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <ExternalLink className="h-3 w-3" />
+                            )}
+                          </Button>
+                          <Button 
+                            onClick={() => handleDownload(attachment.url, attachment.name)}
+                            size="sm" 
+                            variant="outline" 
+                            className="flex items-center space-x-1 border-slate-600 hover:bg-slate-700 text-gray-400 h-8 w-8 p-0"
+                            title="Download file"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? (
+                              <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Download className="h-3 w-3" />
+                            )}
+                          </Button>
                         </div>
                       </div>
-                      <Button onClick={() => handleDownload(attachment.url, attachment.name)} size="sm" variant="outline" className="flex items-center space-x-1 border-slate-600 hover:bg-slate-700 text-gray-400">
-                        <Download className="h-3 w-3" />
-                        <span>Download</span>
-                      </Button>
-                    </div>)}
+                    );
+                  })}
                 </div>
               </CardContent>
-            </Card>}
+            </Card>
+          )}
         </div>
       </DialogContent>
     </Dialog>;
