@@ -15,7 +15,6 @@ interface User {
 export const useUserDashboard = (user: User) => {
   const [showNewRequirement, setShowNewRequirement] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
-  const [showGeneralChat, setShowGeneralChat] = useState(false);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -174,8 +173,6 @@ export const useUserDashboard = (user: User) => {
     setShowNewRequirement,
     selectedRequirement,
     setSelectedRequirement,
-    showGeneralChat,
-    setShowGeneralChat,
     requirements,
     loading,
     error,

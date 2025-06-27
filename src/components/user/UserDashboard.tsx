@@ -35,8 +35,6 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     setShowNewRequirement,
     selectedRequirement,
     setSelectedRequirement,
-    showGeneralChat,
-    setShowGeneralChat,
     requirements,
     loading,
     error,
@@ -101,9 +99,7 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <UserDashboardHeader 
         user={user}
-        onShowGeneralChat={() => setShowGeneralChat(true)}
         onLogout={handleLogout}
-        isGeneralChatOpen={showGeneralChat}
       />
 
       <div className="max-w-7xl mx-auto p-6">
@@ -129,7 +125,6 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
         {/* Welcome message for new users */}
         {requirements.length === 0 && (
           <WelcomeCard 
-            onShowGeneralChat={() => setShowGeneralChat(true)}
             onShowNewRequirement={() => setShowNewRequirement(true)}
           />
         )}
@@ -189,10 +184,8 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
           user={user}
           showNewRequirement={showNewRequirement}
           selectedRequirement={selectedRequirement}
-          showGeneralChat={showGeneralChat}
           onCloseNewRequirement={() => setShowNewRequirement(false)}
           onCloseRequirementChat={() => setSelectedRequirement(null)}
-          onCloseGeneralChat={() => setShowGeneralChat(false)}
           onSubmitRequirement={handleSubmitRequirement}
         />
       </div>

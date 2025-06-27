@@ -17,10 +17,8 @@ interface UserModalsProps {
   user: User;
   showNewRequirement: boolean;
   selectedRequirement: Requirement | null;
-  showGeneralChat: boolean;
   onCloseNewRequirement: () => void;
   onCloseRequirementChat: () => void;
-  onCloseGeneralChat: () => void;
   onSubmitRequirement: () => void;
 }
 
@@ -28,10 +26,8 @@ export const UserModals = ({
   user,
   showNewRequirement,
   selectedRequirement,
-  showGeneralChat,
   onCloseNewRequirement,
   onCloseRequirementChat,
-  onCloseGeneralChat,
   onSubmitRequirement
 }: UserModalsProps) => {
   return (
@@ -78,34 +74,6 @@ export const UserModals = ({
             </div>
             <ChatBox
               requirementId={selectedRequirement.id}
-              currentUserName={user.company_name}
-              isCurrentChat={true}
-              isAdmin={false}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* General Chat Modal */}
-      {showGeneralChat && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Chat with Admin</h3>
-                <p className="text-sm text-slate-600">Ask questions or get help with your website</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCloseGeneralChat}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                ×
-              </Button>
-            </div>
-            <ChatBox
-              requirementId=""
               currentUserName={user.company_name}
               isCurrentChat={true}
               isAdmin={false}
