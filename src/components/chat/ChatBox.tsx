@@ -1,7 +1,7 @@
 
 import React, { useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageCircle, WifiOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { MessageCircle, WifiOff, RefreshCw, AlertCircle, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChatWithAttachments } from '@/hooks/useChatWithAttachments';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -101,49 +101,61 @@ const ChatBoxContent = ({
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
+    <Card className="w-full glass bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl">
+      <CardHeader className="border-b border-white/10">
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <MessageCircle className="h-5 w-5" />
-            <span>{requirementId ? 'Requirement Chat' : 'General Chat'}</span>
-            {messages.length > 0 && (
-              <span className="text-sm text-gray-500">({messages.length} messages)</span>
-            )}
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 rounded-xl">
+              <MessageCircle className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <span className="text-white font-space-grotesk">
+                {requirementId ? 'Requirement Chat' : 'General Chat'}
+              </span>
+              {messages.length > 0 && (
+                <span className="text-sm text-slate-400 ml-2">({messages.length} messages)</span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             {error && (
-              <div className="flex items-center space-x-1 text-red-600 text-xs">
+              <div className="flex items-center space-x-2 text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
                 <AlertCircle className="h-3 w-3" />
                 <span>Error</span>
               </div>
             )}
             {!connected && !error && (
-              <div className="flex items-center space-x-1 text-orange-600 text-xs">
-                <WifiOff className="h-3 w-3" />
+              <div className="flex items-center space-x-2 text-orange-400 text-xs bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+                <WifiOff className="h-3 w-3 animate-pulse" />
                 <span>Reconnecting...</span>
               </div>
             )}
             {connected && !error && (
-              <div className="w-2 h-2 bg-green-500 rounded-full" title="Connected" />
+              <div className="flex items-center space-x-2 text-green-400 text-xs bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                <span>Connected</span>
+              </div>
             )}
           </div>
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="p-6">
+        <div className="space-y-6">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
+            <div className="glass p-4 bg-red-500/10 border border-red-400/30 rounded-xl text-red-300">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="font-medium">Connection Issue</div>
-                  <div className="mt-1">{error}</div>
+                  <div className="font-medium flex items-center space-x-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Connection Issue</span>
+                  </div>
+                  <div className="mt-1 text-sm">{error}</div>
                 </div>
                 <Button 
                   onClick={retryConnection} 
                   size="sm"
                   variant="ghost"
-                  className="ml-2 text-red-600 hover:text-red-700 p-1 h-auto"
+                  className="ml-2 text-red-300 hover:text-red-200 hover:bg-red-500/20 p-2 h-auto"
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
@@ -152,14 +164,16 @@ const ChatBoxContent = ({
           )}
           
           <div 
-            className="h-64 overflow-y-auto border rounded-md p-3 space-y-3"
+            className="h-64 overflow-y-auto glass bg-white/5 border border-white/10 rounded-xl p-4 space-y-4"
             onClick={handleMarkAsRead} // Mark as read when user clicks in chat area
           >
             {messages.length === 0 && !loading ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                <MessageCircle className="h-8 w-8 mb-2 opacity-50" />
-                <p className="text-sm">No messages yet</p>
-                <p className="text-xs mt-1">Start the conversation!</p>
+              <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 p-4 rounded-full mb-4">
+                  <MessageCircle className="h-8 w-8 opacity-50" />
+                </div>
+                <p className="text-sm font-medium">No messages yet</p>
+                <p className="text-xs mt-1 text-slate-500">Start the conversation!</p>
               </div>
             ) : (
               <MessageList 
@@ -174,10 +188,20 @@ const ChatBoxContent = ({
             )}
           </div>
           
-          <MessageForm 
-            onSendMessage={sendMessage} 
-            disabled={sending || !connected}
-          />
+          <div className="relative">
+            <MessageForm 
+              onSendMessage={sendMessage} 
+              disabled={sending || !connected}
+            />
+            {sending && (
+              <div className="absolute inset-0 glass bg-white/5 rounded-xl flex items-center justify-center">
+                <div className="flex items-center space-x-2 text-blue-400">
+                  <Zap className="h-4 w-4 animate-pulse" />
+                  <span className="text-sm font-medium">Sending...</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

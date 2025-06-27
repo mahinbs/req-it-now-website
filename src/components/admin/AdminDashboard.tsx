@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, Bell } from 'lucide-react';
+import { RefreshCw, Bell, BarChart3, Users, Zap } from 'lucide-react';
 import { RequirementsList } from './RequirementsList';
 import { ChatModal } from './ChatModal';
 import { AnalyticsCards } from './AnalyticsCards';
@@ -122,12 +122,19 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading admin dashboard...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-red-900 flex items-center justify-center relative overflow-hidden">
+        {/* Animated background */}
+        <div className="absolute inset-0 animated-gradient opacity-10"></div>
+        
+        <div className="text-center relative z-10">
+          <div className="relative mb-6">
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-transparent border-t-purple-400 border-r-red-400 mx-auto"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-pink-400 border-r-purple-400 animate-ping"></div>
+          </div>
+          <p className="text-2xl font-bold text-white font-space-grotesk">Loading admin dashboard...</p>
+          <p className="mt-2 text-slate-300">Preparing your command center</p>
           {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm max-w-md">
+            <div className="mt-6 glass p-4 border border-red-400/30 rounded-xl text-red-300 max-w-md mx-auto">
               {error}
               <button 
                 onClick={() => window.location.reload()} 
@@ -143,16 +150,19 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-red-900 relative overflow-hidden">
+      {/* Animated background particles */}
+      <div className="absolute inset-0 animated-gradient opacity-5"></div>
+      
       <AdminDashboardHeader 
         onLogout={handleLogout}
         onRefresh={handleRefresh}
         refreshing={refreshing}
       />
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6 relative z-10">
         {(error || notificationError) && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
+          <div className="mb-6 glass p-4 border border-red-400/30 rounded-xl text-red-300 animate-fade-in">
             {error || notificationError}
             <button 
               onClick={() => setError(null)} 
@@ -163,17 +173,17 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
           </div>
         )}
 
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-            <div className="flex items-center space-x-2">
-              {/* Notification status indicator */}
-              <div className="flex items-center space-x-2 px-3 py-1 bg-white border rounded-lg">
-                <Bell className={`h-4 w-4 ${hasNewMessage ? 'text-red-500' : 'text-slate-400'}`} />
-                <span className="text-sm text-slate-600">
+        <div className="mb-8">
+          <div className="flex items-center justify-between flex-wrap gap-6">
+            <h1 className="text-3xl font-bold text-white font-space-grotesk">Admin Command Center</h1>
+            <div className="flex items-center space-x-4">
+              {/* Enhanced notification status indicator */}
+              <div className="glass px-4 py-2 rounded-xl border border-white/10 flex items-center space-x-3">
+                <Bell className={`h-5 w-5 ${hasNewMessage ? 'text-red-400 animate-pulse' : 'text-slate-400'}`} />
+                <span className="text-sm text-slate-300 font-medium">
                   {totalUnreadCount > 0 ? `${totalUnreadCount} unread` : 'No new messages'}
                 </span>
-                <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-orange-500'}`} 
+                <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-400 pulse-neon' : 'bg-orange-400 animate-pulse'}`} 
                      title={connected ? 'Connected' : 'Reconnecting...'} />
               </div>
               
@@ -181,10 +191,11 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                 onClick={handleRefreshNotifications}
                 variant="outline"
                 size="sm"
-                className="flex items-center space-x-2"
+                className="glass border-white/20 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all duration-300 group relative overflow-hidden"
               >
-                <Bell className="h-4 w-4" />
-                <span>Refresh Notifications</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+                <Bell className="h-4 w-4 mr-2 relative z-10" />
+                <span className="relative z-10">Refresh Notifications</span>
               </Button>
               
               <Button
@@ -192,36 +203,44 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                 disabled={refreshing}
                 variant="outline"
                 size="sm"
-                className="flex items-center space-x-2"
+                className="glass border-white/20 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all duration-300 group relative overflow-hidden"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-emerald-500/20 translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+                <RefreshCw className={`h-4 w-4 mr-2 relative z-10 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="relative z-10">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </Button>
             </div>
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white border border-slate-200">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <TabsList className="glass bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-2">
             <TabsTrigger 
               value="overview" 
-              className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-xl rounded-xl transition-all duration-300 font-medium"
             >
+              <BarChart3 className="h-4 w-4 mr-2" />
               Overview
             </TabsTrigger>
             <TabsTrigger 
               value="requirements" 
-              className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl rounded-xl transition-all duration-300 font-medium"
             >
+              <Users className="h-4 w-4 mr-2" />
               Requirements ({requirements.length})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6">
-            <AnalyticsCards requirements={requirements} />
+          <TabsContent value="overview" className="space-y-8">
+            <div className="scale-in">
+              <AnalyticsCards requirements={requirements} />
+            </div>
             
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Recent Requirements</h2>
+            <div className="glass bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-8">
+              <div className="flex items-center space-x-3 mb-6">
+                <Zap className="h-6 w-6 text-yellow-400" />
+                <h2 className="text-xl font-bold text-white font-space-grotesk">Recent Requirements</h2>
+              </div>
               <RequirementsList
                 requirements={recentRequirements}
                 onChatClick={handleChatClick}
@@ -234,9 +253,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
             <NotificationDebugger />
           </TabsContent>
 
-          <TabsContent value="requirements" className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <h2 className="text-xl font-semibold text-slate-900">All Requirements</h2>
+          <TabsContent value="requirements" className="space-y-8">
+            <div className="flex items-center justify-between flex-wrap gap-6">
+              <h2 className="text-2xl font-bold text-white font-space-grotesk">All Requirements</h2>
               {requirements.length > 0 && (
                 <RequirementsFilter 
                   filters={filters}
@@ -245,12 +264,14 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
               )}
             </div>
             
-            <RequirementsList
-              requirements={filteredRequirements}
-              onChatClick={handleChatClick}
-              onDownloadAttachment={handleDownloadAttachment}
-              onRefresh={handleRefresh}
-            />
+            <div className="scale-in">
+              <RequirementsList
+                requirements={filteredRequirements}
+                onChatClick={handleChatClick}
+                onDownloadAttachment={handleDownloadAttachment}
+                onRefresh={handleRefresh}
+              />
+            </div>
           </TabsContent>
         </Tabs>
 

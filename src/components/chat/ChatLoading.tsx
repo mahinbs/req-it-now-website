@@ -16,41 +16,49 @@ export const ChatLoading = ({
   onRetry
 }: ChatLoadingProps) => {
   return (
-    <Card className="w-full">
-      <CardContent className="flex items-center justify-center py-8">
-        <div className="text-center space-y-3">
-          <div className="flex items-center justify-center space-x-2">
-            <MessageCircle className="h-6 w-6 text-blue-600" />
+    <Card className="w-full glass bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl">
+      <CardContent className="flex items-center justify-center py-12">
+        <div className="text-center space-y-6">
+          <div className="flex items-center justify-center space-x-3">
+            <div className="relative">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-2xl">
+                <MessageCircle className="h-8 w-8 text-white" />
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur opacity-20 animate-pulse"></div>
+            </div>
             {error ? (
-              <AlertCircle className="h-6 w-6 text-red-600" />
+              <div className="bg-gradient-to-r from-red-500 to-pink-600 p-3 rounded-2xl">
+                <AlertCircle className="h-8 w-8 text-white" />
+              </div>
             ) : (
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <div className="bg-gradient-to-r from-cyan-500 to-blue-600 p-3 rounded-2xl">
+                <Loader2 className="h-8 w-8 animate-spin text-white" />
+              </div>
             )}
           </div>
           <div>
-            <p className="text-sm text-gray-600 font-medium">
+            <p className="text-lg text-white font-medium font-space-grotesk">
               {error ? 'Connection Error' : loadingMessage}
             </p>
             {error && (
-              <div className="mt-2 space-y-2">
-                <p className="text-xs text-red-600 bg-red-50 px-3 py-1 rounded max-w-md">
-                  {error}
-                </p>
+              <div className="mt-4 space-y-4">
+                <div className="glass p-4 bg-red-500/10 border border-red-400/30 rounded-xl max-w-md mx-auto">
+                  <p className="text-sm text-red-300">{error}</p>
+                </div>
                 {onRetry && (
                   <Button 
                     onClick={onRetry} 
                     size="sm" 
-                    variant="outline"
-                    className="mt-2"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-xl transition-all duration-300"
                   >
-                    <RefreshCw className="h-3 w-3 mr-1" />
+                    <RefreshCw className="h-4 w-4 mr-2" />
                     Try Again
                   </Button>
                 )}
               </div>
             )}
             {!error && (
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-2 text-sm text-slate-400">
                 Setting up real-time connection...
               </p>
             )}
