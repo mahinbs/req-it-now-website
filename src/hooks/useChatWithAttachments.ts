@@ -2,8 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { uploadChatAttachment } from '@/utils/chatAttachmentUtils';
-import { measurePerformance } from '@/utils/performanceUtils';
+import { MessageCache, createRetryLogic } from '@/utils/performanceUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Message = Tables<'messages'> & {
@@ -11,54 +10,85 @@ type Message = Tables<'messages'> & {
   attachments?: Tables<'message_attachments'>[];
 };
 
+interface ChatState {
+  messages: Message[];
+  loading: boolean;
+  error: string | null;
+  sending: boolean;
+  connected: boolean;
+  hasMore: boolean;
+  loadingMore: boolean;
+}
+
 interface UseChatWithAttachmentsProps {
   requirementId: string;
   isAdmin?: boolean;
   isCurrentChat?: boolean;
 }
 
-const MESSAGE_BATCH_SIZE = 20;
-const RECONNECT_DELAY = 1000;
-const MAX_RECONNECT_ATTEMPTS = 3;
+const MESSAGES_PER_PAGE = 20;
+const messageCache = new MessageCache();
 
 export const useChatWithAttachments = ({ 
   requirementId, 
   isAdmin = false, 
-  isCurrentChat = true 
+  isCurrentChat = false 
 }: UseChatWithAttachmentsProps) => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  
+  const [state, setState] = useState<ChatState>({
+    messages: [],
+    loading: true,
+    error: null,
+    sending: false,
+    connected: false,
+    hasMore: true,
+    loadingMore: false
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(true);
   const channelRef = useRef<any>(null);
-  const reconnectAttempts = useRef(0);
-  const lastMessageTimestamp = useRef<string | null>(null);
-  const messageCache = useRef<Map<string, Message>>(new Map());
+  const offsetRef = useRef(0);
+  const { retry } = createRetryLogic(3, 1000);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
-  // Optimized message fetching with JOIN to get attachments in one query
-  const fetchMessagesWithAttachments = useCallback(async (
-    offset = 0, 
-    limit = MESSAGE_BATCH_SIZE,
-    loadMore = false
-  ) => {
-    const performanceFn = measurePerformance('fetchMessagesWithAttachments', async () => {
-      console.log(`Fetching messages: offset=${offset}, limit=${limit}, loadMore=${loadMore}`);
+  useEffect(() => {
+    scrollToBottom();
+  }, [state.messages, scrollToBottom]);
+
+  const updateState = useCallback((updates: Partial<ChatState>) => {
+    if (mountedRef.current) {
+      setState(prev => ({ ...prev, ...updates }));
+    }
+  }, []);
+
+  const fetchMessages = useCallback(async (offset = 0, limit = MESSAGES_PER_PAGE): Promise<boolean> => {
+    try {
+      const cacheKey = `messages-${requirementId || 'general'}-${offset}-${limit}`;
+      
+      // Check cache first
+      if (offset === 0) {
+        const cached = messageCache.get(cacheKey);
+        if (cached) {
+          console.log('Using cached messages');
+          updateState({ 
+            messages: cached, 
+            error: null,
+            hasMore: cached.length === limit 
+          });
+          return true;
+        }
+      }
+
+      console.log('Fetching messages for:', requirementId || 'general chat', 'offset:', offset, 'limit:', limit);
       
       let query = supabase
         .from('messages')
         .select(`
           *,
-          message_attachments (*)
+          attachments:message_attachments(*)
         `)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -69,78 +99,63 @@ export const useChatWithAttachments = ({
         query = query.is('requirement_id', null);
       }
 
-      const { data: messagesData, error } = await query;
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching messages:', error);
         throw error;
       }
-
-      // Transform data and add to cache
-      const transformedMessages = (messagesData || []).map(msg => {
-        const message: Message = {
-          ...msg,
-          sender_name: msg.is_admin ? 'Admin' : 'User',
-          attachments: msg.message_attachments || []
-        };
-        
-        // Cache the message
-        messageCache.current.set(message.id, message);
-        return message;
-      });
-
-      // Reverse to get chronological order
-      const orderedMessages = transformedMessages.reverse();
       
-      if (mountedRef.current) {
-        if (loadMore) {
-          setMessages(prev => [...orderedMessages, ...prev]);
-        } else {
-          setMessages(orderedMessages);
-          lastMessageTimestamp.current = orderedMessages[orderedMessages.length - 1]?.created_at || null;
-        }
-        
-        setHasMore(orderedMessages.length === limit);
-        setError(null);
-      }
-
-      return orderedMessages;
-    });
-
-    return await performanceFn();
-  }, [requirementId, mountedRef]);
-
-  // Load more messages (pagination)
-  const loadMoreMessages = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-    
-    setLoadingMore(true);
-    try {
-      await fetchMessagesWithAttachments(messages.length, MESSAGE_BATCH_SIZE, true);
-    } catch (error) {
-      console.error('Error loading more messages:', error);
-      if (mountedRef.current) {
-        toast({
-          title: "Error",
-          description: "Failed to load more messages",
-          variant: "destructive"
+      const messagesWithNames = (data || []).map(msg => ({
+        ...msg,
+        sender_name: msg.is_admin ? 'Admin' : 'User'
+      })).reverse(); // Reverse to show oldest first
+      
+      if (offset === 0) {
+        // Cache initial load
+        messageCache.set(cacheKey, messagesWithNames);
+        updateState({ 
+          messages: messagesWithNames, 
+          error: null,
+          hasMore: messagesWithNames.length === limit
         });
+      } else {
+        // Append to existing messages for pagination
+        setState(prev => ({
+          ...prev,
+          messages: [...messagesWithNames, ...prev.messages],
+          hasMore: messagesWithNames.length === limit,
+          loadingMore: false
+        }));
       }
-    } finally {
-      if (mountedRef.current) {
-        setLoadingMore(false);
-      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      updateState({ 
+        error: 'Failed to load messages',
+        loadingMore: false
+      });
+      return false;
     }
-  }, [messages.length, hasMore, loadingMore, fetchMessagesWithAttachments, mountedRef]);
+  }, [requirementId, updateState]);
 
-  // Optimized real-time subscription with consistent channel naming
-  const setupRealtimeSubscription = useCallback(() => {
+  const loadMoreMessages = useCallback(async () => {
+    if (state.loadingMore || !state.hasMore) return;
+    
+    updateState({ loadingMore: true });
+    offsetRef.current += MESSAGES_PER_PAGE;
+    await fetchMessages(offsetRef.current, MESSAGES_PER_PAGE);
+  }, [state.loadingMore, state.hasMore, fetchMessages, updateState]);
+
+  const setupRealtimeSubscription = useCallback(async () => {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
-    const channelName = `chat-optimized-${requirementId || 'general'}`;
-    console.log('Setting up optimized chat subscription:', channelName);
+    // Use consistent channel name without timestamp
+    const channelName = `chat-messages-${requirementId || 'general'}`;
+    console.log('Setting up chat subscription:', channelName);
     
     const channel = supabase
       .channel(channelName)
@@ -152,133 +167,102 @@ export const useChatWithAttachments = ({
           table: 'messages',
           filter: requirementId ? `requirement_id=eq.${requirementId}` : 'requirement_id=is.null'
         },
-        async (payload) => {
-          console.log('New message received:', payload);
+        (payload) => {
+          console.log('New message received in chat:', payload);
           if (mountedRef.current) {
             const newMessage = payload.new as Message;
-            
-            // Check if message is already in cache (prevent duplicates)
-            if (messageCache.current.has(newMessage.id)) {
-              console.log('Message already in cache, skipping:', newMessage.id);
-              return;
-            }
-            
             newMessage.sender_name = newMessage.is_admin ? 'Admin' : 'User';
             
-            // Fetch attachments for the new message if needed
-            if (newMessage.id) {
-              const { data: attachments } = await supabase
-                .from('message_attachments')
-                .select('*')
-                .eq('message_id', newMessage.id);
-              
-              newMessage.attachments = attachments || [];
-            }
-            
-            // Add to cache
-            messageCache.current.set(newMessage.id, newMessage);
-            
-            setMessages(prev => {
-              const exists = prev.some(msg => msg.id === newMessage.id);
-              if (exists) return prev;
-              return [...prev, newMessage];
-            });
-            
-            // Update last message timestamp
-            lastMessageTimestamp.current = newMessage.created_at;
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'message_attachments'
-        },
-        (payload) => {
-          console.log('New attachment received:', payload);
-          if (mountedRef.current) {
-            const newAttachment = payload.new as Tables<'message_attachments'>;
-            
-            setMessages(prev => prev.map(msg => {
-              if (msg.id === newAttachment.message_id) {
-                const updatedMsg = {
-                  ...msg,
-                  attachments: [...(msg.attachments || []), newAttachment]
-                };
-                messageCache.current.set(msg.id, updatedMsg);
-                return updatedMsg;
+            setState(prev => {
+              // Check for duplicates
+              const exists = prev.messages.some(msg => msg.id === newMessage.id);
+              if (exists) {
+                console.log('Duplicate message received, ignoring');
+                return prev;
               }
-              return msg;
-            }));
+              
+              // Clear cache when new message arrives
+              messageCache.clear();
+              
+              return {
+                ...prev,
+                messages: [...prev.messages, newMessage]
+              };
+            });
           }
         }
       )
       .subscribe((status) => {
-        console.log('Optimized chat subscription status:', status);
+        console.log('Chat subscription status:', status);
         if (mountedRef.current) {
-          setConnected(status === 'SUBSCRIBED');
           if (status === 'SUBSCRIBED') {
-            setLoading(false);
-            reconnectAttempts.current = 0;
+            updateState({ 
+              connected: true, 
+              loading: false,
+              error: null
+            });
           } else if (status === 'CHANNEL_ERROR') {
-            handleConnectionError();
+            updateState({ 
+              connected: false,
+              loading: false,
+              error: 'Connection failed. Please retry.'
+            });
+          } else if (status === 'CLOSED') {
+            updateState({ 
+              connected: false
+            });
           }
         }
       });
 
     channelRef.current = channel;
-  }, [requirementId, mountedRef]);
+  }, [requirementId, updateState]);
 
-  // Enhanced connection error handling with exponential backoff
-  const handleConnectionError = useCallback(() => {
-    console.log('Chat connection error, attempting retry...');
-    setConnected(false);
+  useEffect(() => {
+    mountedRef.current = true;
     
-    if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS && mountedRef.current) {
-      const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts.current);
-      reconnectAttempts.current++;
+    const initializeChat = async () => {
+      console.log('Initializing chat for requirement:', requirementId || 'general');
       
-      setTimeout(() => {
-        if (mountedRef.current) {
-          console.log(`Reconnecting chat (attempt ${reconnectAttempts.current})...`);
-          setupRealtimeSubscription();
-        }
-      }, delay);
-    } else {
-      setError('Connection failed. Please refresh to try again.');
-      setLoading(false);
-    }
-  }, [setupRealtimeSubscription, mountedRef]);
+      updateState({ 
+        error: null, 
+        loading: true 
+      });
+      
+      // Reset pagination
+      offsetRef.current = 0;
+      
+      // Fetch initial messages with retry logic
+      await retry(() => fetchMessages(0, MESSAGES_PER_PAGE));
+      
+      // Setup subscription
+      await setupRealtimeSubscription();
+    };
 
-  // Optimized send message with optimistic updates
-  const sendMessage = useCallback(async (content: string, file?: File) => {
-    if (!mountedRef.current) return;
+    initializeChat();
+
+    return () => {
+      console.log('Cleaning up chat component');
+      mountedRef.current = false;
+      
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [requirementId, fetchMessages, setupRealtimeSubscription, updateState, retry]);
+
+  const sendMessage = useCallback(async (content: string) => {
+    if (state.sending || !mountedRef.current) return;
     
     try {
-      setSending(true);
-      setError(null);
+      updateState({ sending: true, error: null });
+      console.log('Sending message...');
       
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         throw new Error('You must be logged in to send messages');
       }
-
-      // Optimistic update - show message immediately
-      const optimisticMessage: Message = {
-        id: `temp-${Date.now()}`,
-        sender_id: user.id,
-        content: content,
-        is_admin: isAdmin,
-        created_at: new Date().toISOString(),
-        requirement_id: requirementId || null,
-        sender_name: isAdmin ? 'Admin' : 'User',
-        attachments: []
-      };
-
-      setMessages(prev => [...prev, optimisticMessage]);
-      scrollToBottom();
 
       const messageData: any = {
         sender_id: user.id,
@@ -290,57 +274,26 @@ export const useChatWithAttachments = ({
         messageData.requirement_id = requirementId;
       }
 
-      // Send actual message
-      const { data: messageResult, error: messageError } = await supabase
+      const { error } = await supabase
         .from('messages')
-        .insert([messageData])
-        .select()
-        .single();
+        .insert([messageData]);
 
-      if (messageError) {
-        // Remove optimistic message on error
-        setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
-        throw messageError;
+      if (error) {
+        console.error('Message send error:', error);
+        throw error;
       }
 
-      // Replace optimistic message with real message
-      const realMessage: Message = {
-        ...messageResult,
-        sender_name: messageResult.is_admin ? 'Admin' : 'User',
-        attachments: []
-      };
-
-      setMessages(prev => prev.map(msg => 
-        msg.id === optimisticMessage.id ? realMessage : msg
-      ));
-
-      // Handle file upload if present
-      if (file && messageResult) {
-        try {
-          const uploadResult = await uploadChatAttachment(file, messageResult.id, user.id);
-          if (!uploadResult.success) {
-            toast({
-              title: "Warning",
-              description: `Message sent but attachment upload failed: ${uploadResult.error}`,
-              variant: "destructive"
-            });
-          }
-        } catch (uploadError) {
-          console.error('Attachment upload error:', uploadError);
-          toast({
-            title: "Warning",
-            description: "Message sent but attachment upload failed",
-            variant: "destructive"
-          });
-        }
-      }
+      console.log('Message sent successfully');
+      
+      // Clear cache to ensure fresh data
+      messageCache.clear();
       
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to send message";
       
       if (mountedRef.current) {
-        setError(errorMessage);
+        updateState({ error: errorMessage });
         toast({
           title: "Error",
           description: errorMessage,
@@ -350,85 +303,31 @@ export const useChatWithAttachments = ({
       throw error;
     } finally {
       if (mountedRef.current) {
-        setSending(false);
+        updateState({ sending: false });
       }
     }
-  }, [requirementId, isAdmin, mountedRef, scrollToBottom]);
+  }, [state.sending, isAdmin, requirementId, updateState]);
 
-  const retryConnection = useCallback(() => {
+  const retryConnection = useCallback(async () => {
     if (!mountedRef.current) return;
     
-    setError(null);
-    setLoading(true);
-    reconnectAttempts.current = 0;
-    
-    fetchMessagesWithAttachments().then(() => {
-      if (mountedRef.current && isCurrentChat) {
-        setupRealtimeSubscription();
-      }
-    }).catch(() => {
-      if (mountedRef.current) {
-        setError('Failed to load messages');
-        setLoading(false);
-      }
+    updateState({ 
+      error: null, 
+      loading: true 
     });
-  }, [mountedRef, isCurrentChat, fetchMessagesWithAttachments, setupRealtimeSubscription]);
-
-  // Initialize chat
-  useEffect(() => {
-    mountedRef.current = true;
-    messageCache.current.clear();
     
-    const initializeChat = async () => {
-      console.log('Initializing optimized chat for requirement:', requirementId || 'general');
-      
-      try {
-        setError(null);
-        
-        // Fetch initial messages
-        await fetchMessagesWithAttachments();
-        
-        // Setup realtime subscription
-        if (mountedRef.current && isCurrentChat) {
-          setupRealtimeSubscription();
-        }
-      } catch (error) {
-        console.error('Error initializing chat:', error);
-        if (mountedRef.current) {
-          setError('Failed to load chat messages');
-          setLoading(false);
-        }
-      }
-    };
-
-    initializeChat();
-
-    return () => {
-      console.log('Cleaning up optimized chat component');
-      mountedRef.current = false;
-      messageCache.current.clear();
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [requirementId, isCurrentChat, fetchMessagesWithAttachments, setupRealtimeSubscription]);
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages.length, scrollToBottom]);
+    await retry(() => fetchMessages(0, MESSAGES_PER_PAGE));
+    await setupRealtimeSubscription();
+  }, [fetchMessages, setupRealtimeSubscription, updateState, retry]);
 
   return {
-    messages,
-    loading,
-    error,
-    sending,
-    connected,
-    hasMore,
-    loadingMore,
+    messages: state.messages,
+    loading: state.loading,
+    error: state.error,
+    sending: state.sending,
+    connected: state.connected,
+    hasMore: state.hasMore,
+    loadingMore: state.loadingMore,
     messagesEndRef,
     sendMessage,
     retryConnection,

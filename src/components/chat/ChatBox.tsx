@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { MessageList } from './MessageList';
 import { MessageForm } from './MessageForm';
 import { ChatLoading } from './ChatLoading';
 import { useClientNotifications } from '@/hooks/useClientNotifications';
+import { useDebounce } from '@/utils/performanceUtils';
 
 interface ChatBoxProps {
   requirementId: string;
@@ -45,20 +46,24 @@ const ChatBoxContent = ({
 
   const { markAsRead: clientMarkAsRead } = useClientNotifications();
 
-  // Mark messages as read when chat is opened
-  useEffect(() => {
-    if (isCurrentChat && requirementId) {
-      console.log('ChatBox opened - marking as read:', requirementId);
-      
-      if (isAdmin && onMarkAsRead) {
-        // Admin marking as read
-        onMarkAsRead(requirementId);
-      } else if (!isAdmin) {
-        // Client marking as read
-        clientMarkAsRead(requirementId);
-      }
+  // Debounce the markAsRead function to prevent infinite loops
+  const debouncedMarkAsRead = useDebounce(useCallback((reqId: string) => {
+    console.log('Debounced mark as read called for:', reqId);
+    
+    if (isAdmin && onMarkAsRead) {
+      onMarkAsRead(reqId);
+    } else if (!isAdmin) {
+      clientMarkAsRead(reqId);
     }
-  }, [isCurrentChat, isAdmin, onMarkAsRead, requirementId, clientMarkAsRead]);
+  }, [isAdmin, onMarkAsRead, clientMarkAsRead]), 1000);
+
+  // Mark messages as read when chat is opened (only once when component mounts)
+  useEffect(() => {
+    if (isCurrentChat && requirementId && messages.length > 0) {
+      console.log('ChatBox marking messages as read for requirement:', requirementId);
+      debouncedMarkAsRead(requirementId);
+    }
+  }, [isCurrentChat, requirementId, messages.length > 0, debouncedMarkAsRead]);
 
   if (loading) {
     return <ChatLoading error={error} />;

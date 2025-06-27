@@ -60,7 +60,7 @@ export const useClientNotifications = () => {
         loading: false 
       });
     } catch (error) {
-      console.error('Error in fetchUnreadCounts:', error);
+      console.error('Error in client fetchUnreadCounts:', error);
       updateState({ loading: false });
     }
   };
@@ -82,7 +82,7 @@ export const useClientNotifications = () => {
         return;
       }
 
-      // Update local state
+      // Update local state immediately
       setState(prev => ({
         ...prev,
         unreadCounts: {
@@ -90,20 +90,22 @@ export const useClientNotifications = () => {
           [requirementId]: 0
         }
       }));
+
+      console.log('Client successfully marked requirement as read:', requirementId);
     } catch (error) {
       console.error('Error in client markAsRead:', error);
     }
   };
 
-  // Set up real-time subscriptions
+  // Set up real-time subscriptions for client notifications
   const setupRealtimeSubscriptions = () => {
     if (!user?.id || channelRef.current || initializingRef.current) return;
 
     console.log('Setting up client notifications real-time subscription');
     initializingRef.current = true;
 
-    // Create a unique channel name to avoid conflicts
-    const channelName = `client-notifications-${user.id}-${Date.now()}`;
+    // Use consistent channel name for client notifications  
+    const channelName = `client-notifications-${user.id}`;
     
     const channel = supabase
       .channel(channelName)
@@ -115,16 +117,20 @@ export const useClientNotifications = () => {
           table: 'messages'
         },
         (payload) => {
-          console.log('New message received by client:', payload);
+          console.log('Client received new message notification:', payload);
           const newMessage = payload.new as any;
           
-          // Only count admin messages (not client messages)
-          if (newMessage.is_admin && newMessage.requirement_id) {
+          // Only increment for admin messages (not client messages)
+          if (newMessage.is_admin && newMessage.sender_id !== user.id) {
+            const requirementId = newMessage.requirement_id || 'general';
+            
+            console.log('Client incrementing notification count for requirement:', requirementId);
+            
             setState(prev => ({
               ...prev,
               unreadCounts: {
                 ...prev.unreadCounts,
-                [newMessage.requirement_id]: (prev.unreadCounts[newMessage.requirement_id] || 0) + 1
+                [requirementId]: (prev.unreadCounts[requirementId] || 0) + 1
               }
             }));
           }
