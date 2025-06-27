@@ -91,7 +91,7 @@ export const NotificationDebugger = () => {
             {loading ? 'Checking...' : 'Debug Check'}
           </Button>
           
-          <Button onClick={refreshNotifications} size="sm" variant="outline">
+          <Button onClick={refreshNotifications} size="sm" variant="outline" className="text-zinc-950">
             <Bell className="h-4 w-4 mr-2" />
             Force Refresh
           </Button>
