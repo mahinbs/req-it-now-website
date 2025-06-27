@@ -88,7 +88,7 @@ export const RejectionModal = ({
           {/* Requirement Summary */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
             <h3 className="font-semibold text-slate-800 mb-2">Requirement Details</h3>
-            <div className="space-y-2">
+            <div className="space-y-2 bg-gray-400">
               <div>
                 <span className="font-medium">Title:</span> {requirement.title}
               </div>
