@@ -179,7 +179,7 @@ export const AcceptRequirementPage = () => {
 
           {/* Terms & Timeline */}
           <Card className="border-blue-200 bg-blue-50 shadow-lg">
-            <CardContent className="p-6">
+            <CardContent className="p-6 bg-zinc-300">
               <h3 className="font-semibold text-blue-800 mb-4 flex items-center">
                 📋 Terms & Timeline
               </h3>
