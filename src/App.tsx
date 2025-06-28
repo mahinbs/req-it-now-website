@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
@@ -12,6 +11,7 @@ import { AuthPage } from '@/components/auth/AuthPage';
 import { UserDashboard } from '@/components/user/UserDashboard';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { RejectRequirementPage } from '@/pages/RejectRequirementPage';
+import { AcceptRequirementPage } from '@/pages/AcceptRequirementPage';
 
 const AppContent = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -49,6 +49,16 @@ const AppContent = () => {
           element={
             !isAdmin ? (
               <RejectRequirementPage />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } 
+        />
+        <Route 
+          path="/accept-requirement/:id" 
+          element={
+            !isAdmin ? (
+              <AcceptRequirementPage />
             ) : (
               <Navigate to="/" replace />
             )
