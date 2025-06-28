@@ -155,7 +155,7 @@ export const AcceptRequirementPage = () => {
                 <span>Approved Requirement</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-6 bg-zinc-200">
               <div className="space-y-4">
                 <div className="flex flex-col space-y-1">
                   <span className="font-medium text-green-700">Title:</span>
