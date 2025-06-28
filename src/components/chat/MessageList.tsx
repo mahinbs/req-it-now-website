@@ -1,8 +1,6 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { MessageAttachments } from './MessageAttachments';
-import { Loader2 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Message = Tables<'messages'> & {
@@ -15,19 +13,13 @@ interface MessageListProps {
   requirementId: string;
   isAdmin: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement>;
-  hasMore?: boolean;
-  loadingMore?: boolean;
-  onLoadMore?: () => void;
 }
 
 export const MessageList = ({ 
   messages, 
   requirementId, 
   isAdmin, 
-  messagesEndRef,
-  hasMore = false,
-  loadingMore = false,
-  onLoadMore
+  messagesEndRef
 }: MessageListProps) => {
   if (messages.length === 0) {
     return (
@@ -42,29 +34,6 @@ export const MessageList = ({
 
   return (
     <>
-      {/* Load More Button */}
-      {hasMore && (
-        <div className="flex justify-center mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            className="text-xs border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white"
-          >
-            {loadingMore ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                Loading...
-              </>
-            ) : (
-              'Load More Messages'
-            )}
-          </Button>
-        </div>
-      )}
-
-      {/* Messages */}
       {messages.map((message) => (
         <div
           key={message.id}
