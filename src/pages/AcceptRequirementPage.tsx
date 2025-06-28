@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,33 +8,30 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbS
 import { CheckCircle2, X, Calendar, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
 import type { Tables } from '@/integrations/supabase/types';
-
 type Requirement = Tables<'requirements'>;
-
 export const AcceptRequirementPage = () => {
-  const { id } = useParams<{ id: string }>();
+  const {
+    id
+  } = useParams<{
+    id: string;
+  }>();
   const navigate = useNavigate();
   const [requirement, setRequirement] = useState<Requirement | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     if (id) {
       fetchRequirement();
     }
   }, [id]);
-
   const fetchRequirement = async () => {
     try {
-      const { data, error } = await supabase
-        .from('requirements')
-        .select('*')
-        .eq('id', id)
-        .single();
-
+      const {
+        data,
+        error
+      } = await supabase.from('requirements').select('*').eq('id', id).single();
       if (error) throw error;
-      
       if (!data) {
         setError('Requirement not found');
         return;
@@ -46,7 +42,6 @@ export const AcceptRequirementPage = () => {
         setError('This requirement cannot be accepted at this time');
         return;
       }
-
       setRequirement(data);
     } catch (error) {
       console.error('Error fetching requirement:', error);
@@ -55,38 +50,35 @@ export const AcceptRequirementPage = () => {
       setLoading(false);
     }
   };
-
   const handleAccept = async () => {
     if (!requirement) return;
-
     try {
       setIsAccepting(true);
-      
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        },
+        error: authError
+      } = await supabase.auth.getUser();
       if (authError || !user) {
         throw new Error('You must be logged in to accept requirements');
       }
-
-      const { error } = await supabase
-        .from('requirements')
-        .update({
-          accepted_by_client: true,
-          acceptance_date: new Date().toISOString(),
-          status: 'accepted_by_client'
-        })
-        .eq('id', requirement.id);
-
+      const {
+        error
+      } = await supabase.from('requirements').update({
+        accepted_by_client: true,
+        acceptance_date: new Date().toISOString(),
+        status: 'accepted_by_client'
+      }).eq('id', requirement.id);
       if (error) {
         console.error('Error accepting requirement:', error);
         throw error;
       }
-
       toast({
         title: "✅ Requirement Accepted",
         description: "You have successfully accepted this requirement. Our team will proceed with implementation.",
         className: "bg-green-50 border-green-200 text-green-800"
       });
-
       navigate('/');
     } catch (error) {
       console.error('Error accepting requirement:', error);
@@ -99,18 +91,14 @@ export const AcceptRequirementPage = () => {
       setIsAccepting(false);
     }
   };
-
   const handleCancel = () => {
     navigate('/');
   };
-
   if (loading) {
     return <LoadingScreen />;
   }
-
   if (error || !requirement) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+    return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
         <div className="max-w-2xl mx-auto pt-8">
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-6 text-center">
@@ -124,23 +112,16 @@ export const AcceptRequirementPage = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+  return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
       <div className="max-w-4xl mx-auto pt-6">
         {/* Breadcrumb Navigation */}
         <div className="mb-6">
           <Breadcrumb>
             <BreadcrumbList className="text-slate-300">
               <BreadcrumbItem>
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('/')}
-                  className="text-slate-300 hover:text-white p-0 h-auto"
-                >
+                <Button variant="ghost" onClick={() => navigate('/')} className="text-slate-300 hover:text-white p-0 h-auto">
                   Dashboard
                 </Button>
               </BreadcrumbItem>
@@ -188,12 +169,10 @@ export const AcceptRequirementPage = () => {
                   <span className="font-medium text-green-700">Description:</span>
                   <p className="text-green-800 bg-white/50 px-3 py-2 rounded-lg text-sm leading-relaxed">{requirement.description}</p>
                 </div>
-                {requirement.approval_date && (
-                  <div className="flex items-center space-x-2 text-sm text-green-700 bg-white/50 px-3 py-2 rounded-lg">
+                {requirement.approval_date && <div className="flex items-center space-x-2 text-sm text-green-700 bg-white/50 px-3 py-2 rounded-lg">
                     <Calendar className="h-4 w-4" />
                     <span>Approved on: {new Date(requirement.approval_date).toLocaleDateString()}</span>
-                  </div>
-                )}
+                  </div>}
               </div>
             </CardContent>
           </Card>
@@ -246,37 +225,23 @@ export const AcceptRequirementPage = () => {
           <Card className="border-slate-200 shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-end space-x-3">
-                <Button 
-                  variant="outline" 
-                  onClick={handleCancel} 
-                  disabled={isAccepting}
-                  className="bg-slate-100 hover:bg-slate-200"
-                >
+                <Button variant="outline" onClick={handleCancel} disabled={isAccepting} className="bg-red-700 hover:bg-red-600">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
-                <Button 
-                  onClick={handleAccept} 
-                  disabled={isAccepting} 
-                  className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                >
-                  {isAccepting ? (
-                    <div className="flex items-center space-x-2">
+                <Button onClick={handleAccept} disabled={isAccepting} className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+                  {isAccepting ? <div className="flex items-center space-x-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span>Confirming...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
+                    </div> : <div className="flex items-center space-x-2">
                       <CheckCircle2 className="h-4 w-4" />
                       <span>Confirm Acceptance</span>
-                    </div>
-                  )}
+                    </div>}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
