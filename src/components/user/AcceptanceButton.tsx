@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, X, AlertCircle, Clock } from 'lucide-react';
 import { AcceptanceModal } from './AcceptanceModal';
-import { RejectionModal } from './RejectionModal';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'>;
@@ -14,8 +14,8 @@ interface AcceptanceButtonProps {
 }
 
 export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: AcceptanceButtonProps) => {
+  const navigate = useNavigate();
   const [showAcceptModal, setShowAcceptModal] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Only show buttons if requirement is completed by admin but not yet decided by client
@@ -50,33 +50,24 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
     );
   }
 
-  // Enhanced accept/reject handlers with optimistic updates
+  // Enhanced accept/reject handlers
   const handleAcceptStart = () => {
     setIsProcessing(true);
     setShowAcceptModal(true);
   };
 
   const handleRejectStart = () => {
-    setIsProcessing(true);
-    setShowRejectModal(true);
+    navigate(`/reject-requirement/${requirement.id}`);
   };
 
   const handleModalClose = () => {
     setIsProcessing(false);
     setShowAcceptModal(false);
-    setShowRejectModal(false);
   };
 
   const handleAcceptanceComplete = () => {
     setIsProcessing(false);
     setShowAcceptModal(false);
-    // Trigger immediate update
-    onAcceptanceUpdate();
-  };
-
-  const handleRejectionComplete = () => {
-    setIsProcessing(false);
-    setShowRejectModal(false);
     // Trigger immediate update
     onAcceptanceUpdate();
   };
@@ -114,14 +105,6 @@ export const AcceptanceButton = ({ requirement, onAcceptanceUpdate }: Acceptance
           requirement={requirement}
           onClose={handleModalClose}
           onAccept={handleAcceptanceComplete}
-        />
-      )}
-
-      {showRejectModal && (
-        <RejectionModal
-          requirement={requirement}
-          onClose={handleModalClose}
-          onReject={handleRejectionComplete}
         />
       )}
     </>

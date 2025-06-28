@@ -11,6 +11,7 @@ import { LoadingScreen } from '@/components/common/LoadingScreen';
 import { AuthPage } from '@/components/auth/AuthPage';
 import { UserDashboard } from '@/components/user/UserDashboard';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
+import { RejectRequirementPage } from '@/pages/RejectRequirementPage';
 
 const AppContent = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -40,6 +41,16 @@ const AppContent = () => {
                 }}
                 onLogout={signOut}
               />
+            )
+          } 
+        />
+        <Route 
+          path="/reject-requirement/:id" 
+          element={
+            !isAdmin ? (
+              <RejectRequirementPage />
+            ) : (
+              <Navigate to="/" replace />
             )
           } 
         />
