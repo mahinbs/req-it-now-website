@@ -289,8 +289,11 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         </Tabs>
 
         <ChatModal
-          requirement={selectedRequirement}
+          isOpen={!!selectedRequirement}
           onClose={handleCloseChatModal}
+          requirementId={selectedRequirement?.id || ''}
+          requirementTitle={selectedRequirement?.title || ''}
+          currentUserName="Admin"
           onMarkAsRead={markAsRead}
         />
       </div>

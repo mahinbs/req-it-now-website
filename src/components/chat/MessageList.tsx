@@ -13,13 +13,19 @@ interface MessageListProps {
   requirementId: string;
   isAdmin: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => Promise<void>;
 }
 
 export const MessageList = ({ 
   messages, 
   requirementId, 
   isAdmin, 
-  messagesEndRef
+  messagesEndRef,
+  hasMore,
+  loadingMore,
+  onLoadMore
 }: MessageListProps) => {
   if (messages.length === 0) {
     return (
@@ -34,6 +40,18 @@ export const MessageList = ({
 
   return (
     <>
+      {hasMore && onLoadMore && (
+        <div className="flex justify-center mb-4">
+          <button
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="text-xs text-slate-400 hover:text-slate-300 px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"
+          >
+            {loadingMore ? 'Loading...' : 'Load older messages'}
+          </button>
+        </div>
+      )}
+      
       {messages.map((message) => (
         <div
           key={message.id}
