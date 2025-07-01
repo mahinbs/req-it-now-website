@@ -269,11 +269,12 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
               <h2 className="text-2xl font-bold text-white font-space-grotesk">All Requirements</h2>
             </div>
             
-            {/* Always show filters */}
+            {/* Always show filters with dark theme */}
             <div className="glass bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-6">
               <RequirementsFilter 
                 filters={filters}
                 onFiltersChange={setFilters}
+                theme="dark"
               />
             </div>
             

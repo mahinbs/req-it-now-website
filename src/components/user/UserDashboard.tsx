@@ -180,12 +180,13 @@ export const UserDashboard = ({ user, onLogout }: UserDashboardProps) => {
               </Button>
             </div>
 
-            {/* Enhanced Filters */}
+            {/* Enhanced Filters with light theme */}
             {requirements.length > 0 && (
               <div className="glass bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-6">
                 <RequirementsFilter 
                   filters={filters}
                   onFiltersChange={setFilters}
+                  theme="light"
                 />
               </div>
             )}
