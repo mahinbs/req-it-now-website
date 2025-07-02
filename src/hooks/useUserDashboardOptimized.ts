@@ -27,18 +27,38 @@ export const useUserDashboardOptimized = (user: User) => {
       if (showLoader) setRefreshing(true);
       setError(null);
       
-      const { data, error } = await supabase
-        .from('requirements')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const [requirementsResult, profileResult] = await Promise.all([
+        supabase
+          .from('requirements')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('profiles')
+          .select('id, company_name, website_url')
+          .eq('id', user.id)
+          .single()
+      ]);
 
-      if (error) {
-        console.error('Error fetching requirements:', error);
-        throw error;
+      const { data: requirementsData, error: requirementsError } = requirementsResult;
+      const { data: profileData, error: profileError } = profileResult;
+
+      if (requirementsError) {
+        console.error('Error fetching requirements:', requirementsError);
+        throw requirementsError;
       }
+
+      if (profileError) {
+        console.warn('Error fetching profile data:', profileError);
+      }
+
+      // Add profile data to each requirement
+      const requirementsWithProfiles = (requirementsData || []).map(requirement => ({
+        ...requirement,
+        profiles: profileData || null
+      }));
       
-      setRequirements(data || []);
+      setRequirements(requirementsWithProfiles);
       
     } catch (error) {
       console.error('Error fetching requirements:', error);

@@ -109,19 +109,39 @@ export const useUserDashboard = (user: User) => {
       console.log('Fetching requirements for user with enhanced error handling:', user.id);
       setError(null);
       
-      const { data, error } = await supabase
-        .from('requirements')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const [requirementsResult, profileResult] = await Promise.all([
+        supabase
+          .from('requirements')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('profiles')
+          .select('id, company_name, website_url')
+          .eq('id', user.id)
+          .single()
+      ]);
 
-      if (error) {
-        console.error('Error fetching requirements:', error);
-        throw error;
+      const { data: requirementsData, error: requirementsError } = requirementsResult;
+      const { data: profileData, error: profileError } = profileResult;
+
+      if (requirementsError) {
+        console.error('Error fetching requirements:', requirementsError);
+        throw requirementsError;
       }
+
+      if (profileError) {
+        console.warn('Error fetching profile data:', profileError);
+      }
+
+      // Add profile data to each requirement
+      const requirementsWithProfiles = (requirementsData || []).map(requirement => ({
+        ...requirement,
+        profiles: profileData || null
+      }));
       
-      console.log('Requirements fetched successfully:', data?.length || 0);
-      setRequirements(data || []);
+      console.log('Requirements fetched successfully:', requirementsWithProfiles.length);
+      setRequirements(requirementsWithProfiles);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching requirements:', error);
