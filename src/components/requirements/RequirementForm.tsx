@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { uploadRequirementFile, type UploadProgress } from '@/utils/storageUtils';
+import { useIsMobile } from '@/hooks/use-mobile';
 interface RequirementFormData {
   title: string;
   description: string;
@@ -37,6 +38,8 @@ export const RequirementForm = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStates, setUploadStates] = useState<Map<string, FileUploadState>>(new Map());
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
   const handleInputChange = useCallback((field: keyof RequirementFormData, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -146,8 +149,33 @@ export const RequirementForm = ({
       console.error(`Retry upload failed for ${file.name}:`, error);
     });
   }, [uploadFileOptimized]);
+  // Add a timeout effect to prevent stuck submitting state
+  useEffect(() => {
+    let timeoutId: number | undefined;
+    
+    if (isSubmitting) {
+      // Set a timeout to automatically reset the submitting state after 15 seconds
+      // This prevents the UI from being stuck in a submitting state if something goes wrong
+      timeoutId = window.setTimeout(() => {
+        setIsSubmitting(false);
+        setSubmitError('Submission timed out. Please try again.');
+        toast({
+          title: "Submission Timeout",
+          description: "The request is taking too long. Please try again.",
+          variant: "destructive"
+        });
+      }, 15000);
+    }
+    
+    return () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [isSubmitting]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
+    
     if (!formData.title.trim() || !formData.description.trim()) {
       toast({
         title: "Validation Error",
@@ -168,20 +196,34 @@ export const RequirementForm = ({
       });
       return;
     }
+    
+    // Prevent multiple submissions
+    if (isSubmitting) return;
+    
     setIsSubmitting(true);
+    
     try {
+      // For mobile browsers, add a small delay to ensure UI updates properly
+      if (isMobile) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
       const {
         data: {
           user
         },
         error: userError
       } = await supabase.auth.getUser();
+      
       if (userError || !user) {
         throw new Error('User not authenticated');
       }
 
       // Get completed uploads
-      const completedUploads = uploadStatesArray.filter(state => state.status === 'completed' && state.url).map(state => state.url!);
+      const completedUploads = uploadStatesArray
+        .filter(state => state.status === 'completed' && state.url)
+        .map(state => state.url!);
+        
       const requirementData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -191,10 +233,17 @@ export const RequirementForm = ({
         attachment_urls: completedUploads.length > 0 ? completedUploads : null,
         status: 'pending'
       };
+      
+      // Add a small delay before database operation on mobile
+      if (isMobile) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
       const {
         data,
         error
       } = await supabase.from('requirements').insert([requirementData]).select().single();
+      
       if (error) {
         throw new Error(`Failed to save requirement: ${error.message}`);
       }
@@ -207,7 +256,10 @@ export const RequirementForm = ({
         attachments: []
       });
       setUploadStates(new Map());
+      
+      // Call the onSubmit callback
       onSubmit(formData);
+      
       toast({
         title: "Success!",
         description: "Your requirement has been submitted successfully",
@@ -215,9 +267,12 @@ export const RequirementForm = ({
       });
     } catch (error) {
       console.error('Submission error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to submit requirement";
+      setSubmitError(errorMessage);
+      
       toast({
         title: "Submission Error",
-        description: error instanceof Error ? error.message : "Failed to submit requirement",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -348,11 +403,24 @@ export const RequirementForm = ({
             </p>
           </div>
 
-          <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200" disabled={isSubmitting || !formData.title.trim() || !formData.description.trim()}>
-            {isSubmitting ? <div className="flex items-center space-x-2">
+          {submitError && (
+            <div className="p-3 mb-4 bg-red-100 border border-red-300 rounded-md text-red-800 text-sm">
+              <p className="font-medium">Error: {submitError}</p>
+              <p className="mt-1">Please try again or refresh the page if the problem persists.</p>
+            </div>
+          )}
+          
+          <Button 
+            type="submit" 
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200" 
+            disabled={isSubmitting || !formData.title.trim() || !formData.description.trim()}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                 <span>Submitting...</span>
-              </div> : 'Submit Requirement'}
+              </div>
+            ) : 'Submit Requirement'}
           </Button>
         </form>
       </CardContent>

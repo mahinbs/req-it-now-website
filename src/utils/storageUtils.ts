@@ -20,31 +20,66 @@ export const uploadRequirementFile = async (
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}/${requirementId}/${Date.now()}.${fileExt}`;
     
-    // Create a timeout promise
+    // Create a timeout promise with a longer timeout for mobile devices
+    const isMobile = window.innerWidth < 768;
+    const timeoutDuration = isMobile ? 45000 : 30000; // 45 seconds for mobile, 30 for desktop
+    
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Upload timeout - please try again')), 30000);
+      setTimeout(() => reject(new Error('Upload timeout - please try again')), timeoutDuration);
     });
 
     // Simulate realistic progress during upload
+    // Use a slower update interval on mobile to reduce UI jank
     const progressInterval = setInterval(() => {
       onProgress?.({ progress: Math.min(95, Math.random() * 20 + 70), status: 'uploading' });
-    }, 500);
+    }, isMobile ? 1000 : 500);
 
     try {
-      const uploadPromise = supabase.storage
-        .from('requirement-attachments')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // For mobile browsers, add a small delay before starting the upload
+      // This helps prevent some mobile browsers from freezing during upload initialization
+      if (isMobile) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      // Use a more resilient upload approach with retries
+      let retries = 0;
+      let uploadResult = null;
+      let uploadError = null;
+      
+      while (retries < 3) {
+        try {
+          const uploadPromise = supabase.storage
+            .from('requirement-attachments')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: retries > 0 // Only use upsert on retry attempts
+            });
 
-      const { data, error } = await Promise.race([uploadPromise, timeoutPromise]);
+          const result = await Promise.race([uploadPromise, timeoutPromise]);
+          
+          if (result.error) {
+            uploadError = result.error;
+            retries++;
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else {
+            uploadResult = result;
+            break;
+          }
+        } catch (err) {
+          uploadError = err;
+          retries++;
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
 
       clearInterval(progressInterval);
 
-      if (error) {
-        onProgress?.({ progress: 0, status: 'error', error: error.message });
-        console.error('File upload error:', error);
+      if (uploadError || !uploadResult) {
+        const errorMessage = uploadError instanceof Error ? uploadError.message : 'Upload failed after multiple attempts';
+        onProgress?.({ progress: 0, status: 'error', error: errorMessage });
+        console.error('File upload error:', uploadError);
         return null;
       }
 

@@ -77,10 +77,10 @@ export const AuthPage = () => {
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-slate-200 space-y-2">
           <div className="flex items-center justify-center space-x-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <p className="text-green-200 font-medium">Ready to submit requirements!</p>
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <p className="text-green-500 font-medium">Ready to submit requirements!</p>
           </div>
-          <p className="text-slate-300">Create your account and start submitting website changes</p>
+          <p className="text-slate-500">Create your account and start submitting website changes</p>
         </div>
       </div>
     </div>;
