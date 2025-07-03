@@ -9,37 +9,88 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-// Create a safe storage object that handles localStorage errors
-const safeLocalStorage = {
-  getItem: (key: string): string | null => {
-    try {
-      return localStorage.getItem(key);
-    } catch (error) {
-      console.warn('Error accessing localStorage:', error);
-      return null;
-    }
-  },
-  setItem: (key: string, value: string): void => {
-    try {
-      localStorage.setItem(key, value);
-    } catch (error) {
-      console.warn('Error writing to localStorage:', error);
-    }
-  },
-  removeItem: (key: string): void => {
-    try {
-      localStorage.removeItem(key);
-    } catch (error) {
-      console.warn('Error removing from localStorage:', error);
-    }
-  }
+// Detect if we're in a mobile browser
+const isMobileBrowser = () => {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+         (window.innerWidth < 768);
 };
 
+// Create a hybrid storage system that falls back to memory storage if localStorage fails
+class HybridStorage {
+  private memoryStorage: Record<string, string> = {};
+  private useMemoryStorage = false;
+
+  constructor() {
+    // Test localStorage access
+    try {
+      localStorage.setItem('supabase_test', 'test');
+      localStorage.removeItem('supabase_test');
+    } catch (e) {
+      console.warn('localStorage not available, using memory storage instead');
+      this.useMemoryStorage = true;
+    }
+  }
+
+  getItem(key: string): string | null {
+    try {
+      if (this.useMemoryStorage) {
+        return this.memoryStorage[key] || null;
+      }
+      return localStorage.getItem(key);
+    } catch (error) {
+      console.warn('Error accessing storage:', error);
+      // Fall back to memory storage on error
+      this.useMemoryStorage = true;
+      return this.memoryStorage[key] || null;
+    }
+  }
+
+  setItem(key: string, value: string): void {
+    try {
+      if (this.useMemoryStorage) {
+        this.memoryStorage[key] = value;
+        return;
+      }
+      localStorage.setItem(key, value);
+    } catch (error) {
+      console.warn('Error writing to storage:', error);
+      // Fall back to memory storage on error
+      this.useMemoryStorage = true;
+      this.memoryStorage[key] = value;
+    }
+  }
+
+  removeItem(key: string): void {
+    try {
+      if (this.useMemoryStorage) {
+        delete this.memoryStorage[key];
+        return;
+      }
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.warn('Error removing from storage:', error);
+      // Fall back to memory storage on error
+      this.useMemoryStorage = true;
+      delete this.memoryStorage[key];
+    }
+  }
+}
+
+// Create the Supabase client with optimized settings
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: safeLocalStorage,
+    storage: new HybridStorage(),
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'X-Client-Info': `req-it-now-website/${isMobileBrowser() ? 'mobile' : 'desktop'}`
+    },
+  },
+  realtime: {
+    timeout: 30000 // Increase timeout for slower connections
   }
 });

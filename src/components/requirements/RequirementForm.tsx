@@ -97,14 +97,34 @@ export const RequirementForm = ({
     }
   }, []);
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files) {
+    try {
+      // Reset the file input value after getting files to ensure it triggers again on same file
+      const fileInput = event.target;
+      const files = fileInput.files;
+      
+      if (!files || files.length === 0) {
+        console.log("No files selected");
+        return;
+      }
+      
+      // Create a copy of the FileList before resetting the input
       const newFiles = Array.from(files);
-
+      
       // Validate files
       const validFiles = newFiles.filter(file => {
+        // Check if file is valid (not empty or corrupted)
+        if (!file || file.size === 0) {
+          toast({
+            title: "Invalid file",
+            description: "The selected file appears to be empty or corrupted",
+            variant: "destructive"
+          });
+          return false;
+        }
+        
         const maxSize = 10 * 1024 * 1024; // 10MB
-        const allowedTypes = ['image/', 'application/pdf', 'application/msword', 'text/'];
+        const allowedTypes = ['image/', 'application/pdf', 'application/msword', 'text/', 'application/vnd.openxmlformats-officedocument'];
+        
         if (file.size > maxSize) {
           toast({
             title: "File too large",
@@ -113,7 +133,14 @@ export const RequirementForm = ({
           });
           return false;
         }
-        if (!allowedTypes.some(type => file.type.startsWith(type))) {
+        
+        // More permissive file type checking for mobile devices
+        const fileType = file.type || '';
+        const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+        const isAllowedByType = allowedTypes.some(type => fileType.startsWith(type));
+        const isAllowedByExtension = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt'].includes(fileExtension);
+        
+        if (!isAllowedByType && !isAllowedByExtension) {
           toast({
             title: "Invalid file type",
             description: `${file.name} is not a supported file type`,
@@ -121,23 +148,45 @@ export const RequirementForm = ({
           });
           return false;
         }
+        
         return true;
       });
+      
       if (validFiles.length > 0) {
+        // Update form data with new files
         setFormData(prev => ({
           ...prev,
           attachments: [...(prev.attachments || []), ...validFiles]
         }));
 
-        // Start uploads
-        validFiles.forEach(file => {
-          uploadFileOptimized(file).catch(error => {
-            console.error(`Upload failed for ${file.name}:`, error);
+        // Start uploads with a small delay to ensure UI updates first
+        setTimeout(() => {
+          validFiles.forEach(file => {
+            uploadFileOptimized(file).catch(error => {
+              console.error(`Upload failed for ${file.name}:`, error);
+              toast({
+                title: "Upload Failed",
+                description: `Could not upload ${file.name}. Please try again.`,
+                variant: "destructive"
+              });
+            });
           });
-        });
+        }, 100);
       }
+      
+      // Reset the file input to allow selecting the same file again
+      if (fileInput) {
+        fileInput.value = '';
+      }
+    } catch (error) {
+      console.error("File upload error:", error);
+      toast({
+        title: "File Upload Error",
+        description: "There was a problem processing your files. Please try again.",
+        variant: "destructive"
+      });
     }
-  }, [uploadFileOptimized]);
+  }, [uploadFileOptimized, toast]);
   const removeFile = useCallback((index: number) => {
     setFormData(prev => ({
       ...prev,
@@ -154,7 +203,7 @@ export const RequirementForm = ({
     let timeoutId: number | undefined;
     
     if (isSubmitting) {
-      // Set a timeout to automatically reset the submitting state after 15 seconds
+      // Set a timeout to automatically reset the submitting state after 10 seconds
       // This prevents the UI from being stuck in a submitting state if something goes wrong
       timeoutId = window.setTimeout(() => {
         setIsSubmitting(false);
@@ -164,18 +213,27 @@ export const RequirementForm = ({
           description: "The request is taking too long. Please try again.",
           variant: "destructive"
         });
-      }, 15000);
+      }, 10000); // Reduced timeout to 10 seconds
     }
     
     return () => {
       if (timeoutId) window.clearTimeout(timeoutId);
     };
   }, [isSubmitting]);
+  
+  // Add a cleanup effect when component unmounts
+  useEffect(() => {
+    return () => {
+      // Clean up any pending state if the component unmounts
+      setIsSubmitting(false);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
     
+    // Validate form fields
     if (!formData.title.trim() || !formData.description.trim()) {
       toast({
         title: "Validation Error",
@@ -200,23 +258,46 @@ export const RequirementForm = ({
     // Prevent multiple submissions
     if (isSubmitting) return;
     
+    // Set a flag in sessionStorage to track submission state
+    // This helps recover from page refreshes or browser issues
+    try {
+      sessionStorage.setItem('requirement_submitting', 'true');
+    } catch (e) {
+      // Ignore errors with sessionStorage
+    }
+    
     setIsSubmitting(true);
     
     try {
-      // For mobile browsers, add a small delay to ensure UI updates properly
-      if (isMobile) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // For all browsers, add a small delay to ensure UI updates properly
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Get user information with retry logic
+      let user = null;
+      let userError = null;
+      
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const response = await supabase.auth.getUser();
+          user = response.data.user;
+          userError = response.error;
+          
+          if (user) break;
+          
+          if (userError) {
+            console.warn(`Auth attempt ${attempt + 1} failed:`, userError);
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (err) {
+          console.error(`Auth attempt ${attempt + 1} error:`, err);
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
       
-      const {
-        data: {
-          user
-        },
-        error: userError
-      } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        throw new Error('User not authenticated');
+      if (!user) {
+        throw new Error('User not authenticated. Please try refreshing the page and logging in again.');
       }
 
       // Get completed uploads
@@ -231,21 +312,48 @@ export const RequirementForm = ({
         user_id: user.id,
         has_screen_recording: formData.attachments && formData.attachments.length > 0,
         attachment_urls: completedUploads.length > 0 ? completedUploads : null,
-        status: 'pending'
+        status: 'pending',
+        created_at: new Date().toISOString() // Explicitly set creation time
       };
       
-      // Add a small delay before database operation on mobile
-      if (isMobile) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+      // Add a small delay before database operation
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Insert with retry logic
+      let insertError = null;
+      let insertData = null;
+      
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const response = await supabase.from('requirements')
+            .insert([requirementData])
+            .select()
+            .single();
+            
+          insertData = response.data;
+          insertError = response.error;
+          
+          if (!insertError) break;
+          
+          console.warn(`Insert attempt ${attempt + 1} failed:`, insertError);
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (err) {
+          console.error(`Insert attempt ${attempt + 1} error:`, err);
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
       
-      const {
-        data,
-        error
-      } = await supabase.from('requirements').insert([requirementData]).select().single();
-      
-      if (error) {
-        throw new Error(`Failed to save requirement: ${error.message}`);
+      if (insertError) {
+        throw new Error(`Failed to save requirement: ${insertError.message}`);
+      }
+
+      // Clear the submission tracking flag
+      try {
+        sessionStorage.removeItem('requirement_submitting');
+      } catch (e) {
+        // Ignore errors with sessionStorage
       }
 
       // Reset form
@@ -269,6 +377,13 @@ export const RequirementForm = ({
       console.error('Submission error:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to submit requirement";
       setSubmitError(errorMessage);
+      
+      // Clear the submission tracking flag on error
+      try {
+        sessionStorage.removeItem('requirement_submitting');
+      } catch (e) {
+        // Ignore errors with sessionStorage
+      }
       
       toast({
         title: "Submission Error",
@@ -349,15 +464,32 @@ export const RequirementForm = ({
               Attachments (Optional)
             </Label>
             <div className="border-2 border-dashed border-slate-500 rounded-lg p-6 text-center hover:border-slate-400 transition-colors bg-slate-700/30">
-              <input type="file" multiple onChange={handleFileUpload} className="hidden" id="file-upload" accept="image/*,.pdf,.doc,.docx,.txt" disabled={isSubmitting} />
-              <label htmlFor="file-upload" className="cursor-pointer">
+              <input 
+                type="file" 
+                multiple 
+                onChange={handleFileUpload} 
+                className="hidden" 
+                id="file-upload" 
+                accept="image/*,.pdf,.doc,.docx,.txt" 
+                disabled={isSubmitting} 
+                capture={isMobile ? "environment" : undefined}
+              />
+              <label htmlFor="file-upload" className="cursor-pointer block w-full h-full">
                 <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
                 <p className="text-sm text-slate-300">
-                  Click to upload files or drag and drop
+                  {isMobile ? "Tap to select files" : "Click to upload files or drag and drop"}
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
                   Images, PDFs, documents up to 10MB each
                 </p>
+                <Button 
+                  type="button"
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                  className="mt-3 bg-slate-600 hover:bg-slate-500 text-white"
+                  disabled={isSubmitting}
+                >
+                  Select Files
+                </Button>
               </label>
             </div>
 
