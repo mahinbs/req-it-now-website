@@ -7,7 +7,7 @@ export interface UploadProgress {
   error?: string;
 }
 
-// Simple function to convert a File to a base64 string
+// Helper function to convert a File to a base64 string
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -17,7 +17,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// Simple function to convert a base64 string to a Blob
+// Helper function to convert a base64 string to a Blob
 const base64ToBlob = (base64: string, mimeType: string): Blob => {
   const byteString = atob(base64.split(',')[1]);
   const ab = new ArrayBuffer(byteString.length);
@@ -30,7 +30,6 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
   return new Blob([ab], { type: mimeType });
 };
 
-// Simplified upload function that works better on mobile
 export const uploadRequirementFile = async (
   file: File, 
   userId: string, 
@@ -38,44 +37,47 @@ export const uploadRequirementFile = async (
   onProgress?: (progress: UploadProgress) => void
 ): Promise<string | null> => {
   try {
+    console.log(`Starting upload for file: ${file.name}, size: ${file.size} bytes`);
+    
     // Start upload progress
     onProgress?.({ progress: 0, status: 'uploading' });
-    console.log('Starting upload for file:', file.name, 'size:', file.size);
 
     // Validate file before proceeding
     if (!file || file.size === 0) {
+      console.error('Invalid file detected');
       onProgress?.({ progress: 0, status: 'error', error: 'Invalid file' });
       return null;
     }
 
-    // Get file extension and create a safe filename
-    const fileExt = file.name.split('.').pop() || 'bin';
+    // Get file extension safely
+    const fileNameParts = file.name.split('.');
+    const fileExt = fileNameParts.length > 1 ? fileNameParts.pop() : 'bin';
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(2, 10);
     const fileName = `${userId}/${requirementId}/${timestamp}_${randomId}.${fileExt}`;
     
-    // Detect if we're on a mobile device
+    // Detect mobile browser
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                      (window.innerWidth < 768);
     
-    console.log('Device detected as:', isMobile ? 'mobile' : 'desktop');
+    console.log(`Device detected as: ${isMobile ? 'mobile' : 'desktop'}`);
     
-    // Set up a progress interval that shows realistic progress
+    // Set up a simple progress interval
     const progressInterval = setInterval(() => {
-      onProgress?.({ 
-        progress: Math.min(85, Math.random() * 10 + 50), 
-        status: 'uploading' 
-      });
-    }, 1000);
-    
+      onProgress?.({ progress: 30, status: 'uploading' });
+    }, 800);
+
     try {
-      // For mobile devices, we'll use a different approach
+      // For mobile devices, use a different approach
       if (isMobile) {
         console.log('Using mobile-optimized upload approach');
         
+        // Show initial progress
+        onProgress?.({ progress: 10, status: 'uploading' });
+        
         // Convert file to base64 first - this works better on mobile
         const base64Data = await fileToBase64(file);
-        console.log('File converted to base64, length:', base64Data.length);
+        console.log('File converted to base64');
         
         // Show progress update
         onProgress?.({ progress: 40, status: 'uploading' });
@@ -87,12 +89,11 @@ export const uploadRequirementFile = async (
         // Show progress update
         onProgress?.({ progress: 60, status: 'uploading' });
         
-        // Simple direct upload with minimal options
+        // Direct upload with minimal options
         const { data, error } = await supabase.storage
           .from('requirement-attachments')
           .upload(fileName, blob, {
             contentType: file.type,
-            cacheControl: '3600',
             upsert: true
           });
         
@@ -126,6 +127,9 @@ export const uploadRequirementFile = async (
       else {
         // Desktop approach - simpler and more direct
         console.log('Using standard upload approach');
+        
+        // Show progress update
+        onProgress?.({ progress: 20, status: 'uploading' });
         
         // Direct upload
         const { data, error } = await supabase.storage
