@@ -7,6 +7,30 @@ export interface UploadProgress {
   error?: string;
 }
 
+// Simple function to convert a File to a base64 string
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
+// Simple function to convert a base64 string to a Blob
+const base64ToBlob = (base64: string, mimeType: string): Blob => {
+  const byteString = atob(base64.split(',')[1]);
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  
+  return new Blob([ab], { type: mimeType });
+};
+
+// Simplified upload function that works better on mobile
 export const uploadRequirementFile = async (
   file: File, 
   userId: string, 
@@ -16,6 +40,7 @@ export const uploadRequirementFile = async (
   try {
     // Start upload progress
     onProgress?.({ progress: 0, status: 'uploading' });
+    console.log('Starting upload for file:', file.name, 'size:', file.size);
 
     // Validate file before proceeding
     if (!file || file.size === 0) {
@@ -23,177 +48,149 @@ export const uploadRequirementFile = async (
       return null;
     }
 
-    // Get file extension safely
-    const fileNameParts = file.name.split('.');
-    const fileExt = fileNameParts.length > 1 ? fileNameParts.pop() : 'bin';
-    const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
-    const fileName = `${userId}/${requirementId}/${safeFileName}`;
+    // Get file extension and create a safe filename
+    const fileExt = file.name.split('.').pop() || 'bin';
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 10);
+    const fileName = `${userId}/${requirementId}/${timestamp}_${randomId}.${fileExt}`;
     
-    // Detect mobile browser
+    // Detect if we're on a mobile device
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                      (window.innerWidth < 768);
     
-    // Create a timeout promise with a longer timeout for mobile devices
-    const timeoutDuration = isMobile ? 60000 : 45000; // 60 seconds for mobile, 45 for desktop
+    console.log('Device detected as:', isMobile ? 'mobile' : 'desktop');
     
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Upload timeout - please try again')), timeoutDuration);
-    });
-
-    // Simulate realistic progress during upload
-    // Use a slower update interval on mobile to reduce UI jank
+    // Set up a progress interval that shows realistic progress
     const progressInterval = setInterval(() => {
       onProgress?.({ 
-        progress: Math.min(90, Math.random() * 10 + 60), 
+        progress: Math.min(85, Math.random() * 10 + 50), 
         status: 'uploading' 
       });
-    }, isMobile ? 1500 : 800);
-
+    }, 1000);
+    
     try {
-      // For all browsers, add a small delay before starting the upload
-      // This helps prevent browsers from freezing during upload initialization
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // For larger files on mobile, we'll use a chunked approach
-      const isLargeFile = file.size > 1024 * 1024 * 2; // 2MB
-      const shouldUseChunkedUpload = isMobile && isLargeFile;
-      
-      // Use a more resilient upload approach with retries
-      let retries = 0;
-      let uploadResult = null;
-      let uploadError = null;
-      
-      // Maximum number of retries - more for mobile
-      const maxRetries = isMobile ? 5 : 3;
-      
-      while (retries < maxRetries) {
-        try {
-          // Show different progress for each retry
-          onProgress?.({ 
-            progress: Math.min(80, 20 + (retries * 15)), 
-            status: 'uploading' 
-          });
-          
-          let uploadPromise;
-          
-          if (shouldUseChunkedUpload && retries === 0) {
-            // For large files on mobile, try to use a more reliable approach first
-            // This simulates a chunked upload by using a smaller timeout
-            uploadPromise = new Promise(async (resolve) => {
-              try {
-                // Show incremental progress
-                for (let i = 1; i <= 5; i++) {
-                  onProgress?.({ 
-                    progress: i * 15, 
-                    status: 'uploading' 
-                  });
-                  await new Promise(r => setTimeout(r, 300));
-                }
-                
-                const result = await supabase.storage
-                  .from('requirement-attachments')
-                  .upload(fileName, file, {
-                    cacheControl: '3600',
-                    upsert: false
-                  });
-                  
-                resolve(result);
-              } catch (err) {
-                resolve({ error: err });
-              }
-            });
-          } else {
-            // Standard upload
-            uploadPromise = supabase.storage
-              .from('requirement-attachments')
-              .upload(fileName, file, {
-                cacheControl: '3600',
-                upsert: retries > 0 // Only use upsert on retry attempts
-              });
-          }
-
-          const result = await Promise.race([uploadPromise, timeoutPromise]);
-          
-          if (result.error) {
-            uploadError = result.error;
-            retries++;
-            console.warn(`Upload attempt ${retries} failed:`, uploadError);
-            
-            // Wait before retrying - longer for each retry
-            await new Promise(resolve => setTimeout(resolve, 1000 + (retries * 500)));
-          } else {
-            uploadResult = result;
-            break;
-          }
-        } catch (err) {
-          uploadError = err;
-          retries++;
-          console.warn(`Upload attempt ${retries} error:`, err);
-          
-          // Wait before retrying - longer for each retry
-          await new Promise(resolve => setTimeout(resolve, 1000 + (retries * 500)));
-        }
-      }
-
-      clearInterval(progressInterval);
-
-      if (uploadError || !uploadResult) {
-        const errorMessage = uploadError instanceof Error 
-          ? uploadError.message 
-          : 'Upload failed after multiple attempts. Please try again with a smaller file or better connection.';
-          
-        onProgress?.({ progress: 0, status: 'error', error: errorMessage });
-        console.error('File upload error after all retries:', uploadError);
-        return null;
-      }
-
-      // Complete the progress
-      onProgress?.({ progress: 100, status: 'completed' });
-
-      // Get public URL with retry logic
-      let publicUrl = null;
-      for (let urlAttempt = 0; urlAttempt < 3; urlAttempt++) {
-        try {
-          const { data } = supabase.storage
-            .from('requirement-attachments')
-            .getPublicUrl(fileName);
-            
-          if (data && data.publicUrl) {
-            publicUrl = data.publicUrl;
-            break;
-          }
-          
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (urlError) {
-          console.warn(`Failed to get public URL, attempt ${urlAttempt + 1}:`, urlError);
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-      
-      if (!publicUrl) {
-        throw new Error('Failed to get public URL for uploaded file');
-      }
-
-      return publicUrl;
-    } catch (uploadError) {
-      clearInterval(progressInterval);
-      const errorMessage = uploadError instanceof Error 
-        ? uploadError.message 
-        : 'Upload failed. Please check your connection and try again.';
+      // For mobile devices, we'll use a different approach
+      if (isMobile) {
+        console.log('Using mobile-optimized upload approach');
         
-      onProgress?.({ progress: 0, status: 'error', error: errorMessage });
-      console.error('Upload process error:', uploadError);
-      throw uploadError;
+        // Convert file to base64 first - this works better on mobile
+        const base64Data = await fileToBase64(file);
+        console.log('File converted to base64, length:', base64Data.length);
+        
+        // Show progress update
+        onProgress?.({ progress: 40, status: 'uploading' });
+        
+        // Create a new blob from the base64 data
+        const blob = base64ToBlob(base64Data, file.type);
+        console.log('Base64 converted to blob, size:', blob.size);
+        
+        // Show progress update
+        onProgress?.({ progress: 60, status: 'uploading' });
+        
+        // Simple direct upload with minimal options
+        const { data, error } = await supabase.storage
+          .from('requirement-attachments')
+          .upload(fileName, blob, {
+            contentType: file.type,
+            cacheControl: '3600',
+            upsert: true
+          });
+        
+        clearInterval(progressInterval);
+        
+        if (error) {
+          console.error('Mobile upload error:', error);
+          onProgress?.({ 
+            progress: 0, 
+            status: 'error', 
+            error: 'Upload failed: ' + error.message 
+          });
+          return null;
+        }
+        
+        // Get the public URL
+        const { data: urlData } = supabase.storage
+          .from('requirement-attachments')
+          .getPublicUrl(fileName);
+        
+        if (!urlData || !urlData.publicUrl) {
+          throw new Error('Failed to get public URL');
+        }
+        
+        // Complete the progress
+        onProgress?.({ progress: 100, status: 'completed' });
+        console.log('Mobile upload completed successfully');
+        
+        return urlData.publicUrl;
+      } 
+      else {
+        // Desktop approach - simpler and more direct
+        console.log('Using standard upload approach');
+        
+        // Direct upload
+        const { data, error } = await supabase.storage
+          .from('requirement-attachments')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
+        
+        clearInterval(progressInterval);
+        
+        if (error) {
+          console.error('Upload error:', error);
+          onProgress?.({ 
+            progress: 0, 
+            status: 'error', 
+            error: 'Upload failed: ' + error.message 
+          });
+          return null;
+        }
+        
+        // Get the public URL
+        const { data: urlData } = supabase.storage
+          .from('requirement-attachments')
+          .getPublicUrl(fileName);
+        
+        if (!urlData || !urlData.publicUrl) {
+          throw new Error('Failed to get public URL');
+        }
+        
+        // Complete the progress
+        onProgress?.({ progress: 100, status: 'completed' });
+        console.log('Upload completed successfully');
+        
+        return urlData.publicUrl;
+      }
+    } catch (error) {
+      clearInterval(progressInterval);
+      console.error('Upload error:', error);
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Upload failed unexpectedly';
+      
+      onProgress?.({ 
+        progress: 0, 
+        status: 'error', 
+        error: errorMessage 
+      });
+      
+      return null;
     }
   } catch (error) {
+    console.error('Outer upload error:', error);
+    
     const errorMessage = error instanceof Error 
       ? error.message 
-      : 'Upload failed due to an unexpected error.';
-      
-    onProgress?.({ progress: 0, status: 'error', error: errorMessage });
-    console.error('Upload outer error:', error);
+      : 'Upload process failed';
+    
+    onProgress?.({ 
+      progress: 0, 
+      status: 'error', 
+      error: errorMessage 
+    });
+    
     return null;
   }
 };

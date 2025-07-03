@@ -98,7 +98,9 @@ export const RequirementForm = ({
   }, []);
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     try {
-      // Reset the file input value after getting files to ensure it triggers again on same file
+      console.log("File upload triggered");
+      
+      // Get the file input element
       const fileInput = event.target;
       const files = fileInput.files;
       
@@ -107,10 +109,17 @@ export const RequirementForm = ({
         return;
       }
       
+      console.log(`${files.length} files selected`);
+      
       // Create a copy of the FileList before resetting the input
       const newFiles = Array.from(files);
       
-      // Validate files
+      // Log file details for debugging
+      newFiles.forEach((file, index) => {
+        console.log(`File ${index + 1}: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
+      });
+      
+      // Validate files with more permissive rules for mobile
       const validFiles = newFiles.filter(file => {
         // Check if file is valid (not empty or corrupted)
         if (!file || file.size === 0) {
@@ -123,7 +132,6 @@ export const RequirementForm = ({
         }
         
         const maxSize = 10 * 1024 * 1024; // 10MB
-        const allowedTypes = ['image/', 'application/pdf', 'application/msword', 'text/', 'application/vnd.openxmlformats-officedocument'];
         
         if (file.size > maxSize) {
           toast({
@@ -134,16 +142,14 @@ export const RequirementForm = ({
           return false;
         }
         
-        // More permissive file type checking for mobile devices
-        const fileType = file.type || '';
+        // Very permissive file type checking to ensure mobile compatibility
         const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-        const isAllowedByType = allowedTypes.some(type => fileType.startsWith(type));
-        const isAllowedByExtension = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt'].includes(fileExtension);
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt', 'rtf'];
         
-        if (!isAllowedByType && !isAllowedByExtension) {
+        if (!allowedExtensions.includes(fileExtension)) {
           toast({
             title: "Invalid file type",
-            description: `${file.name} is not a supported file type`,
+            description: `${file.name} is not a supported file type. Please use images, PDFs, or documents.`,
             variant: "destructive"
           });
           return false;
@@ -152,26 +158,78 @@ export const RequirementForm = ({
         return true;
       });
       
+      console.log(`${validFiles.length} valid files after filtering`);
+      
       if (validFiles.length > 0) {
         // Update form data with new files
-        setFormData(prev => ({
-          ...prev,
-          attachments: [...(prev.attachments || []), ...validFiles]
-        }));
+        setFormData(prev => {
+          const updatedFormData = {
+            ...prev,
+            attachments: [...(prev.attachments || []), ...validFiles]
+          };
+          console.log(`Form data updated with ${updatedFormData.attachments?.length} total attachments`);
+          return updatedFormData;
+        });
 
-        // Start uploads with a small delay to ensure UI updates first
-        setTimeout(() => {
-          validFiles.forEach(file => {
-            uploadFileOptimized(file).catch(error => {
-              console.error(`Upload failed for ${file.name}:`, error);
+        // Process one file at a time to avoid overwhelming mobile browsers
+        const processFiles = async () => {
+          for (const file of validFiles) {
+            try {
+              console.log(`Starting upload for ${file.name}`);
+              const url = await uploadRequirementFile(file, 'temp-user-id', 'temp-req-id', (progress) => {
+                console.log(`Upload progress for ${file.name}: ${progress.progress}%, status: ${progress.status}`);
+                // Update the upload state for this file
+                setUploadStates(prev => {
+                  const fileId = `${file.name}-${Date.now()}`;
+                  const newMap = new Map(prev);
+                  newMap.set(fileId, {
+                    file,
+                    progress: progress.progress,
+                    status: progress.status,
+                    error: progress.error,
+                    url: progress.status === 'completed' ? 'uploading-complete' : undefined
+                  });
+                  return newMap;
+                });
+              });
+              
+              if (url) {
+                console.log(`Upload completed for ${file.name}, URL: ${url}`);
+                // Update the upload state with the completed URL
+                setUploadStates(prev => {
+                  const fileId = `${file.name}-${Date.now()}`;
+                  const newMap = new Map(prev);
+                  newMap.set(fileId, {
+                    file,
+                    progress: 100,
+                    status: 'completed',
+                    url
+                  });
+                  return newMap;
+                });
+              } else {
+                console.error(`Upload failed for ${file.name}`);
+                toast({
+                  title: "Upload Failed",
+                  description: `Could not upload ${file.name}. Please try again.`,
+                  variant: "destructive"
+                });
+              }
+            } catch (error) {
+              console.error(`Error uploading ${file.name}:`, error);
               toast({
-                title: "Upload Failed",
-                description: `Could not upload ${file.name}. Please try again.`,
+                title: "Upload Error",
+                description: `Error uploading ${file.name}. Please try again.`,
                 variant: "destructive"
               });
-            });
-          });
-        }, 100);
+            }
+          }
+        };
+        
+        // Start processing files
+        processFiles().catch(error => {
+          console.error("File processing error:", error);
+        });
       }
       
       // Reset the file input to allow selecting the same file again
@@ -179,14 +237,14 @@ export const RequirementForm = ({
         fileInput.value = '';
       }
     } catch (error) {
-      console.error("File upload error:", error);
+      console.error("File upload handler error:", error);
       toast({
         title: "File Upload Error",
         description: "There was a problem processing your files. Please try again.",
         variant: "destructive"
       });
     }
-  }, [uploadFileOptimized, toast]);
+  }, [toast]);
   const removeFile = useCallback((index: number) => {
     setFormData(prev => ({
       ...prev,
@@ -194,10 +252,77 @@ export const RequirementForm = ({
     }));
   }, []);
   const retryUpload = useCallback((file: File) => {
-    uploadFileOptimized(file).catch(error => {
-      console.error(`Retry upload failed for ${file.name}:`, error);
+    console.log(`Retrying upload for ${file.name}`);
+    
+    // Update UI to show retry is in progress
+    setUploadStates(prev => {
+      const fileId = `${file.name}-${Date.now()}`;
+      const newMap = new Map(prev);
+      newMap.set(fileId, {
+        file,
+        progress: 0,
+        status: 'uploading'
+      });
+      return newMap;
     });
-  }, [uploadFileOptimized]);
+    
+    // Attempt the upload again
+    uploadRequirementFile(file, 'temp-user-id', 'temp-req-id', (progress) => {
+      console.log(`Retry progress for ${file.name}: ${progress.progress}%, status: ${progress.status}`);
+      
+      // Update the upload state for this file
+      setUploadStates(prev => {
+        const fileId = `${file.name}-${Date.now()}`;
+        const newMap = new Map(prev);
+        newMap.set(fileId, {
+          file,
+          progress: progress.progress,
+          status: progress.status,
+          error: progress.error,
+          url: progress.status === 'completed' ? 'uploading-complete' : undefined
+        });
+        return newMap;
+      });
+    })
+    .then(url => {
+      if (url) {
+        console.log(`Retry completed for ${file.name}, URL: ${url}`);
+        toast({
+          title: "Upload Successful",
+          description: `${file.name} has been uploaded successfully.`,
+          variant: "default"
+        });
+        
+        // Update the upload state with the completed URL
+        setUploadStates(prev => {
+          const fileId = `${file.name}-${Date.now()}`;
+          const newMap = new Map(prev);
+          newMap.set(fileId, {
+            file,
+            progress: 100,
+            status: 'completed',
+            url
+          });
+          return newMap;
+        });
+      } else {
+        console.error(`Retry failed for ${file.name}`);
+        toast({
+          title: "Retry Failed",
+          description: `Could not upload ${file.name}. Please try again.`,
+          variant: "destructive"
+        });
+      }
+    })
+    .catch(error => {
+      console.error(`Retry upload failed for ${file.name}:`, error);
+      toast({
+        title: "Retry Error",
+        description: `Error uploading ${file.name}. Please try again.`,
+        variant: "destructive"
+      });
+    });
+  }, [toast]);
   // Add a timeout effect to prevent stuck submitting state
   useEffect(() => {
     let timeoutId: number | undefined;
@@ -464,68 +589,167 @@ export const RequirementForm = ({
               Attachments (Optional)
             </Label>
             <div className="border-2 border-dashed border-slate-500 rounded-lg p-6 text-center hover:border-slate-400 transition-colors bg-slate-700/30">
+              {/* Mobile-optimized file input */}
               <input 
                 type="file" 
                 multiple 
                 onChange={handleFileUpload} 
                 className="hidden" 
                 id="file-upload" 
-                accept="image/*,.pdf,.doc,.docx,.txt" 
+                accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt" 
                 disabled={isSubmitting} 
-                capture={isMobile ? "environment" : undefined}
               />
-              <label htmlFor="file-upload" className="cursor-pointer block w-full h-full">
-                <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm text-slate-300">
-                  {isMobile ? "Tap to select files" : "Click to upload files or drag and drop"}
+              
+              {/* Mobile-friendly upload UI */}
+              <div className="flex flex-col items-center justify-center">
+                <Upload className="h-8 w-8 text-slate-400 mb-2" />
+                
+                <p className="text-sm text-slate-300 mb-3">
+                  {isMobile ? "Upload images or documents" : "Click to upload files or drag and drop"}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Images, PDFs, documents up to 10MB each
-                </p>
+                
+                {/* Primary upload button - larger target for mobile */}
                 <Button 
                   type="button"
                   onClick={() => document.getElementById('file-upload')?.click()}
-                  className="mt-3 bg-slate-600 hover:bg-slate-500 text-white"
+                  className="w-full md:w-auto mb-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4"
                   disabled={isSubmitting}
                 >
-                  Select Files
+                  {isMobile ? "Choose Files" : "Select Files"}
                 </Button>
-              </label>
+                
+                {/* Camera button for mobile */}
+                {isMobile && (
+                  <Button 
+                    type="button"
+                    onClick={() => {
+                      const input = document.getElementById('file-upload') as HTMLInputElement;
+                      if (input) {
+                        input.setAttribute('capture', 'environment');
+                        input.setAttribute('accept', 'image/*');
+                        input.click();
+                        // Reset after click
+                        setTimeout(() => {
+                          input.removeAttribute('capture');
+                          input.setAttribute('accept', '.jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt');
+                        }, 1000);
+                      }
+                    }}
+                    className="w-full md:w-auto mt-2 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4"
+                    disabled={isSubmitting}
+                  >
+                    Take Photo
+                  </Button>
+                )}
+                
+                <p className="text-xs text-slate-400 mt-3">
+                  Images, PDFs, documents up to 10MB each
+                </p>
+              </div>
             </div>
 
-            {uploadStates.size > 0 && <div className="space-y-2">
+            {/* Simplified upload progress indicator */}
+            {uploadStates.size > 0 && (
+              <div className="space-y-3 mt-4 p-3 bg-slate-800/50 rounded-lg border border-slate-600">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-slate-200">Upload Progress:</Label>
                   <span className="text-sm text-slate-300">{totalUploadProgress}%</span>
                 </div>
-                <Progress value={totalUploadProgress} className="w-full bg-slate-600" />
-              </div>}
+                <Progress value={totalUploadProgress} className="w-full h-2 bg-slate-700" />
+              </div>
+            )}
 
-            {formData.attachments && formData.attachments.length > 0 && <div className="space-y-2 mt-4">
-                <Label className="text-sm font-medium text-slate-200">Selected Files:</Label>
-                {formData.attachments.map((file, index) => {
-              const uploadState = Array.from(uploadStates.values()).find(state => state.file.name === file.name);
-              return <div key={index} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600">
-                      <div className="flex items-center space-x-3 flex-1">
-                        {getFileStatusIcon(uploadState?.status || 'pending')}
+            {/* File list with simplified UI */}
+            {formData.attachments && formData.attachments.length > 0 && (
+              <div className="space-y-3 mt-4">
+                <Label className="text-sm font-medium text-slate-200">
+                  Selected Files ({formData.attachments.length}):
+                </Label>
+                
+                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                  {formData.attachments.map((file, index) => {
+                    // Find the upload state for this file
+                    const uploadState = Array.from(uploadStates.values())
+                      .find(state => state.file.name === file.name);
+                    
+                    // Determine status color
+                    let statusColor = "bg-slate-600"; // default/pending
+                    if (uploadState) {
+                      if (uploadState.status === 'completed') statusColor = "bg-green-600";
+                      else if (uploadState.status === 'error') statusColor = "bg-red-600";
+                      else if (uploadState.status === 'uploading') statusColor = "bg-blue-600";
+                    }
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className="flex items-center p-3 bg-slate-700/50 rounded-lg border border-slate-600"
+                      >
+                        {/* Status indicator */}
+                        <div className={`w-2 h-full min-h-[40px] ${statusColor} rounded-full mr-3`}></div>
+                        
+                        {/* File info */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-200 truncate">{file.name}</p>
-                          <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
-                          {uploadState && <div className="mt-1 space-y-1">
-                              <Progress value={uploadState.progress} className="h-1 bg-slate-600" />
-                              {uploadState.error && <p className="text-xs text-red-400">{uploadState.error}</p>}
-                            </div>}
+                          <div className="flex items-center">
+                            {getFileStatusIcon(uploadState?.status || 'pending')}
+                            <p className="text-sm font-medium text-slate-200 truncate ml-2">
+                              {file.name}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs text-slate-400">
+                              {formatFileSize(file.size)}
+                            </p>
+                            
+                            {/* Status text */}
+                            <p className="text-xs">
+                              {uploadState?.status === 'completed' && (
+                                <span className="text-green-400">Uploaded</span>
+                              )}
+                              {uploadState?.status === 'uploading' && (
+                                <span className="text-blue-400">Uploading {uploadState.progress}%</span>
+                              )}
+                              {uploadState?.status === 'error' && (
+                                <span className="text-red-400">Failed</span>
+                              )}
+                              {!uploadState && <span className="text-slate-400">Pending</span>}
+                            </p>
+                          </div>
+                          
+                          {/* Progress bar */}
+                          {uploadState && (
+                            <Progress 
+                              value={uploadState.progress} 
+                              className="h-1 mt-1 bg-slate-700" 
+                            />
+                          )}
+                          
+                          {/* Error message */}
+                          {uploadState?.error && (
+                            <p className="text-xs text-red-400 mt-1">{uploadState.error}</p>
+                          )}
+                        </div>
+                        
+                        {/* Action buttons */}
+                        <div className="ml-2">
+                          {uploadState?.status === 'error' && (
+                            <Button 
+                              type="button" 
+                              size="sm" 
+                              onClick={() => retryUpload(file)} 
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                            >
+                              Retry
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        {uploadState?.status === 'error' && <Button type="button" variant="ghost" size="sm" onClick={() => retryUpload(file)} className="text-blue-400 hover:text-blue-300 text-xs hover:bg-slate-600">
-                            Retry
-                          </Button>}
-                        
-                      </div>
-                    </div>;
-            })}
-              </div>}
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-2 p-4 bg-blue-900/30 rounded-lg border border-blue-500/30">
