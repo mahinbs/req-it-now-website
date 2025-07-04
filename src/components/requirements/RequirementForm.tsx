@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Upload, X, File, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast, useToast } from '@/hooks/use-toast';
 import { uploadRequirementFile, type UploadProgress } from '@/utils/storageUtils';
 import { useIsMobile } from '@/hooks/use-mobile';
 interface RequirementFormData {
@@ -87,228 +87,113 @@ export const RequirementForm = ({
       // Detect Android devices specifically
       const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
 
-      // Special handling for mobile devices
-      if (isMobile) {
-        console.log(`Using mobile-specific upload approach for ${isAndroid ? 'Android' : 'iOS'}`);
+      // Create a safe filename
+      const fileExt = file.name.split('.').pop() || 'bin';
+      const fileName = `${user.id}/${tempReqId}/${Date.now()}.${fileExt}`;
 
-        // Update progress to 20%
-        setUploadStates(prev => {
-          const newMap = new Map(prev);
-          newMap.set(fileId, {
-            file,
-            progress: 20,
-            status: 'uploading'
-          });
-          return newMap;
-        });
-
-        // Create a safe filename
-        const fileExt = file.name.split('.').pop() || 'bin';
-        const fileName = `${user.id}/${tempReqId}/${Date.now()}.${fileExt}`;
-
-        try {
-          // Update progress to 40%
-          setUploadStates(prev => {
-            const newMap = new Map(prev);
-            newMap.set(fileId, {
-              file,
-              progress: 40,
-              status: 'uploading'
-            });
-            return newMap;
-          });
-
-          // For mobile, ensure file is properly read first
-          console.log("Starting mobile upload to Supabase");
-          console.log("File details:", {
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            lastModified: file.lastModified
-          });
-
-          // Android-specific file preparation and upload
-          let uploadData = null;
-          let uploadError = null;
-
-          if (isAndroid) {
-            console.log("Android: Using specialized upload method");
-
-            // Try multiple approaches for Android
-            let uploadSuccess = false;
-
-            // Approach 1: Direct upload with original file
-            try {
-              console.log("Android: Attempting direct upload");
-              const result = await supabase.storage
-                .from('requirement-attachments')
-                .upload(fileName, file, {
-                  upsert: true
-                });
-
-              if (!result.error) {
-                uploadSuccess = true;
-                uploadData = result.data;
-                console.log("Android: Direct upload succeeded");
-              } else {
-                console.log("Android: Direct upload failed, trying blob approach");
-                throw result.error;
-              }
-            } catch (directError) {
-              console.log("Android: Direct upload failed:", directError);
-
-              // Approach 2: Convert to blob and retry
-              try {
-                console.log("Android: Converting file to blob");
-                const fileArrayBuffer = await file.arrayBuffer();
-                const blob = new Blob([fileArrayBuffer], { type: file.type || 'application/octet-stream' });
-
-                const result = await supabase.storage
-                  .from('requirement-attachments')
-                  .upload(fileName, blob, {
-                    upsert: true
-                  });
-
-                if (!result.error) {
-                  uploadSuccess = true;
-                  uploadData = result.data;
-                  console.log("Android: Blob upload succeeded");
-                } else {
-                  uploadError = result.error;
-                  console.log("Android: Blob upload failed:", result.error);
-                }
-              } catch (blobError) {
-                console.log("Android: Blob upload failed:", blobError);
-                uploadError = blobError;
-              }
-            }
-
-            if (!uploadSuccess) {
-              console.error('Android: All upload methods failed');
-              throw uploadError || new Error('Upload failed on Android');
-            }
-
-            console.log("Android upload completed successfully");
-
-          } else {
-            // iOS and other mobile devices
-            console.log("Non-Android mobile: Using standard upload");
-            const result = await supabase.storage
-              .from('requirement-attachments')
-              .upload(fileName, file, {
-                upsert: true
-              });
-
-            uploadData = result.data;
-            uploadError = result.error;
-
-            console.log("Upload response:", uploadData, uploadError);
-
-            if (uploadError) {
-              console.error('Upload error:', uploadError);
-              throw uploadError;
-            }
-          }
-
-          // Update progress to 80%
-          setUploadStates(prev => {
-            const newMap = new Map(prev);
-            newMap.set(fileId, {
-              file,
-              progress: 80,
-              status: 'uploading'
-            });
-            return newMap;
-          });
-
-          // Get the public URL
-          const { data: urlData } = supabase.storage
-            .from('requirement-attachments')
-            .getPublicUrl(fileName);
-
-          console.log("URL data:", urlData);
-
-          if (!urlData || !urlData.publicUrl) {
-            throw new Error('Failed to get public URL');
-          }
-
-          // Force update to completed state
-          setUploadStates(prev => {
-            const newMap = new Map(prev);
-            newMap.set(fileId, {
-              file,
-              progress: 100,
-              status: 'completed',
-              url: urlData.publicUrl
-            });
-            return newMap;
-          });
-
-          console.log(`Upload completed for ${file.name}, URL: ${urlData.publicUrl}`);
-
-          // Return the URL
-          return urlData.publicUrl;
-        } catch (uploadError) {
-          console.error("Mobile upload error:", uploadError);
-
-          // Instead of using a fake URL, throw the error to be handled properly
-          throw uploadError;
-        }
-      } else {
-        // Desktop approach
-        console.log("Using standard desktop upload approach");
-
-        // Update progress to 20%
-        setUploadStates(prev => {
-          const newMap = new Map(prev);
-          newMap.set(fileId, {
-            file,
-            progress: 20,
-            status: 'uploading'
-          });
-          return newMap;
-        });
-
-        // Start the upload process
-        const url = await uploadRequirementFile(
+      // Update progress to 30%
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, {
           file,
-          user.id,
-          tempReqId,
-          (progressInfo: UploadProgress) => {
-            // Update the UI with progress information
-            setUploadStates(prev => {
-              const newMap = new Map(prev);
-              newMap.set(fileId, {
-                file,
-                progress: progressInfo.progress,
-                status: progressInfo.status,
-                error: progressInfo.error,
-                url: progressInfo.status === 'completed' ? 'uploading-complete' : undefined
-              });
-              return newMap;
-            });
-          }
-        );
+          progress: 30,
+          status: 'uploading'
+        });
+        return newMap;
+      });
 
-        // If upload was successful, update the state
-        if (url) {
-          console.log(`Upload completed for ${file.name}, URL: ${url}`);
-          setUploadStates(prev => {
-            const newMap = new Map(prev);
-            newMap.set(fileId, {
-              file,
-              progress: 100,
-              status: 'completed',
-              url
-            });
-            return newMap;
-          });
-          return url;
-        } else {
-          console.error(`Upload failed for ${file.name}`);
-          throw new Error('Upload failed');
-        }
+      // Simple, unified upload approach that works on all devices
+      console.log("Starting upload to Supabase");
+
+      // For Android, show a toast to indicate upload is starting
+      if (isAndroid) {
+        toast({
+          title: "Upload Starting",
+          description: `Uploading ${file.name}...`,
+          duration: 2000,
+        });
       }
+
+      // Update progress to 50%
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, {
+          file,
+          progress: 50,
+          status: 'uploading'
+        });
+        return newMap;
+      });
+
+      // Use the same upload method for all devices
+      const { data, error } = await supabase.storage
+        .from('requirement-attachments')
+        .upload(fileName, file, {
+          upsert: true
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+
+        // Show error toast for Android users
+        if (isAndroid) {
+          toast({
+            title: "Upload Failed",
+            description: `Failed to upload ${file.name}: ${error.message}`,
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
+
+        throw error;
+      }
+
+      // Update progress to 80%
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, {
+          file,
+          progress: 80,
+          status: 'uploading'
+        });
+        return newMap;
+      });
+
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from('requirement-attachments')
+        .getPublicUrl(fileName);
+
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error('Failed to get public URL');
+      }
+
+      // Force update to completed state
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, {
+          file,
+          progress: 100,
+          status: 'completed',
+          url: urlData.publicUrl
+        });
+        return newMap;
+      });
+
+      console.log(`Upload completed for ${file.name}, URL: ${urlData.publicUrl}`);
+
+      // Show success toast for Android users
+      if (isAndroid) {
+        toast({
+          title: "Upload Successful",
+          description: `${file.name} uploaded successfully!`,
+          className: "bg-green-50 border-green-200 text-green-800",
+          duration: 3000,
+        });
+      }
+
+      // Return the URL
+      return urlData.publicUrl;
     } catch (error) {
       console.error(`Upload error for ${file.name}:`, error);
       // Update state with error information
