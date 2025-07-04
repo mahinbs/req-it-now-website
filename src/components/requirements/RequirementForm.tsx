@@ -118,35 +118,87 @@ export const RequirementForm = ({
             lastModified: file.lastModified
           });
 
-          // Android-specific file preparation
-          let fileToUpload = file;
+          // Android-specific file preparation and upload
+          let uploadData = null;
+          let uploadError = null;
+
           if (isAndroid) {
-            // For Android, create a new blob to ensure proper file handling
-            const fileArrayBuffer = await file.arrayBuffer();
-            fileToUpload = new File([fileArrayBuffer], file.name, { type: file.type });
-            console.log("Android: Created new file blob for upload");
-          }
+            console.log("Android: Using specialized upload method");
 
-          // Direct upload with longer timeout for Android
-          const uploadPromise = supabase.storage
-            .from('requirement-attachments')
-            .upload(fileName, fileToUpload, {
-              upsert: true
-            });
+            // Try multiple approaches for Android
+            let uploadSuccess = false;
 
-          // Add timeout for mobile uploads (longer for Android)
-          const timeoutDuration = isAndroid ? 60000 : 30000; // 60s for Android, 30s for iOS
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Upload timeout')), timeoutDuration);
-          });
+            // Approach 1: Direct upload with original file
+            try {
+              console.log("Android: Attempting direct upload");
+              const result = await supabase.storage
+                .from('requirement-attachments')
+                .upload(fileName, file, {
+                  upsert: true
+                });
 
-          const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
+              if (!result.error) {
+                uploadSuccess = true;
+                uploadData = result.data;
+                console.log("Android: Direct upload succeeded");
+              } else {
+                console.log("Android: Direct upload failed, trying blob approach");
+                throw result.error;
+              }
+            } catch (directError) {
+              console.log("Android: Direct upload failed:", directError);
 
-          console.log("Upload response:", data, error);
+              // Approach 2: Convert to blob and retry
+              try {
+                console.log("Android: Converting file to blob");
+                const fileArrayBuffer = await file.arrayBuffer();
+                const blob = new Blob([fileArrayBuffer], { type: file.type || 'application/octet-stream' });
 
-          if (error) {
-            console.error('Upload error:', error);
-            throw error;
+                const result = await supabase.storage
+                  .from('requirement-attachments')
+                  .upload(fileName, blob, {
+                    upsert: true
+                  });
+
+                if (!result.error) {
+                  uploadSuccess = true;
+                  uploadData = result.data;
+                  console.log("Android: Blob upload succeeded");
+                } else {
+                  uploadError = result.error;
+                  console.log("Android: Blob upload failed:", result.error);
+                }
+              } catch (blobError) {
+                console.log("Android: Blob upload failed:", blobError);
+                uploadError = blobError;
+              }
+            }
+
+            if (!uploadSuccess) {
+              console.error('Android: All upload methods failed');
+              throw uploadError || new Error('Upload failed on Android');
+            }
+
+            console.log("Android upload completed successfully");
+
+          } else {
+            // iOS and other mobile devices
+            console.log("Non-Android mobile: Using standard upload");
+            const result = await supabase.storage
+              .from('requirement-attachments')
+              .upload(fileName, file, {
+                upsert: true
+              });
+
+            uploadData = result.data;
+            uploadError = result.error;
+
+            console.log("Upload response:", uploadData, uploadError);
+
+            if (uploadError) {
+              console.error('Upload error:', uploadError);
+              throw uploadError;
+            }
           }
 
           // Update progress to 80%
@@ -666,7 +718,7 @@ export const RequirementForm = ({
               id="file-upload"
               accept="image/*,.pdf,.doc,.docx,.txt"
               disabled={isSubmitting}
-              capture={isMobile ? "environment" : undefined}
+              capture={isMobile && !(/Android/i.test(navigator.userAgent)) ? "environment" : undefined}
             />
             <label htmlFor="file-upload" className="cursor-pointer block w-full h-full">
               <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
