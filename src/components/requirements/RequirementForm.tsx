@@ -74,18 +74,59 @@ export const RequirementForm = ({
         return newMap;
       });
 
+      // Detect Android devices specifically
+      const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
+
+      // For Android, show debug info
+      if (isAndroid) {
+        toast({
+          title: "Debug Info",
+          description: `File: ${file.name} (${file.size} bytes)`,
+          duration: 2000,
+        });
+      }
+
       // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
+      let user;
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        user = authUser;
+      } catch (authError) {
+        console.error('Auth error:', authError);
+        if (isAndroid) {
+          toast({
+            title: "Auth Error",
+            description: "User authentication failed",
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
+        throw new Error('User not authenticated');
+      }
 
       if (!user) {
+        if (isAndroid) {
+          toast({
+            title: "Auth Error",
+            description: "No user found - please log in",
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
         throw new Error('User not authenticated');
+      }
+
+      // For Android, show auth success
+      if (isAndroid) {
+        toast({
+          title: "Auth Success",
+          description: "User authenticated successfully",
+          duration: 1000,
+        });
       }
 
       // Generate a unique requirement ID for this upload
       const tempReqId = 'temp-' + Date.now();
-
-      // Detect Android devices specifically
-      const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
 
       // Create a safe filename
       const fileExt = file.name.split('.').pop() || 'bin';
@@ -114,6 +155,9 @@ export const RequirementForm = ({
         });
       }
 
+      // Add a delay to ensure UI updates are visible
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Update progress to 50%
       setUploadStates(prev => {
         const newMap = new Map(prev);
@@ -125,12 +169,44 @@ export const RequirementForm = ({
         return newMap;
       });
 
-      // Use the same upload method for all devices
-      const { data, error } = await supabase.storage
-        .from('requirement-attachments')
-        .upload(fileName, file, {
-          upsert: true
+      // For Android, show progress update
+      if (isAndroid) {
+        toast({
+          title: "Upload Progress",
+          description: `Uploading ${file.name} - 50%`,
+          duration: 1000,
         });
+      }
+
+      // Use the same upload method for all devices with timeout
+      let uploadResult;
+      try {
+        // Create a promise that rejects after 30 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Upload timeout after 30 seconds')), 30000);
+        });
+
+        const uploadPromise = supabase.storage
+          .from('requirement-attachments')
+          .upload(fileName, file, {
+            upsert: true
+          });
+
+        uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+      } catch (uploadError) {
+        console.error('Upload network error:', uploadError);
+        if (isAndroid) {
+          toast({
+            title: "Upload Failed",
+            description: `Network error: ${uploadError.message}`,
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
+        throw uploadError;
+      }
+
+      const { data, error } = uploadResult;
 
       if (error) {
         console.error('Upload error:', error);
@@ -139,13 +215,22 @@ export const RequirementForm = ({
         if (isAndroid) {
           toast({
             title: "Upload Failed",
-            description: `Failed to upload ${file.name}: ${error.message}`,
+            description: `Supabase error: ${error.message}`,
             variant: "destructive",
             duration: 5000,
           });
         }
 
         throw error;
+      }
+
+      // For Android, show upload success
+      if (isAndroid) {
+        toast({
+          title: "Upload Complete",
+          description: `${file.name} uploaded to storage`,
+          duration: 2000,
+        });
       }
 
       // Update progress to 80%
@@ -165,6 +250,14 @@ export const RequirementForm = ({
         .getPublicUrl(fileName);
 
       if (!urlData || !urlData.publicUrl) {
+        if (isAndroid) {
+          toast({
+            title: "URL Error",
+            description: "Failed to get public URL",
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
         throw new Error('Failed to get public URL');
       }
 
@@ -196,6 +289,17 @@ export const RequirementForm = ({
       return urlData.publicUrl;
     } catch (error) {
       console.error(`Upload error for ${file.name}:`, error);
+      
+      // Show final error toast for Android
+      if (typeof window !== 'undefined' && /Android/i.test(navigator.userAgent)) {
+        toast({
+          title: "Upload Failed",
+          description: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
+      
       // Update state with error information
       setUploadStates(prev => {
         const newMap = new Map(prev);
@@ -210,6 +314,125 @@ export const RequirementForm = ({
       return null;
     }
   }, [isMobile]);
+  // Simple Android upload function
+  const simpleUpload = useCallback(async (file: File): Promise<string | null> => {
+    const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
+    
+    if (!isAndroid) {
+      // Use existing function for non-Android
+      return uploadFileOptimized(file);
+    }
+
+    // Android-specific simple upload
+    const fileId = `${file.name}-${Date.now()}`;
+    
+    try {
+      // Step 1: Show we're starting
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, { file, progress: 0, status: 'uploading' });
+        return newMap;
+      });
+
+      toast({
+        title: "Android Upload",
+        description: `Starting upload: ${file.name}`,
+        duration: 2000,
+      });
+
+      // Step 2: Get user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      // Step 3: 25% progress
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, { file, progress: 25, status: 'uploading' });
+        return newMap;
+      });
+
+      // Step 4: Create filename
+      const fileName = `${user.id}/android-${Date.now()}.${file.name.split('.').pop() || 'bin'}`;
+
+      // Step 5: 50% progress
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, { file, progress: 50, status: 'uploading' });
+        return newMap;
+      });
+
+      toast({
+        title: "Android Upload",
+        description: "Uploading to server...",
+        duration: 1000,
+      });
+
+      // Step 6: Upload
+      const { data, error } = await supabase.storage
+        .from('requirement-attachments')
+        .upload(fileName, file);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Step 7: 75% progress
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, { file, progress: 75, status: 'uploading' });
+        return newMap;
+      });
+
+      // Step 8: Get URL
+      const { data: urlData } = supabase.storage
+        .from('requirement-attachments')
+        .getPublicUrl(fileName);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('Failed to get URL');
+      }
+
+      // Step 9: Complete
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, { file, progress: 100, status: 'completed', url: urlData.publicUrl });
+        return newMap;
+      });
+
+      toast({
+        title: "Upload Complete",
+        description: `${file.name} uploaded successfully!`,
+        className: "bg-green-50 border-green-200 text-green-800",
+        duration: 3000,
+      });
+
+      return urlData.publicUrl;
+
+    } catch (error) {
+      // Error handling
+      setUploadStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileId, { 
+          file, 
+          progress: 0, 
+          status: 'error', 
+          error: error instanceof Error ? error.message : 'Upload failed' 
+        });
+        return newMap;
+      });
+
+      toast({
+        title: "Upload Failed",
+        description: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+        duration: 5000,
+      });
+
+      return null;
+    }
+  }, [uploadFileOptimized]);
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       console.log("handleFileUpload triggered");
@@ -282,7 +505,7 @@ export const RequirementForm = ({
         // Start uploads with a small delay to ensure UI updates first
         setTimeout(() => {
           validFiles.forEach(file => {
-            uploadFileOptimized(file).catch(error => {
+            simpleUpload(file).catch(error => {
               console.error(`Upload failed for ${file.name}:`, error);
               toast({
                 title: "Upload Failed",
@@ -306,7 +529,7 @@ export const RequirementForm = ({
         variant: "destructive"
       });
     }
-  }, [uploadFileOptimized, toast]);
+  }, [simpleUpload, toast]);
   const removeFile = useCallback((index: number) => {
     setFormData(prev => ({
       ...prev,
@@ -324,7 +547,7 @@ export const RequirementForm = ({
     });
 
     // Use the optimized upload function
-    uploadFileOptimized(file)
+    simpleUpload(file)
       .then(url => {
         if (url) {
           console.log(`Retry successful for ${file.name}`);
@@ -343,7 +566,7 @@ export const RequirementForm = ({
           variant: "destructive"
         });
       });
-  }, [uploadFileOptimized, toast]);
+  }, [simpleUpload, toast]);
   // Add a timeout effect to prevent stuck submitting state
   useEffect(() => {
     let timeoutId: number | undefined;
@@ -565,6 +788,83 @@ export const RequirementForm = ({
         return <File className="h-4 w-4 text-slate-500" />;
     }
   };
+  // Add test function for Android debugging
+  const testUpload = useCallback(async () => {
+    const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
+    
+    if (!isAndroid) return;
+    
+    try {
+      toast({
+        title: "Test Starting",
+        description: "Testing basic upload functionality...",
+        duration: 2000,
+      });
+
+      // Test 1: Authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Authentication failed');
+      }
+
+      toast({
+        title: "Test 1 Pass",
+        description: "Authentication successful",
+        duration: 1000,
+      });
+
+      // Test 2: Create a simple test file
+      const testContent = "This is a test file for upload debugging";
+      const testFile = new File([testContent], 'test.txt', { type: 'text/plain' });
+
+      toast({
+        title: "Test 2 Pass",
+        description: "Test file created successfully",
+        duration: 1000,
+      });
+
+      // Test 3: Upload test file
+      const testFileName = `${user.id}/test-${Date.now()}.txt`;
+      const { data, error } = await supabase.storage
+        .from('requirement-attachments')
+        .upload(testFileName, testFile, { upsert: true });
+
+      if (error) {
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+
+      toast({
+        title: "Test 3 Pass",
+        description: "Upload successful!",
+        className: "bg-green-50 border-green-200 text-green-800",
+        duration: 3000,
+      });
+
+      // Test 4: Get public URL
+      const { data: urlData } = supabase.storage
+        .from('requirement-attachments')
+        .getPublicUrl(testFileName);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('Failed to get public URL');
+      }
+
+      toast({
+        title: "All Tests Pass",
+        description: "Upload system working correctly",
+        className: "bg-green-50 border-green-200 text-green-800",
+        duration: 5000,
+      });
+
+    } catch (error) {
+      toast({
+        title: "Test Failed",
+        description: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  }, []);
   return <Card className="w-full max-w-2xl mx-auto bg-gradient-to-br from-slate-800/95 to-slate-700/95 backdrop-blur-xl border-slate-600/50 shadow-2xl">
     <CardHeader>
       <CardTitle className="text-xl font-semibold text-white">Submit Website Requirement</CardTitle>
@@ -665,6 +965,65 @@ export const RequirementForm = ({
               >
                 Select Files
               </Button>
+              {/* Debug button for Android */}
+              {typeof window !== 'undefined' && /Android/i.test(navigator.userAgent) && (
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      toast({
+                        title: "Debug Test",
+                        description: "Testing upload system...",
+                        duration: 2000,
+                      });
+
+                      // Test authentication
+                      const { data: { user }, error: authError } = await supabase.auth.getUser();
+                      if (authError || !user) {
+                        throw new Error('Authentication failed');
+                      }
+
+                      toast({
+                        title: "Auth OK",
+                        description: "User authenticated successfully",
+                        duration: 1000,
+                      });
+
+                      // Test file creation
+                      const testContent = "Test file content";
+                      const testFile = new File([testContent], 'debug-test.txt', { type: 'text/plain' });
+
+                      // Test upload
+                      const testFileName = `${user.id}/debug-${Date.now()}.txt`;
+                      const { data, error } = await supabase.storage
+                        .from('requirement-attachments')
+                        .upload(testFileName, testFile, { upsert: true });
+
+                      if (error) {
+                        throw new Error(`Upload failed: ${error.message}`);
+                      }
+
+                      toast({
+                        title: "Upload Success",
+                        description: "Test upload completed successfully!",
+                        className: "bg-green-50 border-green-200 text-green-800",
+                        duration: 3000,
+                      });
+
+                    } catch (error) {
+                      toast({
+                        title: "Debug Failed",
+                        description: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                        variant: "destructive",
+                        duration: 5000,
+                      });
+                    }
+                  }}
+                  className="mt-2 bg-red-600 hover:bg-red-500 text-white text-sm"
+                >
+                  Debug Test
+                </Button>
+              )}
             </div>
           </div>
 
