@@ -40,6 +40,15 @@ export const RequirementForm = ({
   const [uploadStates, setUploadStates] = useState<Map<string, FileUploadState>>(new Map());
   const [submitError, setSubmitError] = useState<string | null>(null);
   const isMobile = useIsMobile();
+
+  // Debug Android detection
+  const isAndroidDevice = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
+  console.log('Device info:', {
+    isMobile,
+    isAndroid: isAndroidDevice,
+    userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'undefined'
+  });
+
   const handleInputChange = useCallback((field: keyof RequirementFormData, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -318,9 +327,13 @@ export const RequirementForm = ({
   }, [isMobile]);
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     try {
+      console.log("handleFileUpload triggered");
+
       // Reset the file input value after getting files to ensure it triggers again on same file
       const fileInput = event.target;
       const files = fileInput.files;
+
+      console.log("Files selected:", files ? files.length : 0);
 
       if (!files || files.length === 0) {
         console.log("No files selected");
@@ -329,6 +342,8 @@ export const RequirementForm = ({
 
       // Create a copy of the FileList before resetting the input
       const newFiles = Array.from(files);
+
+      console.log("Processing files:", newFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
 
       // Validate files
       const validFiles = newFiles.filter(file => {
@@ -720,7 +735,21 @@ export const RequirementForm = ({
               disabled={isSubmitting}
               capture={isMobile && !(/Android/i.test(navigator.userAgent)) ? "environment" : undefined}
             />
-            <label htmlFor="file-upload" className="cursor-pointer block w-full h-full">
+            <div className="cursor-pointer block w-full h-full" onClick={() => {
+              const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+              if (fileInput) {
+                // For Android, ensure the input is properly focused and clicked
+                if (/Android/i.test(navigator.userAgent)) {
+                  console.log('Android: Triggering file input');
+                  fileInput.focus();
+                  setTimeout(() => {
+                    fileInput.click();
+                  }, 100);
+                } else {
+                  fileInput.click();
+                }
+              }
+            }}>
               <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
               <p className="text-sm text-slate-300">
                 {isMobile ? "Tap to select files" : "Click to upload files or drag and drop"}
@@ -730,13 +759,28 @@ export const RequirementForm = ({
               </p>
               <Button
                 type="button"
-                onClick={() => document.getElementById('file-upload')?.click()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                  if (fileInput) {
+                    // For Android, ensure the input is properly focused and clicked
+                    if (/Android/i.test(navigator.userAgent)) {
+                      console.log('Android: Button click - triggering file input');
+                      fileInput.focus();
+                      setTimeout(() => {
+                        fileInput.click();
+                      }, 100);
+                    } else {
+                      fileInput.click();
+                    }
+                  }
+                }}
                 className="mt-3 bg-slate-600 hover:bg-slate-500 text-white"
                 disabled={isSubmitting}
               >
                 Select Files
               </Button>
-            </label>
+            </div>
           </div>
 
           {uploadStates.size > 0 && <div className="space-y-2">
