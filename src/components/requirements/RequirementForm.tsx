@@ -75,9 +75,12 @@ export const RequirementForm = ({
       // Generate a unique requirement ID for this upload
       const tempReqId = 'temp-' + Date.now();
 
+      // Detect Android devices specifically
+      const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
+
       // Special handling for mobile devices
       if (isMobile) {
-        console.log("Using mobile-specific upload approach");
+        console.log(`Using mobile-specific upload approach for ${isAndroid ? 'Android' : 'iOS'}`);
 
         // Update progress to 20%
         setUploadStates(prev => {
@@ -115,16 +118,26 @@ export const RequirementForm = ({
             lastModified: file.lastModified
           });
 
-          // Direct upload with timeout and retry logic
+          // Android-specific file preparation
+          let fileToUpload = file;
+          if (isAndroid) {
+            // For Android, create a new blob to ensure proper file handling
+            const fileArrayBuffer = await file.arrayBuffer();
+            fileToUpload = new File([fileArrayBuffer], file.name, { type: file.type });
+            console.log("Android: Created new file blob for upload");
+          }
+
+          // Direct upload with longer timeout for Android
           const uploadPromise = supabase.storage
             .from('requirement-attachments')
-            .upload(fileName, file, {
+            .upload(fileName, fileToUpload, {
               upsert: true
             });
 
-          // Add timeout for mobile uploads
+          // Add timeout for mobile uploads (longer for Android)
+          const timeoutDuration = isAndroid ? 60000 : 30000; // 60s for Android, 30s for iOS
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Upload timeout')), 30000); // 30 seconds
+            setTimeout(() => reject(new Error('Upload timeout')), timeoutDuration);
           });
 
           const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
