@@ -29,31 +29,10 @@ export const uploadRequirementFile = async (
     const fileName = `${userId}/${requirementId}/${Date.now()}.${fileExt}`;
     
     try {
-      // IMPORTANT: For testing purposes, we'll simulate a successful upload
-      // This will help us determine if the issue is with the actual upload
-      // or with the progress reporting
+      // Update progress to 30%
+      onProgress?.({ progress: 30, status: 'uploading' });
+      console.log('Starting real upload to Supabase');
       
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Update progress to 50%
-      onProgress?.({ progress: 50, status: 'uploading' });
-      console.log('Upload at 50%');
-      
-      // Simulate more processing time
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create a fake URL that looks legitimate
-      const fakeUrl = `https://qyoeeottdkmqduqcnuou.supabase.co/storage/v1/object/public/requirement-attachments/${fileName}`;
-      
-      // Mark as completed
-      onProgress?.({ progress: 100, status: 'completed' });
-      console.log('Upload completed with simulated success');
-      
-      return fakeUrl;
-      
-      /* 
-      // This is the real upload code that we'll uncomment after testing
       // Direct upload with minimal options
       const { data, error } = await supabase.storage
         .from('requirement-attachments')
@@ -71,6 +50,10 @@ export const uploadRequirementFile = async (
         return null;
       }
       
+      // Update progress to 70%
+      onProgress?.({ progress: 70, status: 'uploading' });
+      console.log('Upload successful, getting public URL');
+      
       // Get the public URL
       const { data: urlData } = supabase.storage
         .from('requirement-attachments')
@@ -85,7 +68,6 @@ export const uploadRequirementFile = async (
       console.log('Upload completed successfully');
       
       return urlData.publicUrl;
-      */
       
     } catch (error) {
       console.error('Upload error:', error);
