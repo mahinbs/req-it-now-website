@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
+import { uploadChatAttachment } from './chatAttachmentUtils';
 
 type Message = Tables<'messages'> & {
   sender_name?: string;
@@ -23,7 +24,7 @@ export class ChatOptimizedQueries {
     includeAttachments = true
   }: LoadMessagesOptions): Promise<{ messages: Message[]; hasMore: boolean }> {
     const startTime = performance.now();
-    
+
     try {
       // Single query for messages
       let query = supabase
@@ -58,7 +59,7 @@ export class ChatOptimizedQueries {
       if (includeAttachments && messages.length > 0) {
         const messageIds = messages.map(msg => msg.id);
         const attachments = await this.batchLoadAttachments(messageIds);
-        
+
         // Group attachments by message_id
         const attachmentsByMessage = attachments.reduce((acc, attachment) => {
           if (!acc[attachment.message_id]) {
@@ -77,10 +78,10 @@ export class ChatOptimizedQueries {
 
       // Reverse to get chronological order
       const orderedMessages = messagesWithAttachments.reverse();
-      
+
       const endTime = performance.now();
       console.log(`✅ Loaded ${orderedMessages.length} messages in ${(endTime - startTime).toFixed(2)}ms`);
-      
+
       return {
         messages: orderedMessages,
         hasMore
@@ -97,7 +98,7 @@ export class ChatOptimizedQueries {
     if (messageIds.length === 0) return [];
 
     const startTime = performance.now();
-    
+
     try {
       const { data, error } = await supabase
         .from('message_attachments')
@@ -112,7 +113,7 @@ export class ChatOptimizedQueries {
 
       const endTime = performance.now();
       console.log(`✅ Loaded ${data?.length || 0} attachments in ${(endTime - startTime).toFixed(2)}ms`);
-      
+
       return data || [];
     } catch (error) {
       console.error('Error in batchLoadAttachments:', error);
@@ -129,7 +130,7 @@ export class ChatOptimizedQueries {
     attachments?: File[]
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const startTime = performance.now();
-    
+
     try {
       const messageData = {
         content: content.trim(),
@@ -151,10 +152,24 @@ export class ChatOptimizedQueries {
       const endTime = performance.now();
       console.log(`✅ Message sent in ${(endTime - startTime).toFixed(2)}ms`);
 
-      // Handle attachments if provided (placeholder for future enhancement)
+      // Handle attachments if provided
       if (attachments && attachments.length > 0) {
         console.log(`📎 Processing ${attachments.length} attachments for message ${messageResult.id}`);
-        // Attachment processing would be implemented here
+
+        // Upload attachments sequentially to avoid overwhelming the server
+        for (const file of attachments) {
+          try {
+            const uploadResult = await uploadChatAttachment(file, messageResult.id, userId);
+            if (!uploadResult.success) {
+              console.error(`Failed to upload attachment ${file.name}:`, uploadResult.error);
+              // Continue with other attachments even if one fails
+            } else {
+              console.log(`✅ Attachment uploaded successfully: ${file.name}`);
+            }
+          } catch (error) {
+            console.error(`Error uploading attachment ${file.name}:`, error);
+          }
+        }
       }
 
       return {
@@ -164,7 +179,7 @@ export class ChatOptimizedQueries {
     } catch (error: any) {
       const endTime = performance.now();
       console.error(`❌ Message sending failed after ${(endTime - startTime).toFixed(2)}ms:`, error);
-      
+
       return {
         success: false,
         error: error.message || 'Failed to send message'
