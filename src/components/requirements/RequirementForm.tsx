@@ -290,10 +290,6 @@ export const RequirementForm = ({
     } catch (error) {
       console.error(`Upload error for ${file.name}:`, error);
 
-
-
-
-
       
       // Show final error toast for Android
       if (typeof window !== 'undefined' && /Android/i.test(navigator.userAgent)) {

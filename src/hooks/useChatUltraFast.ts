@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { uploadChatAttachment } from '@/utils/chatAttachmentUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Message = Tables<'messages'> & {
@@ -27,7 +28,7 @@ export const useChatUltraFast = ({
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [connected, setConnected] = useState(false);
-  
+
   const mountedRef = useRef(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
@@ -40,7 +41,7 @@ export const useChatUltraFast = ({
 
     console.log('🚀 Ultra-fast loading messages for:', requirementId);
     const startTime = performance.now();
-    
+
     try {
       // Build query without waiting for full auth
       let query = supabase
@@ -73,7 +74,7 @@ export const useChatUltraFast = ({
       if (mountedRef.current) {
         setMessages(processedMessages);
         setLoading(false);
-        
+
         const endTime = performance.now();
         console.log(`✅ Ultra-fast loaded ${processedMessages.length} messages in ${(endTime - startTime).toFixed(2)}ms`);
       }
@@ -91,7 +92,7 @@ export const useChatUltraFast = ({
     if (!isCurrentChat || channelRef.current) return;
 
     console.log('🔄 Setting up parallel real-time connection');
-    
+
     const channelName = `ultra-fast-chat-${requirementId || 'general'}-${Date.now()}`;
     const channel = supabase
       .channel(channelName)
@@ -101,8 +102,8 @@ export const useChatUltraFast = ({
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: requirementId && requirementId !== 'general' 
-            ? `requirement_id=eq.${requirementId}` 
+          filter: requirementId && requirementId !== 'general'
+            ? `requirement_id=eq.${requirementId}`
             : 'requirement_id=is.null'
         },
         (payload) => {
@@ -113,12 +114,35 @@ export const useChatUltraFast = ({
               sender_name: (payload.new as Tables<'messages'>).is_admin ? 'Admin' : 'User',
               attachments: []
             };
-            
+
             setMessages(prev => {
               const exists = prev.some(msg => msg.id === newMessage.id);
               if (exists) return prev;
               return [...prev, newMessage];
             });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'message_attachments'
+        },
+        (payload) => {
+          console.log('📎 New attachment:', payload.new);
+          if (mountedRef.current) {
+            const newAttachment = payload.new as Tables<'message_attachments'>;
+            setMessages(prev => prev.map(msg => {
+              if (msg.id === newAttachment.message_id) {
+                return {
+                  ...msg,
+                  attachments: [...(msg.attachments || []), newAttachment]
+                };
+              }
+              return msg;
+            }));
           }
         }
       )
@@ -158,6 +182,26 @@ export const useChatUltraFast = ({
       }
 
       console.log('✅ Message sent ultra-fast');
+
+      // Handle attachments if provided
+      if (attachments && attachments.length > 0) {
+        console.log(`📎 Processing ${attachments.length} attachments for message ${messageResult.id}`);
+
+        // Upload attachments sequentially to avoid overwhelming the server
+        for (const file of attachments) {
+          try {
+            const uploadResult = await uploadChatAttachment(file, messageResult.id, userId);
+            if (!uploadResult.success) {
+              console.error(`Failed to upload attachment ${file.name}:`, uploadResult.error);
+              // Continue with other attachments even if one fails
+            } else {
+              console.log(`✅ Attachment uploaded successfully: ${file.name}`);
+            }
+          } catch (error) {
+            console.error(`Error uploading attachment ${file.name}:`, error);
+          }
+        }
+      }
     } catch (error: any) {
       console.error('❌ Send failed:', error);
       if (mountedRef.current) {
