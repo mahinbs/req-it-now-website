@@ -12,6 +12,7 @@ import { ChevronDown, Clock, Play, CheckCircle, Loader2, AlertTriangle, RotateCc
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { adminStatusConfig } from '@/utils/requirementUtils';
+import { useAutoCompletion } from '@/hooks/useAutoCompletion';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'>;
@@ -31,6 +32,9 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
   const [updating, setUpdating] = useState(false);
   // Use local state to handle optimistic updates
   const [currentStatus, setCurrentStatus] = useState(requirement.admin_status || 'pending');
+  
+  // Auto-completion hook
+  const { autoCompletionInfo } = useAutoCompletion(requirement);
   
   // Update local state when requirement prop changes (real-time updates)
   useEffect(() => {
@@ -117,6 +121,16 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
       <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
         <AlertTriangle className="h-3 w-3 mr-1" />
         Rejected by Client
+      </Badge>
+    );
+  }
+
+  // Show auto-completion status if applicable
+  if (autoCompletionInfo.isAwaitingReview && autoCompletionInfo.shouldAutoComplete) {
+    return (
+      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+        <CheckCircle className="h-3 w-3 mr-1" />
+        Auto-Completed
       </Badge>
     );
   }

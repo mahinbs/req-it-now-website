@@ -4,6 +4,7 @@ import { CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { User, Calendar, AlertTriangle } from 'lucide-react';
 import { getPriorityColor, formatDate } from '@/utils/requirementUtils';
+import { useAutoCompletion } from '@/hooks/useAutoCompletion';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -19,13 +20,19 @@ interface RequirementCardHeaderProps {
 }
 
 export const RequirementCardHeader = ({ requirement, unreadCount }: RequirementCardHeaderProps) => {
+  const { autoCompletionInfo } = useAutoCompletion(requirement);
+
   const getStatusBadgeVariant = () => {
     if (requirement.rejected_by_client) {
       return 'bg-red-900/50 text-red-300 border-red-500/50';
     } else if (requirement.accepted_by_client) {
       return 'bg-green-900/50 text-green-300 border-green-500/50';
-    } else if (requirement.completed_by_admin) {
-      return 'bg-purple-900/50 text-purple-300 border-purple-500/50';
+    } else if (autoCompletionInfo.isAwaitingReview) {
+      if (autoCompletionInfo.shouldAutoComplete) {
+        return 'bg-green-900/50 text-green-300 border-green-500/50'; // Auto-completed (green)
+      } else {
+        return 'bg-purple-900/50 text-purple-300 border-purple-500/50'; // Awaiting review (purple)
+      }
     } else if (requirement.admin_status === 'ongoing' || requirement.approved_by_admin) {
       return 'bg-blue-900/50 text-blue-300 border-blue-500/50';
     } else if (requirement.admin_status === 'completed') {
@@ -39,8 +46,12 @@ export const RequirementCardHeader = ({ requirement, unreadCount }: RequirementC
       return 'Rejected by Client';
     } else if (requirement.accepted_by_client) {
       return 'Accepted by Client';
-    } else if (requirement.completed_by_admin) {
-      return 'Awaiting Client Review';
+    } else if (autoCompletionInfo.isAwaitingReview) {
+      if (autoCompletionInfo.shouldAutoComplete) {
+        return 'Completed'; // Auto-completed after 24 hours
+      } else {
+        return `Awaiting Client Review (${autoCompletionInfo.hoursRemaining}h remaining)`;
+      }
     } else if (requirement.admin_status === 'ongoing' || requirement.approved_by_admin) {
       return 'Work in Progress';
     } else if (requirement.admin_status === 'completed') {

@@ -211,3 +211,48 @@ export const isStatusConsistent = (requirement: Requirement): boolean => {
       return true;
   }
 };
+
+// Helper function to check if requirement should be auto-completed
+export const shouldAutoComplete = (requirement: Requirement): boolean => {
+  if (!requirement.completed_by_admin || 
+      requirement.accepted_by_client || 
+      requirement.rejected_by_client || 
+      !requirement.completion_date) {
+    return false;
+  }
+  
+  const completionDate = new Date(requirement.completion_date);
+  const now = new Date();
+  const hoursElapsed = (now.getTime() - completionDate.getTime()) / (1000 * 60 * 60);
+  
+  return hoursElapsed >= 24;
+};
+
+// Helper function to get hours remaining for auto-completion
+export const getHoursRemainingForAutoCompletion = (requirement: Requirement): number => {
+  if (!requirement.completed_by_admin || 
+      requirement.accepted_by_client || 
+      requirement.rejected_by_client || 
+      !requirement.completion_date) {
+    return 0;
+  }
+  
+  const completionDate = new Date(requirement.completion_date);
+  const now = new Date();
+  const hoursElapsed = (now.getTime() - completionDate.getTime()) / (1000 * 60 * 60);
+  
+  return Math.max(0, Math.ceil(24 - hoursElapsed));
+};
+
+// Helper function to get auto-completion status info
+export const getAutoCompletionInfo = (requirement: Requirement) => {
+  const shouldAuto = shouldAutoComplete(requirement);
+  const hoursRemaining = getHoursRemainingForAutoCompletion(requirement);
+  
+  return {
+    shouldAutoComplete: shouldAuto,
+    hoursRemaining,
+    isAwaitingReview: requirement.completed_by_admin && !requirement.accepted_by_client && !requirement.rejected_by_client,
+    hasCompletionDate: Boolean(requirement.completion_date)
+  };
+};
