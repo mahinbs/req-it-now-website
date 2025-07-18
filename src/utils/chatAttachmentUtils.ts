@@ -9,9 +9,7 @@ const ALLOWED_FILE_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/gif',
-  'text/plain'
-
-  
+  'text/plain'  
 ];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
