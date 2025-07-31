@@ -49,7 +49,6 @@ export const RequirementCard = ({
 
   // Handle status update with additional logging
   const handleStatusUpdate = () => {
-    console.log('Status update callback triggered for requirement:', requirement.id);
     if (onApprovalUpdate) {
       onApprovalUpdate();
     }

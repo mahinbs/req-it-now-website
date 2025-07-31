@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, Bell, BarChart3, Users, Zap } from 'lucide-react';
+import { RefreshCw, Bell, BarChart3, Users, Zap, SortAsc, SortDesc, MessageSquare } from 'lucide-react';
 import { RequirementsList } from './RequirementsList';
 import { ChatModal } from './ChatModal';
 import { AnalyticsCards } from './AnalyticsCards';
+import { MessagesPage } from './MessagesPage';
 import { AdminDashboardHeader } from './AdminDashboardHeader';
 import { NotificationDebugger } from './NotificationDebugger';
 import { RequirementsFilter, type FilterState } from '@/components/filters/RequirementsFilter';
@@ -12,6 +12,15 @@ import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { useUnifiedNotificationContext } from '@/hooks/useUnifiedNotifications';
 import { applyFilters } from '@/utils/filterUtils';
 import { toast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Pagination } from './Pagination';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -27,7 +36,8 @@ interface AdminDashboardProps {
 
 export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activePage, setActivePage] = useState<'overview' | 'requirements' | 'messages'>('overview');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [filters, setFilters] = useState<FilterState>({
     dateFilter: 'newest',
     statusFilter: 'all',
@@ -43,7 +53,16 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     refreshing,
     error,
     setError,
-    handleRefresh
+    handleRefresh,
+    handleApprovalUpdate,
+    currentPage,
+    totalCount,
+    hasMore,
+    isLoadingMore,
+    loadMoreRequirements,
+    goToPage,
+    ITEMS_PER_PAGE,
+    statusCounts
   } = useAdminDashboard();
 
   const { 
@@ -55,9 +74,11 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     error: notificationError 
   } = useUnifiedNotificationContext();
 
-  // Memoized filtered requirements for better performance
+
+
+  // Memoized filtered and sorted requirements for better performance
   const filteredRequirements = useMemo(() => {
-    return applyFilters(
+    let filtered = applyFilters(
       requirements, 
       filters.dateFilter, 
       filters.statusFilter, 
@@ -66,23 +87,32 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
       filters.startDate,
       filters.endDate
     );
-  }, [requirements, filters.dateFilter, filters.statusFilter, filters.priorityFilter, filters.searchTerm, filters.startDate, filters.endDate]);
+
+    // Apply sort order
+    filtered = [...filtered].sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+
+    return filtered;
+  }, [requirements, filters.dateFilter, filters.statusFilter, filters.priorityFilter, filters.searchTerm, filters.startDate, filters.endDate, sortOrder]);
 
   // Memoized recent requirements for overview tab
   const recentRequirements = useMemo(() => {
     return requirements.slice(0, 6);
   }, [requirements]);
 
-  const handleChatClick = (requirement: Requirement) => {
+  const handleChatClick = useCallback((requirement: Requirement) => {
     console.log('Admin opening chat for requirement:', requirement.id);
     setSelectedRequirement(requirement);
-  };
+  }, []);
 
-  const handleCloseChatModal = () => {
+  const handleCloseChatModal = useCallback(() => {
     setSelectedRequirement(null);
-  };
+  }, []);
 
-  const handleDownloadAttachment = (url: string, fileName: string) => {
+  const handleDownloadAttachment = useCallback((url: string, fileName: string) => {
     const link = document.createElement('a');
     link.href = url;
     link.download = fileName;
@@ -90,9 +120,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       console.log('Admin logout triggered');
       await onLogout();
@@ -108,9 +138,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         variant: "destructive"
       });
     }
-  };
+  }, [onLogout]);
 
-  const handleRefreshNotifications = async () => {
+  const handleRefreshNotifications = useCallback(async () => {
     try {
       await refreshNotifications();
       toast({
@@ -125,7 +155,15 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         variant: "destructive"
       });
     }
-  };
+  }, [refreshNotifications]);
+
+  const handleSortChange = useCallback((value: 'newest' | 'oldest') => {
+    setSortOrder(value);
+  }, []);
+
+  const handleFiltersChange = useCallback((newFilters: FilterState) => {
+    setFilters(newFilters);
+  }, []);
 
   const totalUnreadCount = useMemo(() => {
     return Object.values(notificationCounts).reduce((sum, count) => sum + count, 0);
@@ -224,70 +262,165 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className="glass bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-2">
-            <TabsTrigger 
-              value="overview" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-xl rounded-xl transition-all duration-300 font-medium text-slate-200 hover:text-white"
+                {/* Navigation */}
+        <div className="glass bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-2 mb-8">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant={activePage === 'overview' ? 'default' : 'ghost'}
+              onClick={() => setActivePage('overview')}
+              className={`flex items-center space-x-2 ${
+                activePage === 'overview'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-xl'
+                  : 'text-slate-200 hover:text-white hover:bg-white/10'
+              } rounded-xl transition-all duration-300 font-medium`}
             >
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger 
-              value="requirements" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl rounded-xl transition-all duration-300 font-medium text-slate-200 hover:text-white"
+              <BarChart3 className="h-4 w-4" />
+              <span>Overview</span>
+            </Button>
+            <Button
+              variant={activePage === 'requirements' ? 'default' : 'ghost'}
+              onClick={() => setActivePage('requirements')}
+              className={`flex items-center space-x-2 ${
+                activePage === 'requirements'
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-xl'
+                  : 'text-slate-200 hover:text-white hover:bg-white/10'
+              } rounded-xl transition-all duration-300 font-medium`}
             >
-              <Users className="h-4 w-4 mr-2" />
-              Requirements ({requirements.length})
-            </TabsTrigger>
-          </TabsList>
+              <Users className="h-4 w-4" />
+              <span>Requirements ({requirements.length})</span>
+            </Button>
+            <Button
+              variant={activePage === 'messages' ? 'default' : 'ghost'}
+              onClick={() => setActivePage('messages')}
+              className={`flex items-center space-x-2 ${
+                activePage === 'messages'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-xl'
+                  : 'text-slate-200 hover:text-white hover:bg-white/10'
+              } rounded-xl transition-all duration-300 font-medium`}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>Messages</span>
+            </Button>
+          </div>
+        </div>
 
-          <TabsContent value="overview" className="space-y-8">
-            <div className="scale-in">
-              <AnalyticsCards requirements={requirements} />
-            </div>
-            
-            <div className="glass bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-8">
-              <div className="flex items-center space-x-3 mb-6">
-                <Zap className="h-6 w-6 text-yellow-400" />
-                <h2 className="text-xl font-bold text-white font-space-grotesk">Recent Requirements</h2>
+        {/* Page Content */}
+        <div className="space-y-8">
+          {activePage === 'overview' && (
+            <>
+              <div className="scale-in">
+                <AnalyticsCards 
+                  requirements={requirements}
+                  totalCount={totalCount}
+                  pendingCount={statusCounts.pending}
+                  inProgressCount={statusCounts.inProgress}
+                  completedCount={statusCounts.completed}
+                />
               </div>
-              <RequirementsList
-                requirements={recentRequirements}
-                onChatClick={handleChatClick}
-                onDownloadAttachment={handleDownloadAttachment}
-                onRefresh={handleRefresh}
-              />
-            </div>
+              
+              <div className="glass bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-8">
+                <div className="flex items-center space-x-3 mb-6">
+                  <Zap className="h-6 w-6 text-yellow-400" />
+                  <h2 className="text-xl font-bold text-white font-space-grotesk">Recent Requirements</h2>
+                </div>
+                <RequirementsList
+                  requirements={recentRequirements}
+                  onChatClick={handleChatClick}
+                  onDownloadAttachment={handleDownloadAttachment}
+                  onRefresh={handleRefresh}
+                />
+              </div>
 
-            {/* Debug tool for troubleshooting notifications */}
-            <NotificationDebugger />
-          </TabsContent>
+              {/* Debug tool for troubleshooting notifications */}
+              <NotificationDebugger />
+            </>
+          )}
 
-          <TabsContent value="requirements" className="space-y-8">
-            <div className="flex items-center justify-between flex-wrap gap-6">
-              <h2 className="text-2xl font-bold text-white font-space-grotesk">All Requirements</h2>
-            </div>
-            
-            {/* Always show filters with dark theme */}
-            <div className="glass bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-6">
-              <RequirementsFilter 
-                filters={filters}
-                onFiltersChange={setFilters}
-                theme="dark"
-              />
-            </div>
-            
-            <div className="scale-in">
-              <RequirementsList
-                requirements={filteredRequirements}
-                onChatClick={handleChatClick}
-                onDownloadAttachment={handleDownloadAttachment}
-                onRefresh={handleRefresh}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
+          {activePage === 'requirements' && (
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-6">
+                <h2 className="text-2xl font-bold text-white font-space-grotesk">All Requirements</h2>
+                 
+                {/* Sort Dropdown */}
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-slate-300 font-medium">Sort by:</span>
+                    <Select value={sortOrder} onValueChange={handleSortChange}>
+                      <SelectTrigger className="w-32 glass bg-white/5 border-white/20 text-slate-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        <SelectItem value="newest" className="text-slate-200 hover:bg-slate-700">
+                          <div className="flex items-center space-x-2">
+                            <SortDesc className="h-4 w-4" />
+                            <span>Newest</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="oldest" className="text-slate-200 hover:bg-slate-700">
+                          <div className="flex items-center space-x-2">
+                            <SortAsc className="h-4 w-4" />
+                            <span>Oldest</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Display using AnalyticsCards */}
+              <div className="scale-in">
+                <AnalyticsCards 
+                  requirements={requirements}
+                  totalCount={totalCount}
+                  pendingCount={statusCounts.pending}
+                  inProgressCount={statusCounts.inProgress}
+                  completedCount={statusCounts.completed}
+                />
+              </div>
+             
+              {/* Always show filters with dark theme */}
+              <div className="glass bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-6">
+                <RequirementsFilter 
+                  filters={filters}
+                  onFiltersChange={handleFiltersChange}
+                  theme="dark"
+                />
+              </div>
+              
+              <div className="scale-in">
+                <RequirementsList
+                  requirements={filteredRequirements}
+                  onChatClick={handleChatClick}
+                  onDownloadAttachment={handleDownloadAttachment}
+                  onRefresh={handleRefresh}
+                  onApprovalUpdate={handleApprovalUpdate}
+                />
+                
+                {/* Pagination */}
+                <Pagination
+                  currentPage={currentPage}
+                  totalCount={totalCount}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  hasMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={loadMoreRequirements}
+                  onPageChange={goToPage}
+                />
+              </div>
+            </>
+          )}
+
+          {activePage === 'messages' && (
+            <MessagesPage
+              requirements={requirements}
+              onChatClick={handleChatClick}
+              onDownloadAttachment={handleDownloadAttachment}
+              onRefresh={handleRefresh}
+              onApprovalUpdate={handleApprovalUpdate}
+            />
+          )}
+        </div>
 
         <ChatModal
           isOpen={!!selectedRequirement}

@@ -9,7 +9,7 @@ import { LoadingScreen } from '@/components/common/LoadingScreen';
 // Direct imports instead of lazy loading to fix default export issues
 import { AuthPage } from '@/components/auth/AuthPage';
 import { UserDashboard } from '@/components/user/UserDashboard';
-import { AdminDashboard } from '@/components/admin/AdminDashboard';
+import { AdminDashboardLayout } from '@/components/admin/AdminDashboardLayout';
 import { RejectRequirementPage } from '@/pages/RejectRequirementPage';
 import { AcceptRequirementPage } from '@/pages/AcceptRequirementPage';
 
@@ -27,12 +27,25 @@ const AppContent = () => {
   return (
     <Router>
       <Routes>
-        <Route 
-          path="/" 
-          element={
-            isAdmin ? (
-              <AdminDashboard onLogout={signOut} />
-            ) : (
+        {isAdmin ? (
+          <>
+            <Route 
+              path="/" 
+              element={<AdminDashboardLayout onLogout={signOut} />} 
+            />
+            <Route 
+              path="/requirements" 
+              element={<AdminDashboardLayout onLogout={signOut} />} 
+            />
+            <Route 
+              path="/messages" 
+              element={<AdminDashboardLayout onLogout={signOut} />} 
+            />
+          </>
+        ) : (
+          <Route 
+            path="/*" 
+            element={
               <UserDashboard 
                 user={{
                   id: user.id,
@@ -41,9 +54,9 @@ const AppContent = () => {
                 }}
                 onLogout={signOut}
               />
-            )
-          } 
-        />
+            } 
+          />
+        )}
         <Route 
           path="/reject-requirement/:id" 
           element={

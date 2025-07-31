@@ -13,11 +13,22 @@ type Requirement = Tables<'requirements'> & {
 
 interface AnalyticsCardsProps {
   requirements: Requirement[];
+  totalCount?: number;
+  pendingCount?: number;
+  inProgressCount?: number;
+  completedCount?: number;
 }
 
-export const AnalyticsCards = ({ requirements }: AnalyticsCardsProps) => {
-  // Count requirements by admin status for more accurate analytics
+export const AnalyticsCards = ({ 
+  requirements, 
+  totalCount, 
+  pendingCount, 
+  inProgressCount, 
+  completedCount 
+}: AnalyticsCardsProps) => {
+  // Use provided counts if available, otherwise calculate from requirements array
   const getInProgressCount = () => {
+    if (inProgressCount !== undefined) return inProgressCount;
     return requirements.filter(r => 
       r.admin_status === 'ongoing' || 
       (r.approved_by_admin && !r.completed_by_admin)
@@ -25,6 +36,7 @@ export const AnalyticsCards = ({ requirements }: AnalyticsCardsProps) => {
   };
 
   const getCompletedCount = () => {
+    if (completedCount !== undefined) return completedCount;
     return requirements.filter(r => 
       r.admin_status === 'completed' || 
       r.completed_by_admin || 
@@ -33,11 +45,17 @@ export const AnalyticsCards = ({ requirements }: AnalyticsCardsProps) => {
   };
 
   const getPendingCount = () => {
+    if (pendingCount !== undefined) return pendingCount;
     return requirements.filter(r => 
       r.admin_status === 'pending' && 
       !r.approved_by_admin && 
       !r.completed_by_admin
     ).length;
+  };
+
+  const getTotalCount = () => {
+    if (totalCount !== undefined) return totalCount;
+    return requirements.length;
   };
 
   return (
@@ -52,7 +70,7 @@ export const AnalyticsCards = ({ requirements }: AnalyticsCardsProps) => {
         </CardHeader>
         <CardContent className="relative z-10">
           <div className="text-4xl font-bold text-white font-space-grotesk mb-2">
-            {requirements.length}
+            {getTotalCount()}
           </div>
           <p className="text-sm text-blue-200">All time submissions</p>
           <div className="mt-3 h-1 bg-blue-900/50 rounded-full overflow-hidden">

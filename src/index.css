@@ -253,4 +253,39 @@
   .font-space-grotesk {
     font-family: 'Space Grotesk', sans-serif;
   }
+
+  /* Notification badge animations */
+  .notification-badge {
+    animation: notification-pulse 2s infinite;
+  }
+
+  @keyframes notification-pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+    50% {
+      transform: scale(1.1);
+      box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+  }
+
+  .notification-badge-bounce {
+    animation: notification-bounce 1s infinite;
+  }
+
+  @keyframes notification-bounce {
+    0%, 20%, 53%, 80%, 100% {
+      transform: translate3d(0, 0, 0);
+    }
+    40%, 43% {
+      transform: translate3d(0, -8px, 0);
+    }
+    70% {
+      transform: translate3d(0, -4px, 0);
+    }
+    90% {
+      transform: translate3d(0, -2px, 0);
+    }
+  }
 }

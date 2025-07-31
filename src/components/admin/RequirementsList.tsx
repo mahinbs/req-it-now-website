@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, RefreshCw } from "lucide-react";
@@ -18,7 +18,7 @@ interface RequirementsListProps {
   onRefresh: () => void;
   onApprovalUpdate?: () => void;
 }
-export const RequirementsList = ({
+export const RequirementsList = memo(({
   requirements,
   onChatClick,
   onDownloadAttachment,
@@ -80,7 +80,7 @@ export const RequirementsList = ({
             />
           ))}
         </div>
-      </div>
-    </div>
-  );
-};
+             </div>
+     </div>
+   );
+ });
