@@ -101,6 +101,7 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
 
       // Call the callback to refresh data in parent components
       if (onStatusUpdate) {
+        console.log('Calling onStatusUpdate callback after status change');
         onStatusUpdate();
       }
     } catch (error: any) {

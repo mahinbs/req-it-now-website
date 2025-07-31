@@ -150,6 +150,7 @@ export const useAdminDashboard = () => {
 
   const fetchStatusCounts = async () => {
     try {
+      console.log('Fetching status counts...');
       const [pendingResult, inProgressResult, completedResult] = await Promise.all([
         supabase
           .from('requirements')
@@ -282,7 +283,10 @@ export const useAdminDashboard = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     console.log('Manual refresh triggered');
-    await fetchRequirements(1, false);
+    await Promise.all([
+      fetchRequirements(1, false),
+      fetchStatusCounts()
+    ]);
     toast({
       title: "Refreshed",
       description: "Requirements data has been refreshed"
@@ -291,8 +295,18 @@ export const useAdminDashboard = () => {
 
   const handleApprovalUpdate = async () => {
     console.log('Approval status updated, refreshing data...');
-    // Force immediate refresh without showing loading state
-    await fetchRequirements(1, false);
+    // Add a small delay to ensure database update has been processed
+    setTimeout(async () => {
+      try {
+        await Promise.all([
+          fetchRequirements(1, false),
+          fetchStatusCounts()
+        ]);
+        console.log('Data refreshed successfully after approval update');
+      } catch (error) {
+        console.error('Error refreshing data after approval update:', error);
+      }
+    }, 100);
   };
 
   const loadMoreRequirements = async () => {
