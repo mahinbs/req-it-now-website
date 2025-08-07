@@ -39,13 +39,6 @@ export const AdminDashboardLayout = ({
     setError,
     handleRefresh,
     handleApprovalUpdate,
-    currentPage,
-    totalCount,
-    hasMore,
-    isLoadingMore,
-    loadMoreRequirements,
-    goToPage,
-    ITEMS_PER_PAGE,
     statusCounts,
   } = useAdminDashboard();
 
@@ -133,11 +126,21 @@ export const AdminDashboardLayout = ({
 
   // Calculate unread messages count for requirements
   const unreadMessagesCount = useMemo(() => {
-    return requirements.reduce((total, requirement) => {
-      const unreadCount = getUnreadCount ? getUnreadCount(requirement.id) : 0;
-      return total + unreadCount;
-    }, 0);
-  }, [requirements, getUnreadCount]);
+    // Use the same calculation as totalUnreadCount for consistency
+    return Object.values(notificationCounts).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+  }, [notificationCounts]);
+
+  console.log({ 
+    unreadMessagesCount, 
+    totalUnreadCount, 
+    notificationCounts,
+    requirementsCount: requirements.length,
+    hasNewMessage,
+    connected
+  });
 
   if (loading) {
     return (
@@ -286,13 +289,13 @@ export const AdminDashboardLayout = ({
             <Button
               variant={activePage === "messages" ? "default" : "ghost"}
               onClick={() => navigate("/messages")}
-                             className={`flex items-center space-x-2 relative ${
-                 activePage === "messages"
-                   ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-xl"
-                   : "text-slate-200 hover:text-white hover:bg-white/10"
-               } rounded-xl transition-all duration-300 font-medium ${
-                 unreadMessagesCount > 0 ? "notification-badge-bounce" : ""
-               }`}
+              className={`flex items-center space-x-2 relative ${
+                activePage === "messages"
+                  ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-xl"
+                  : "text-slate-200 hover:text-white hover:bg-white/10"
+              } rounded-xl transition-all duration-300 font-medium ${
+                unreadMessagesCount > 0 ? "notification-badge-bounce" : ""
+              }`}
             >
               <MessageSquare className="h-4 w-4" />
               <span>Messages</span>
@@ -310,7 +313,6 @@ export const AdminDashboardLayout = ({
           {activePage === "overview" && (
             <AdminOverviewPage
               requirements={requirements}
-              totalCount={totalCount}
               statusCounts={statusCounts}
               onChatClick={handleChatClick}
               onDownloadAttachment={handleDownloadAttachment}
@@ -321,18 +323,11 @@ export const AdminDashboardLayout = ({
           {activePage === "requirements" && (
             <AdminRequirementsPage
               requirements={requirements}
-              totalCount={totalCount}
               statusCounts={statusCounts}
-              currentPage={currentPage}
-              hasMore={hasMore}
-              isLoadingMore={isLoadingMore}
-              ITEMS_PER_PAGE={ITEMS_PER_PAGE}
               onChatClick={handleChatClick}
               onDownloadAttachment={handleDownloadAttachment}
               onRefresh={handleRefresh}
               onApprovalUpdate={handleApprovalUpdate}
-              loadMoreRequirements={loadMoreRequirements}
-              goToPage={goToPage}
             />
           )}
 

@@ -14,7 +14,6 @@ type Requirement = Tables<'requirements'> & {
 
 interface AdminOverviewPageProps {
   requirements: Requirement[];
-  totalCount: number;
   statusCounts: {
     pending: number;
     inProgress: number;
@@ -27,7 +26,6 @@ interface AdminOverviewPageProps {
 
 export const AdminOverviewPage = ({
   requirements,
-  totalCount,
   statusCounts,
   onChatClick,
   onDownloadAttachment,
@@ -43,7 +41,7 @@ export const AdminOverviewPage = ({
       <div className="scale-in">
         <AnalyticsCards 
           requirements={requirements}
-          totalCount={totalCount}
+          totalCount={requirements.length}
           pendingCount={statusCounts.pending}
           inProgressCount={statusCounts.inProgress}
           completedCount={statusCounts.completed}
