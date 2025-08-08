@@ -1,11 +1,10 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
-import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { SortAsc, SortDesc } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AnalyticsCards } from './AnalyticsCards';
 import { RequirementsList } from './RequirementsList';
-import { RequirementsFilter, type FilterState } from '@/components/filters/RequirementsFilter';
-import { Pagination } from './Pagination';
+import { RequirementsFilter, type FilterState, type StatusFilter, type PriorityFilter } from '@/components/filters/RequirementsFilter';
 import { applyFilters } from '@/utils/filterUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -18,45 +17,28 @@ type Requirement = Tables<'requirements'> & {
 
 interface AdminRequirementsPageProps {
   requirements: Requirement[];
-  totalCount: number;
   statusCounts: {
     pending: number;
     inProgress: number;
     completed: number;
   };
-  currentPage: number;
-  hasMore: boolean;
-  isLoadingMore: boolean;
-  ITEMS_PER_PAGE: number;
   onChatClick: (requirement: Requirement) => void;
   onDownloadAttachment: (url: string, fileName: string) => void;
   onRefresh: () => void;
   onApprovalUpdate?: () => void;
-  loadMoreRequirements: () => void;
-  goToPage: (page: number) => void;
 }
 
 export const AdminRequirementsPage = ({
   requirements,
-  totalCount,
   statusCounts,
-  currentPage,
-  hasMore,
-  isLoadingMore,
-  ITEMS_PER_PAGE,
   onChatClick,
   onDownloadAttachment,
   onRefresh,
-  onApprovalUpdate,
-  loadMoreRequirements,
-  goToPage
+  onApprovalUpdate
 }: AdminRequirementsPageProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { pageNumber: urlPageNumber } = useParams();
 
   // Get URL parameters
-  const pageNumber = parseInt(urlPageNumber || searchParams.get('page') || '1');
   const sortOrder = (searchParams.get('sort') as 'newest' | 'oldest') || 'newest';
   const statusFilter = searchParams.get('status') || 'all';
   const priorityFilter = searchParams.get('priority') || 'all';
@@ -66,19 +48,17 @@ export const AdminRequirementsPage = ({
 
   // Initialize filters state from URL params
   const [filters, setFilters] = React.useState<FilterState>({
-    dateFilter: 'newest',
-    statusFilter: statusFilter as any,
-    priorityFilter: priorityFilter as any,
+    statusFilter: statusFilter as StatusFilter,
+    priorityFilter: priorityFilter as PriorityFilter,
     searchTerm,
     startDate: startDate ? new Date(startDate) : undefined,
     endDate: endDate ? new Date(endDate) : undefined
   });
 
   // Update URL when filters change
-  const updateURL = useCallback((newFilters: FilterState, newSort?: string, newPage?: number) => {
+  const updateURL = useCallback((newFilters: FilterState, newSort?: string) => {
     const params = new URLSearchParams();
     
-    if (newPage && newPage > 1) params.set('page', newPage.toString());
     if (newSort && newSort !== 'newest') params.set('sort', newSort);
     if (newFilters.statusFilter !== 'all') params.set('status', newFilters.statusFilter);
     if (newFilters.priorityFilter !== 'all') params.set('priority', newFilters.priorityFilter);
@@ -89,41 +69,22 @@ export const AdminRequirementsPage = ({
     setSearchParams(params);
   }, [setSearchParams]);
 
-  // Sync URL with current page and handle page changes from URL
-  useEffect(() => {
-    if (pageNumber !== currentPage) {
-      // If URL page number is different from current page, navigate to that page
-      if (pageNumber !== parseInt(urlPageNumber || '1')) {
-        goToPage(pageNumber);
-      } else {
-        updateURL(filters, sortOrder, currentPage);
-      }
-    }
-  }, [currentPage, pageNumber, filters, sortOrder, updateURL, urlPageNumber, goToPage]);
-
   // Handle sort change
   const handleSortChange = useCallback((value: 'newest' | 'oldest') => {
-    updateURL(filters, value, 1); // Reset to page 1 when sorting
-    navigate(`/requirements?sort=${value}`, { replace: true });
-  }, [filters, updateURL, navigate]);
+    updateURL(filters, value);
+  }, [filters, updateURL]);
 
   // Handle filters change
   const handleFiltersChange = useCallback((newFilters: FilterState) => {
     setFilters(newFilters);
-    updateURL(newFilters, sortOrder, 1); // Reset to page 1 when filtering
+    updateURL(newFilters, sortOrder);
   }, [sortOrder, updateURL]);
-
-  // Handle page change
-  const handlePageChange = useCallback((page: number) => {
-    goToPage(page);
-    updateURL(filters, sortOrder, page);
-  }, [goToPage, filters, sortOrder, updateURL]);
 
   // Memoized filtered and sorted requirements
   const filteredRequirements = useMemo(() => {
     let filtered = applyFilters(
       requirements, 
-      filters.dateFilter, 
+      'newest', // Default date filter
       filters.statusFilter, 
       filters.priorityFilter,
       filters.searchTerm,
@@ -177,7 +138,7 @@ export const AdminRequirementsPage = ({
       <div className="scale-in">
         <AnalyticsCards 
           requirements={requirements}
-          totalCount={totalCount}
+          totalCount={requirements.length}
           pendingCount={statusCounts.pending}
           inProgressCount={statusCounts.inProgress}
           completedCount={statusCounts.completed}
@@ -200,17 +161,6 @@ export const AdminRequirementsPage = ({
           onDownloadAttachment={onDownloadAttachment}
           onRefresh={onRefresh}
           onApprovalUpdate={onApprovalUpdate}
-        />
-        
-        {/* Pagination */}
-        <Pagination
-          currentPage={currentPage}
-          totalCount={totalCount}
-          itemsPerPage={ITEMS_PER_PAGE}
-          hasMore={hasMore}
-          isLoadingMore={isLoadingMore}
-          onLoadMore={loadMoreRequirements}
-          onPageChange={handlePageChange}
         />
       </div>
     </>

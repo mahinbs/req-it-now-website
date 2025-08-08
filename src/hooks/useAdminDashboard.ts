@@ -4,6 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
 
+// Extend Window interface to include refreshTimeout
+declare global {
+  interface Window {
+    refreshTimeout?: NodeJS.Timeout;
+  }
+}
+
 type Requirement = Tables<'requirements'> & {
   profiles?: {
     company_name: string;
@@ -16,17 +23,11 @@ export const useAdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [statusCounts, setStatusCounts] = useState({
     pending: 0,
     inProgress: 0,
     completed: 0
   });
-  
-  const ITEMS_PER_PAGE = 12; // Show 12 items per page (4 rows of 3 cards)
 
   useEffect(() => {
     let mounted = true;
@@ -36,7 +37,7 @@ export const useAdminDashboard = () => {
     const initializeDashboard = async () => {
       try {
         await Promise.all([
-          fetchRequirements(1, false),
+          fetchRequirements(),
           fetchStatusCounts()
         ]);
         
@@ -85,7 +86,7 @@ export const useAdminDashboard = () => {
                 if (mounted) {
                   console.log('Triggering debounced refresh due to real-time update');
                   Promise.all([
-                    fetchRequirements(1, false), // Always refresh to page 1 when data changes
+                    fetchRequirements(), // Always refresh all requirements when data changes
                     fetchStatusCounts() // Also refresh status counts
                   ]);
                 }
@@ -101,7 +102,7 @@ export const useAdminDashboard = () => {
               if (mounted) {
                 setupRealtimeSubscriptions();
               }
-            }, 5000);
+            }, 1000);
           }
         });
 
@@ -121,29 +122,41 @@ export const useAdminDashboard = () => {
               clearTimeout(window.refreshTimeout);
               window.refreshTimeout = setTimeout(() => {
                 if (mounted) {
-                  Promise.all([
-                    fetchRequirements(1, false), // Always refresh to page 1 when data changes
-                    fetchStatusCounts() // Also refresh status counts
-                  ]);
+                  console.log('Triggering debounced refresh due to profile update');
+                  fetchRequirements(); // Refresh requirements to get updated profile data
                 }
               }, 200);
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('Profiles subscription status:', status);
+          if (status === 'CHANNEL_ERROR') {
+            console.error('Profiles subscription error, attempting to reconnect...');
+            setTimeout(() => {
+              if (mounted) {
+                setupRealtimeSubscriptions();
+              }
+            }, 1000);
+          }
+        });
     };
 
     initializeDashboard();
 
     return () => {
-      console.log('Cleaning up admin dashboard subscriptions');
       mounted = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      
       if (requirementsChannel) {
         supabase.removeChannel(requirementsChannel);
       }
       if (profilesChannel) {
         supabase.removeChannel(profilesChannel);
+      }
+      
+      if (window.refreshTimeout) {
+        clearTimeout(window.refreshTimeout);
       }
     };
   }, []);
@@ -151,44 +164,47 @@ export const useAdminDashboard = () => {
   const fetchStatusCounts = async () => {
     try {
       console.log('Fetching status counts...');
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const [pendingResult, inProgressResult, completedResult] = await Promise.all([
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('admin_status', 'pending')
-          .is('approved_by_admin', false)
-          .is('completed_by_admin', false),
+          .eq('status', 'pending'),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .or('admin_status.eq.ongoing,approved_by_admin.eq.true')
-          .is('completed_by_admin', false),
+          .eq('status', 'in_progress'),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .or('admin_status.eq.completed,completed_by_admin.eq.true,accepted_by_client.eq.true')
+          .eq('status', 'completed')
       ]);
 
       const pendingCount = pendingResult.count || 0;
       const inProgressCount = inProgressResult.count || 0;
       const completedCount = completedResult.count || 0;
 
+      console.log('Status counts:', { pending: pendingCount, inProgress: inProgressCount, completed: completedCount });
+
       setStatusCounts({
         pending: pendingCount,
         inProgress: inProgressCount,
         completed: completedCount
       });
-
-      console.log('Status counts updated:', { pendingCount, inProgressCount, completedCount });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching status counts:', error);
-      // Don't throw error here as it's not critical for main functionality
+      // Don't throw error for status counts as it's not critical
     }
   };
 
-  const fetchRequirements = async (page: number = 1, append: boolean = false) => {
+  const fetchRequirements = async () => {
     try {
-      console.log('Fetching requirements for page:', page);
+      console.log('Fetching all requirements...');
       setError(null);
       
       // Check if user is authenticated
@@ -199,26 +215,18 @@ export const useAdminDashboard = () => {
 
       console.log('Current user:', user.id);
 
-      const from = (page - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-
-      const [requirementsResult, profilesResult, countResult] = await Promise.all([
+      const [requirementsResult, profilesResult] = await Promise.all([
         supabase
           .from('requirements')
           .select('*')
-          .order('created_at', { ascending: false })
-          .range(from, to),
+          .order('created_at', { ascending: false }),
         supabase
           .from('profiles')
-          .select('id, company_name, website_url'),
-        supabase
-          .from('requirements')
-          .select('*', { count: 'exact', head: true })
+          .select('id, company_name, website_url')
       ]);
 
       const { data: requirementsData, error: requirementsError } = requirementsResult;
       const { data: profilesData, error: profilesError } = profilesResult;
-      const { count: totalCount, error: countError } = countResult;
 
       if (requirementsError) {
         console.error('Error fetching requirements:', requirementsError);
@@ -229,13 +237,8 @@ export const useAdminDashboard = () => {
         console.warn('Error fetching profiles (continuing without profile data):', profilesError);
       }
 
-      if (countError) {
-        console.warn('Error fetching count (continuing without count):', countError);
-      }
-
       console.log('Requirements fetched:', requirementsData?.length || 0);
       console.log('Profiles fetched:', profilesData?.length || 0);
-      console.log('Total count:', totalCount);
 
       const requirementsWithProfiles: Requirement[] = requirementsData?.map(requirement => {
         const profile = profilesData?.find(p => p.id === requirement.user_id);
@@ -250,15 +253,7 @@ export const useAdminDashboard = () => {
 
       console.log('Final requirements with profiles:', requirementsWithProfiles.length);
       
-      if (append) {
-        setRequirements(prev => [...prev, ...requirementsWithProfiles]);
-      } else {
-        setRequirements(requirementsWithProfiles);
-      }
-      
-      setTotalCount(totalCount || 0);
-      setHasMore((requirementsWithProfiles.length === ITEMS_PER_PAGE) && (from + ITEMS_PER_PAGE < (totalCount || 0)));
-      setCurrentPage(page);
+      setRequirements(requirementsWithProfiles);
       setLoading(false);
     } catch (error: any) {
       console.error('Error in fetchRequirements:', error);
@@ -276,7 +271,6 @@ export const useAdminDashboard = () => {
       }
     } finally {
       setRefreshing(false);
-      setIsLoadingMore(false);
     }
   };
 
@@ -284,7 +278,7 @@ export const useAdminDashboard = () => {
     setRefreshing(true);
     console.log('Manual refresh triggered');
     await Promise.all([
-      fetchRequirements(1, false),
+      fetchRequirements(),
       fetchStatusCounts()
     ]);
     toast({
@@ -299,7 +293,7 @@ export const useAdminDashboard = () => {
     setTimeout(async () => {
       try {
         await Promise.all([
-          fetchRequirements(1, false),
+          fetchRequirements(),
           fetchStatusCounts()
         ]);
         console.log('Data refreshed successfully after approval update');
@@ -307,21 +301,6 @@ export const useAdminDashboard = () => {
         console.error('Error refreshing data after approval update:', error);
       }
     }, 100);
-  };
-
-  const loadMoreRequirements = async () => {
-    if (isLoadingMore || !hasMore) return;
-    
-    setIsLoadingMore(true);
-    const nextPage = currentPage + 1;
-    await fetchRequirements(nextPage, true);
-  };
-
-  const goToPage = async (page: number) => {
-    if (page === currentPage || page < 1) return;
-    
-    setLoading(true);
-    await fetchRequirements(page, false);
   };
 
   return {
@@ -332,13 +311,6 @@ export const useAdminDashboard = () => {
     setError,
     handleRefresh,
     handleApprovalUpdate,
-    currentPage,
-    totalCount,
-    hasMore,
-    isLoadingMore,
-    loadMoreRequirements,
-    goToPage,
-    ITEMS_PER_PAGE,
     statusCounts
   };
 };
