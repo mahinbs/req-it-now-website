@@ -66,7 +66,7 @@ export const RequirementCard = ({
   
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow relative h-fit flex flex-col">
+      <Card className="hover:shadow-lg transition-shadow relative h-full flex flex-col">
         {/* Reopened Task Banner */}
         {wasRecentlyReopened && (
           <div className="bg-green-900/30 border-b border-green-500/30 p-3 flex-shrink-0">

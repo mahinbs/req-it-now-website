@@ -67,7 +67,7 @@ export const RequirementsList = memo(({
       )}
 
       <div className="grid gap-6 auto-rows-fr">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {requirements.map((requirement) => (
             <RequirementCard
               key={requirement.id}
