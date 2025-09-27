@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Extend Window interface to include refreshTimeout
 declare global {
@@ -26,13 +27,14 @@ export const useAdminDashboard = () => {
   const [statusCounts, setStatusCounts] = useState({
     pending: 0,
     inProgress: 0,
-    completed: 0
+    completed: 0,
+    rejected: 0
   });
 
   useEffect(() => {
     let mounted = true;
-    let requirementsChannel: any = null;
-    let profilesChannel: any = null;
+    let requirementsChannel: RealtimeChannel | null = null;
+    let profilesChannel: RealtimeChannel | null = null;
 
     const initializeDashboard = async () => {
       try {
@@ -170,33 +172,41 @@ export const useAdminDashboard = () => {
         throw new Error('User not authenticated');
       }
 
-      const [pendingResult, inProgressResult, completedResult] = await Promise.all([
+      const [pendingResult, inProgressResult, completedResult, rejectedResult] = await Promise.all([
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending'),
+          .eq('admin_status', 'pending')
+          .is('approved_by_admin', null)
+          .is('rejected_by_client', null),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'in_progress'),
+          .eq('admin_status', 'ongoing'),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'completed')
+          .eq('admin_status', 'completed'),
+        supabase
+          .from('requirements')
+          .select('*', { count: 'exact', head: true })
+          .eq('rejected_by_client', true)
       ]);
 
       const pendingCount = pendingResult.count || 0;
       const inProgressCount = inProgressResult.count || 0;
       const completedCount = completedResult.count || 0;
+      const rejectedCount = rejectedResult.count || 0;
 
-      console.log('Status counts:', { pending: pendingCount, inProgress: inProgressCount, completed: completedCount });
+      console.log('Status counts:', { pending: pendingCount, inProgress: inProgressCount, completed: completedCount, rejected: rejectedCount });
 
       setStatusCounts({
         pending: pendingCount,
         inProgress: inProgressCount,
-        completed: completedCount
+        completed: completedCount,
+        rejected: rejectedCount
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching status counts:', error);
       // Don't throw error for status counts as it's not critical
     }
@@ -255,9 +265,9 @@ export const useAdminDashboard = () => {
       
       setRequirements(requirementsWithProfiles);
       setLoading(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error in fetchRequirements:', error);
-      const errorMessage = error.message || 'Failed to load requirements data';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load requirements data';
       setError(errorMessage);
       setLoading(false);
       

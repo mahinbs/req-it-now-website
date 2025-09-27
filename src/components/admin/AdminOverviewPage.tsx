@@ -18,6 +18,7 @@ interface AdminOverviewPageProps {
     pending: number;
     inProgress: number;
     completed: number;
+    rejected: number;
   };
   onChatClick: (requirement: Requirement) => void;
   onDownloadAttachment: (url: string, fileName: string) => void;
@@ -45,6 +46,7 @@ export const AdminOverviewPage = ({
           pendingCount={statusCounts.pending}
           inProgressCount={statusCounts.inProgress}
           completedCount={statusCounts.completed}
+          rejectedCount={statusCounts.rejected}
         />
       </div>
       

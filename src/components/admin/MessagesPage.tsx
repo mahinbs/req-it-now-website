@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, MessageCircle, RefreshCw, Bell } from 'lucide-react';
@@ -40,150 +40,158 @@ export const MessagesPage = ({
 }: MessagesPageProps) => {
   const { getUnreadCount, markAsRead, notificationCounts } = useUnifiedNotificationContext();
   const { user, isAdmin } = useAuth();
-  const [requirementsWithUnread, setRequirementsWithUnread] = useState<Requirement[]>([]);
-  const [loadingUnread, setLoadingUnread] = useState(false);
+  const [requirementsWithMessages, setRequirementsWithMessages] = useState<Requirement[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Fetch requirements with unread messages directly from database
-  const fetchRequirementsWithUnread = async () => {
-    if (!user?.id || !isAdmin) return;
+  // Fetch all requirements that have messages (any messages, not just unread)
+  const fetchRequirementsWithMessages = useCallback(async () => {
+    if (!user?.id || !isAdmin) {
+      console.log('MessagesPage: User not authenticated or not admin', { userId: user?.id, isAdmin });
+      return;
+    }
     
-    setLoadingUnread(true);
+    console.log('MessagesPage: Starting to fetch requirements with messages');
+    setLoadingMessages(true);
+    
     try {
-      // First get the unread counts
-      const { data: unreadData, error: unreadError } = await supabase.rpc('get_unread_counts_for_admin', {
-        admin_user_id: user.id
+      // Simple approach: Get all messages first
+      console.log('MessagesPage: Step 1 - Fetching all messages');
+      const { data: allMessages, error: messagesError } = await supabase
+        .from('messages')
+        .select('requirement_id, created_at, is_admin, content')
+        .order('created_at', { ascending: false });
+      
+      console.log('MessagesPage: Messages fetched:', { 
+        count: allMessages?.length || 0, 
+        messages: allMessages, 
+        error: messagesError 
       });
       
-      if (unreadError) {
-        // Fallback: Get all requirements and check for messages manually
-        const { data: allRequirements, error: allReqError } = await supabase
+      if (messagesError) {
+        console.error('Error fetching messages:', messagesError);
+        setRequirementsWithMessages([]);
+        return;
+      }
+      
+      if (!allMessages || allMessages.length === 0) {
+        console.log('MessagesPage: No messages found in database');
+        setRequirementsWithMessages([]);
+        return;
+      }
+      
+      // Get unique requirement IDs that have any messages (filter out null values)
+      const requirementIdsWithMessages = [...new Set(allMessages
+        .map(msg => msg.requirement_id)
+        .filter(id => id !== null && id !== undefined)
+      )];
+      console.log('MessagesPage: Step 2 - Unique requirement IDs with messages:', requirementIdsWithMessages);
+      
+      if (requirementIdsWithMessages.length === 0) {
+        console.log('MessagesPage: No unique requirement IDs found');
+        setRequirementsWithMessages([]);
+        return;
+      }
+      
+      // Fetch requirements and profiles separately (same approach as useAdminDashboard)
+      console.log('MessagesPage: Step 3 - Fetching requirements and profiles separately');
+      const [requirementsResult, profilesResult] = await Promise.all([
+        supabase
           .from('requirements')
-          .select(`
-            *,
-            profiles (
-              company_name,
-              website_url
-            )
-          `)
-          .order('created_at', { ascending: false });
-        
-        if (allReqError) return;
-        
-        // Get all messages
-        const { data: allMessages, error: messagesError } = await supabase
-          .from('messages')
-          .select('requirement_id, created_at, is_admin')
-          .order('created_at', { ascending: false });
-        
-        if (messagesError) return;
-        
-        // Find requirements with client messages (non-admin messages)
-        const clientMessages = allMessages?.filter(msg => !msg.is_admin) || [];
-        const requirementIdsWithMessages = [...new Set(clientMessages.map(msg => msg.requirement_id))];
-        
-        if (requirementIdsWithMessages.length === 0) {
-          setRequirementsWithUnread([]);
-          return;
-        }
-        
-        // Filter requirements that have client messages
-        const requirementsWithMessages = allRequirements?.filter(req => 
-          requirementIdsWithMessages.includes(req.id)
-        ) || [];
-        
-        setRequirementsWithUnread((requirementsWithMessages as unknown as Requirement[]) || []);
+          .select('*')
+          .in('id', requirementIdsWithMessages)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('profiles')
+          .select('id, company_name, website_url')
+      ]);
+
+      const { data: requirementsData, error: requirementsError } = requirementsResult;
+      const { data: profilesData, error: profilesError } = profilesResult;
+
+      console.log('MessagesPage: Requirements fetched:', { 
+        count: requirementsData?.length || 0, 
+        requirements: requirementsData, 
+        error: requirementsError 
+      });
+      
+      console.log('MessagesPage: Profiles fetched:', { 
+        count: profilesData?.length || 0, 
+        profiles: profilesData, 
+        error: profilesError 
+      });
+
+      if (requirementsError) {
+        console.error('Error fetching requirements:', requirementsError);
+        setRequirementsWithMessages([]);
         return;
       }
-      
-      if (!unreadData || unreadData.length === 0) {
-        setRequirementsWithUnread([]);
+
+      if (profilesError) {
+        console.warn('Error fetching profiles (continuing without profile data):', profilesError);
+      }
+
+      if (!requirementsData || requirementsData.length === 0) {
+        console.log('MessagesPage: No requirements found for the given IDs');
+        setRequirementsWithMessages([]);
         return;
       }
-      
-      // Get the requirement IDs that have unread messages
-      const requirementIds = unreadData.map((item: any) => item.requirement_id);
-      
-      if (requirementIds.length === 0) {
-        setRequirementsWithUnread([]);
-        return;
-      }
-      
-      // Fetch the full requirement details
-      const { data: requirementsData, error: requirementsError } = await supabase
-        .from('requirements')
-        .select(`
-          *,
-          profiles (
-            company_name,
-            website_url
-          )
-        `)
-        .in('id', requirementIds);
-      
-      if (requirementsError) return;
-      
-      setRequirementsWithUnread((requirementsData as unknown as Requirement[]) || []);
+
+      // Manually join requirements with profiles (same logic as useAdminDashboard)
+      const requirementsWithProfiles: Requirement[] = requirementsData.map(requirement => {
+        const profile = profilesData?.find(p => p.id === requirement.user_id);
+        return {
+          ...requirement,
+          profiles: profile ? {
+            company_name: profile.company_name,
+            website_url: profile.website_url
+          } : null
+        };
+      });
+
+      console.log('MessagesPage: Successfully setting requirements with messages and profiles:', requirementsWithProfiles);
+      setRequirementsWithMessages(requirementsWithProfiles);
       
     } catch (error) {
-      console.error('Error fetching requirements with unread messages:', error);
+      console.error('Error fetching requirements with messages:', error);
+      setRequirementsWithMessages([]);
     } finally {
-      setLoadingUnread(false);
+      setLoadingMessages(false);
     }
-  };
-
-  // Fetch requirements with unread messages when component mounts
-  useEffect(() => {
-    fetchRequirementsWithUnread();
   }, [user?.id, isAdmin]);
 
-  // Use notification counts to determine which requirements have unread messages
-  const requirementsWithUnreadMessages = useMemo(() => {
-    // Get requirement IDs that have unread messages from notification counts
-    const requirementIdsWithUnread = Object.keys(notificationCounts).filter(
-      id => notificationCounts[id] > 0
-    );
-    
-    // If we have fetched requirements, use those; otherwise filter from passed requirements
-    const sourceRequirements = requirementsWithUnread.length > 0 ? requirementsWithUnread : requirements;
+  // Fetch requirements with messages when component mounts
+  useEffect(() => {
+    fetchRequirementsWithMessages();
+  }, [fetchRequirementsWithMessages]);
 
-  // Filter requirements that have unread messages
-    return sourceRequirements.filter(requirement => {
-      const hasUnreadFromNotification = requirementIdsWithUnread.includes(requirement.id);
-      const unreadCount = getUnreadCount(requirement.id);
-      const notificationCount = notificationCounts[requirement.id] || 0;
-      
-      return hasUnreadFromNotification || unreadCount > 0 || notificationCount > 0;
-    });
-  }, [requirements, requirementsWithUnread, getUnreadCount, notificationCounts, user?.id, isAdmin]);
+  // Get all requirements that have messages (fetched from database)
+  const requirementsWithMessagesList = useMemo(() => {
+    console.log('MessagesPage: requirementsWithMessagesList computed', requirementsWithMessages);
+    // Use the fetched requirements that have messages
+    return requirementsWithMessages;
+  }, [requirementsWithMessages]);
 
-  // Sort by unread count (highest first) and then by creation date (newest first)
+  // Sort by latest message timestamp (most recent first)
   const sortedRequirements = useMemo(() => {
-    return [...requirementsWithUnreadMessages].sort((a, b) => {
-      const unreadA = getUnreadCount(a.id) || notificationCounts[a.id] || 0;
-      const unreadB = getUnreadCount(b.id) || notificationCounts[b.id] || 0;
-      
-      // First sort by unread count (highest first)
-      if (unreadA !== unreadB) {
-        return unreadB - unreadA;
-      }
-      
-      // Then sort by creation date (newest first)
+    console.log('MessagesPage: sortedRequirements computed', requirementsWithMessagesList);
+    return [...requirementsWithMessagesList].sort((a, b) => {
+      // Sort by creation date (newest first) since we want latest updated
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [requirementsWithUnreadMessages, getUnreadCount, notificationCounts]);
+  }, [requirementsWithMessagesList]);
 
   const totalUnreadCount = useMemo(() => {
-    return requirementsWithUnreadMessages.reduce((total, requirement) => {
+    return requirementsWithMessagesList.reduce((total, requirement) => {
       return total + (getUnreadCount(requirement.id) || notificationCounts[requirement.id] || 0);
     }, 0);
-  }, [requirementsWithUnreadMessages, getUnreadCount, notificationCounts]);
+  }, [requirementsWithMessagesList, getUnreadCount, notificationCounts]);
 
   const handleRefresh = () => {
     onRefresh();
-    fetchRequirementsWithUnread();
+    fetchRequirementsWithMessages();
   };
 
-  if (loadingUnread) {
+  if (loadingMessages) {
     return (
       <div className="space-y-8">
         <div className="flex items-center justify-between flex-wrap gap-6">
@@ -192,7 +200,7 @@ export const MessagesPage = ({
         <Card className="border-slate-600/50">
           <CardContent className="text-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-400 border-t-transparent mx-auto mb-4"></div>
-            <p className="text-slate-300">Loading unread messages...</p>
+            <p className="text-slate-300">Loading messages...</p>
           </CardContent>
         </Card>
       </div>
@@ -201,11 +209,19 @@ export const MessagesPage = ({
 
 
 
-  if (requirementsWithUnreadMessages.length === 0) {
+  console.log('MessagesPage: Render check', { 
+    loadingMessages, 
+    requirementsWithMessagesListLength: requirementsWithMessagesList.length,
+    requirementsWithMessagesList 
+  });
+
+  if (requirementsWithMessagesList.length === 0) {
+    console.log('MessagesPage: Rendering empty state');
     return (
       <div className="space-y-8">
         <div className="flex items-center justify-between flex-wrap gap-6">
           <h2 className="text-2xl font-bold text-white font-space-grotesk">Messages</h2>
+          <div className="flex items-center space-x-2">
           <Button
             onClick={handleRefresh}
             variant="outline"
@@ -215,6 +231,19 @@ export const MessagesPage = ({
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
+            <Button
+              onClick={() => {
+                console.log('MessagesPage: Manual refresh triggered');
+                fetchRequirementsWithMessages();
+              }}
+              variant="outline"
+              size="sm"
+              className="glass border-white/20 text-slate-200 hover:bg-white/10 hover:text-white hover:border-white/30"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Test Fetch
+            </Button>
+          </div>
         </div>
 
         <Card className="border-slate-600/50">
@@ -223,10 +252,10 @@ export const MessagesPage = ({
               <MessageSquare className="h-10 w-10 text-green-400" />
             </div>
             <h3 className="text-xl font-medium mb-3 text-white">
-              All caught up! 🎉
+              No messages yet! 📭
             </h3>
             <p className="text-slate-300 mb-6 max-w-md mx-auto">
-              No unread messages at the moment. All requirements have been responded to.
+              No requirements have messages yet. Messages will appear here once clients start conversations.
             </p>
             <div className="flex items-center justify-center space-x-4 text-sm text-slate-400">
               <div className="flex items-center space-x-2">
@@ -242,13 +271,15 @@ export const MessagesPage = ({
     );
   }
 
+  console.log('MessagesPage: Rendering main content with', sortedRequirements.length, 'requirements');
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-6">
         <div>
           <h2 className="text-2xl font-bold text-white font-space-grotesk">Messages</h2>
           <p className="text-slate-300 mt-1">
-            {requirementsWithUnreadMessages.length} requirement{requirementsWithUnreadMessages.length !== 1 ? 's' : ''} with unread messages
+            {requirementsWithMessagesList.length} requirement{requirementsWithMessagesList.length !== 1 ? 's' : ''} with messages
           </p>
         </div>
         <div className="flex items-center space-x-4">
@@ -289,7 +320,7 @@ export const MessagesPage = ({
             variant="outline"
             onClick={() => {
               // Mark all as read
-              requirementsWithUnreadMessages.forEach(requirement => {
+              requirementsWithMessagesList.forEach(requirement => {
                 markAsRead(requirement.id);
               });
             }}
