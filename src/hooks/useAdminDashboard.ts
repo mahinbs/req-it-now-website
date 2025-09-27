@@ -176,17 +176,15 @@ export const useAdminDashboard = () => {
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('admin_status', 'pending')
-          .is('approved_by_admin', null)
-          .is('rejected_by_client', null),
+          .eq('status', 'pending'),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('admin_status', 'ongoing'),
+          .eq('status', 'in_progress'),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('admin_status', 'completed'),
+          .eq('status', 'completed'),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
@@ -199,6 +197,19 @@ export const useAdminDashboard = () => {
       const rejectedCount = rejectedResult.count || 0;
 
       console.log('Status counts:', { pending: pendingCount, inProgress: inProgressCount, completed: completedCount, rejected: rejectedCount });
+      console.log('Pending query details:', { 
+        pendingResult: pendingResult.count, 
+        inProgressResult: inProgressResult.count,
+        completedResult: completedResult.count,
+        rejectedResult: rejectedResult.count
+      });
+      
+      // Debug: Let's also check what the actual data looks like
+      const { data: sampleData } = await supabase
+        .from('requirements')
+        .select('id, admin_status, status, approved_by_admin, completed_by_admin, rejected_by_client')
+        .limit(5);
+      console.log('Sample requirements data:', sampleData);
 
       setStatusCounts({
         pending: pendingCount,
