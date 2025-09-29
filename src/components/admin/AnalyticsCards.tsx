@@ -31,44 +31,22 @@ export const AnalyticsCards = ({
   // Use provided counts if available, otherwise calculate from requirements array
   const getInProgressCount = () => {
     if (inProgressCount !== undefined) return inProgressCount;
-    return requirements.filter(r => 
-      r.status === 'in_progress' || 
-      (r.approved_by_admin && !r.completed_by_admin && !r.rejected_by_client)
-    ).length;
+    return requirements.filter(r => r.admin_status === 'ongoing').length;
   };
 
   const getCompletedCount = () => {
     if (completedCount !== undefined) return completedCount;
-    return requirements.filter(r => 
-      r.status === 'completed' || 
-      r.completed_by_admin || 
-      r.accepted_by_client
-    ).length;
+    return requirements.filter(r => r.admin_status === 'completed').length;
   };
 
   const getPendingCount = () => {
     if (pendingCount !== undefined) return pendingCount;
-    const pendingRequirements = requirements.filter(r => 
-      r.status === 'pending' && 
-      !r.rejected_by_client
-    );
-    console.log('Pending requirements count:', pendingRequirements.length, 'from total:', requirements.length);
-    console.log('Pending requirements details:', pendingRequirements.map(r => ({ 
-      id: r.id, 
-      status: r.status, 
-      admin_status: r.admin_status,
-      approved_by_admin: r.approved_by_admin,
-      completed_by_admin: r.completed_by_admin,
-      rejected_by_client: r.rejected_by_client
-    })));
-    return pendingRequirements.length;
+    return requirements.filter(r => r.admin_status === 'pending' && !r.rejected_by_client).length;
   };
 
   const getRejectedCount = () => {
     if (rejectedCount !== undefined) return rejectedCount;
-    return requirements.filter(r => 
-      r.rejected_by_client === true
-    ).length;
+    return requirements.filter(r => r.rejected_by_client === true).length;
   };
 
   const getTotalCount = () => {

@@ -176,15 +176,16 @@ export const useAdminDashboard = () => {
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending'),
+          .eq('admin_status', 'pending')
+          .eq('rejected_by_client', false),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'in_progress'),
+          .eq('admin_status', 'ongoing'),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'completed'),
+          .eq('admin_status', 'completed'),
         supabase
           .from('requirements')
           .select('*', { count: 'exact', head: true })
@@ -208,8 +209,14 @@ export const useAdminDashboard = () => {
       const { data: sampleData } = await supabase
         .from('requirements')
         .select('id, admin_status, status, approved_by_admin, completed_by_admin, rejected_by_client')
-        .limit(5);
+        .limit(10);
       console.log('Sample requirements data:', sampleData);
+      
+      // Debug: Check all unique admin_status values
+      const { data: allRequirements } = await supabase
+        .from('requirements')
+        .select('admin_status, status, approved_by_admin, completed_by_admin, rejected_by_client');
+      console.log('All requirements status data:', allRequirements);
 
       setStatusCounts({
         pending: pendingCount,
