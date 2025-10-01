@@ -12,6 +12,7 @@ import { UserDashboard } from '@/components/user/UserDashboard';
 import { AdminDashboardLayout } from '@/components/admin/AdminDashboardLayout';
 import { RejectRequirementPage } from '@/pages/RejectRequirementPage';
 import { AcceptRequirementPage } from '@/pages/AcceptRequirementPage';
+import { RequirementDetailPage } from '@/pages/RequirementDetailPage';
 
 const AppContent = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -41,21 +42,31 @@ const AppContent = () => {
               path="/messages" 
               element={<AdminDashboardLayout onLogout={signOut} />} 
             />
+            <Route 
+              path="/requirement/:id" 
+              element={<RequirementDetailPage />} 
+            />
           </>
         ) : (
-          <Route 
-            path="/*" 
-            element={
-              <UserDashboard 
-                user={{
-                  id: user.id,
-                  company_name: user.user_metadata?.company_name || 'My Company',
-                  website_url: user.user_metadata?.website_url || 'https://example.com'
-                }}
-                onLogout={signOut}
-              />
-            } 
-          />
+          <>
+            <Route 
+              path="/*" 
+              element={
+                <UserDashboard 
+                  user={{
+                    id: user.id,
+                    company_name: user.user_metadata?.company_name || 'My Company',
+                    website_url: user.user_metadata?.website_url || 'https://example.com'
+                  }}
+                  onLogout={signOut}
+                />
+              } 
+            />
+            <Route 
+              path="/requirement/:id" 
+              element={<RequirementDetailPage />} 
+            />
+          </>
         )}
         <Route 
           path="/reject-requirement/:id" 

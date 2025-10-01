@@ -1,9 +1,10 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Eye } from 'lucide-react';
+import { MessageCircle, Eye, ExternalLink } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -28,9 +29,15 @@ export const RequirementCardActions = ({
   onStatusUpdate,
   onViewRequirement 
 }: RequirementCardActionsProps) => {
+  const navigate = useNavigate();
+
   const handleOpenChat = () => {
     console.log('Opening chat for requirement:', requirement.id, 'Unread count:', unreadCount);
     onOpenChat(requirement);
+  };
+
+  const handleViewInPage = () => {
+    navigate(`/requirement/${requirement.id}`);
   };
 
   return (
@@ -44,15 +51,25 @@ export const RequirementCardActions = ({
       </div>
       
       {/* Action Buttons - Consistent Grid Layout */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         <Button
           onClick={onViewRequirement}
           size="sm"
           variant="outline"
           className="w-full h-9 bg-slate-700/60 border-slate-500 text-slate-100 hover:bg-slate-600/80 hover:border-slate-400 hover:text-white transition-all duration-200 font-medium"
+          title="View in modal"
         >
-          <Eye className="h-4 w-4 mr-2 flex-shrink-0" />
-          <span className="truncate">View Details</span>
+          <Eye className="h-4 w-4 flex-shrink-0" />
+        </Button>
+        
+        <Button
+          onClick={handleViewInPage}
+          size="sm"
+          variant="outline"
+          className="w-full h-9 bg-purple-700/60 border-purple-500 text-purple-100 hover:bg-purple-600/80 hover:border-purple-400 hover:text-white transition-all duration-200 font-medium"
+          title="View in page"
+        >
+          <ExternalLink className="h-4 w-4 flex-shrink-0" />
         </Button>
         
         <div className="relative">
@@ -65,11 +82,9 @@ export const RequirementCardActions = ({
                 ? "bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 ring-2 ring-yellow-400/50 shadow-yellow-400/20 animate-pulse" 
                 : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             )}
+            title={unreadCount > 0 ? 'New Messages' : 'Open Chat'}
           >
-            <MessageCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span className="truncate">
-              {unreadCount > 0 ? 'New Messages' : 'Open Chat'}
-            </span>
+            <MessageCircle className="h-4 w-4 flex-shrink-0" />
             {unreadCount > 0 && (
               <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs font-bold min-w-[1.25rem] h-5 flex items-center justify-center px-1 shadow-lg">
                 {unreadCount > 9 ? '9+' : unreadCount}

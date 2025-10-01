@@ -79,12 +79,22 @@ export const MessagesPage = ({
         return;
       }
       
-      // Get unique requirement IDs that have any messages (filter out null values)
-      const requirementIdsWithMessages = [...new Set(allMessages
-        .map(msg => msg.requirement_id)
-        .filter(id => id !== null && id !== undefined)
-      )];
-      console.log('MessagesPage: Step 2 - Unique requirement IDs with messages:', requirementIdsWithMessages);
+      // Get unique requirement IDs and their latest message timestamp
+      const requirementMessageMap = new Map<string, Date>();
+      allMessages.forEach(msg => {
+        if (msg.requirement_id) {
+          const messageDate = new Date(msg.created_at);
+          const existingDate = requirementMessageMap.get(msg.requirement_id);
+          if (!existingDate || messageDate > existingDate) {
+            requirementMessageMap.set(msg.requirement_id, messageDate);
+          }
+        }
+      });
+      
+      const requirementIdsWithMessages = Array.from(requirementMessageMap.keys());
+      console.log('MessagesPage: Step 2 - Unique requirement IDs with latest message timestamps:', 
+        Array.from(requirementMessageMap.entries()).map(([id, date]) => ({ id, latestMessage: date }))
+      );
       
       if (requirementIdsWithMessages.length === 0) {
         console.log('MessagesPage: No unique requirement IDs found');
@@ -98,8 +108,7 @@ export const MessagesPage = ({
         supabase
           .from('requirements')
           .select('*')
-          .in('id', requirementIdsWithMessages)
-          .order('created_at', { ascending: false }),
+          .in('id', requirementIdsWithMessages),
         supabase
           .from('profiles')
           .select('id, company_name, website_url')
@@ -136,19 +145,27 @@ export const MessagesPage = ({
         return;
       }
 
-      // Manually join requirements with profiles (same logic as useAdminDashboard)
-      const requirementsWithProfiles: Requirement[] = requirementsData.map(requirement => {
+      // Manually join requirements with profiles and add latest message timestamp
+      const requirementsWithProfiles: (Requirement & { latestMessageAt?: Date })[] = requirementsData.map(requirement => {
         const profile = profilesData?.find(p => p.id === requirement.user_id);
         return {
           ...requirement,
           profiles: profile ? {
             company_name: profile.company_name,
             website_url: profile.website_url
-          } : null
+          } : null,
+          latestMessageAt: requirementMessageMap.get(requirement.id)
         };
       });
 
-      console.log('MessagesPage: Successfully setting requirements with messages and profiles:', requirementsWithProfiles);
+      // Sort by latest message timestamp (most recent first)
+      requirementsWithProfiles.sort((a, b) => {
+        const dateA = a.latestMessageAt?.getTime() || 0;
+        const dateB = b.latestMessageAt?.getTime() || 0;
+        return dateB - dateA;
+      });
+
+      console.log('MessagesPage: Successfully setting requirements with messages and profiles (sorted by latest message):', requirementsWithProfiles);
       setRequirementsWithMessages(requirementsWithProfiles);
       
     } catch (error) {
@@ -171,13 +188,10 @@ export const MessagesPage = ({
     return requirementsWithMessages;
   }, [requirementsWithMessages]);
 
-  // Sort by latest message timestamp (most recent first)
+  // Requirements are already sorted by latest message timestamp in fetchRequirementsWithMessages
   const sortedRequirements = useMemo(() => {
-    console.log('MessagesPage: sortedRequirements computed', requirementsWithMessagesList);
-    return [...requirementsWithMessagesList].sort((a, b) => {
-      // Sort by creation date (newest first) since we want latest updated
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    console.log('MessagesPage: sortedRequirements computed (already sorted by latest message):', requirementsWithMessagesList);
+    return requirementsWithMessagesList;
   }, [requirementsWithMessagesList]);
 
   const totalUnreadCount = useMemo(() => {
