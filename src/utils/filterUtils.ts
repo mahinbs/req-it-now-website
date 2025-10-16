@@ -10,13 +10,17 @@ type Requirement = Tables<'requirements'> & {
 };
 
 export const getRequirementStatus = (requirement: Requirement): string => {
+  // Check for closed status first
+  if (requirement.admin_status === 'closed') {
+    return 'closed';
+  }
   if (requirement.rejected_by_client) {
     return 'rejected';
   } else if (requirement.accepted_by_client) {
     return 'completed';
   } else if (requirement.completed_by_admin) {
     return 'completed'; // Awaiting client review, but technically completed
-  } else if (requirement.approved_by_admin) {
+  } else if (requirement.approved_by_admin || requirement.admin_status === 'ongoing') {
     return 'ongoing';
   }
   return 'pending';

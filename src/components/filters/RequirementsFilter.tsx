@@ -31,7 +31,8 @@ export type StatusFilter =
   | "pending"
   | "ongoing"
   | "completed"
-  | "rejected";
+  | "rejected"
+  | "closed";
 export type PriorityFilter = "all" | "low" | "medium" | "high";
 
 export interface FilterState {
@@ -172,6 +173,8 @@ export const RequirementsFilter = ({
         return "Completed";
       case "rejected":
         return "Rejected";
+      case "closed":
+        return "Closed";
       default:
         return "All Status";
     }
@@ -243,7 +246,7 @@ export const RequirementsFilter = ({
             <DropdownMenuLabel className={labelClass}>
               Filter by Status
             </DropdownMenuLabel>
-            {["all", "pending", "ongoing", "completed", "rejected"].map(
+            {["all", "pending", "ongoing", "completed", "rejected", "closed"].map(
               (status) => (
                 <DropdownMenuItem
                   key={status}

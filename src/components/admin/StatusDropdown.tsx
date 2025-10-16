@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, Clock, Play, CheckCircle, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { ChevronDown, Clock, Play, CheckCircle, Loader2, AlertTriangle, RotateCcw, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { adminStatusConfig } from '@/utils/requirementUtils';
@@ -25,7 +25,8 @@ interface StatusDropdownProps {
 const statusIcons = {
   pending: Clock,
   ongoing: Play,
-  completed: CheckCircle
+  completed: CheckCircle,
+  closed: XCircle
 };
 
 export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownProps) => {

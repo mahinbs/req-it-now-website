@@ -8,7 +8,7 @@ import { RequirementCardActions } from './RequirementCardActions';
 import { RejectionResponseModal } from './RejectionResponseModal';
 import { RequirementViewModal } from '../common/RequirementViewModal';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, MessageSquare, RotateCcw } from 'lucide-react';
+import { AlertTriangle, MessageSquare, RotateCcw, XCircle } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -64,9 +64,33 @@ export const RequirementCard = ({
                               !requirement.rejected_by_client && 
                               requirement.rejection_reason;
   
+  // Check if requirement is closed by admin
+  const isClosedByAdmin = requirement.admin_status === 'closed';
+  
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow relative h-full flex flex-col">
+        {/* Closed by Admin Banner */}
+        {isClosedByAdmin && (
+          <div className="bg-red-900/30 border-b border-red-500/30 p-3 flex-shrink-0">
+            <div className="flex items-start space-x-2">
+              <XCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-medium text-red-300">Closed by Admin</h4>
+                <p className="text-xs text-red-200 mt-1">
+                  This requirement has been closed without completion.
+                </p>
+                {requirement.admin_closure_reason && (
+                  <div className="mt-2 p-2 bg-slate-800/50 border border-red-500/30 rounded text-xs">
+                    <span className="font-medium text-red-300">Reason: </span>
+                    <span className="text-red-200">{requirement.admin_closure_reason}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Reopened Task Banner */}
         {wasRecentlyReopened && (
           <div className="bg-green-900/30 border-b border-green-500/30 p-3 flex-shrink-0">

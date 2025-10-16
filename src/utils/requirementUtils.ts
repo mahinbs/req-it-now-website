@@ -1,6 +1,6 @@
 
 import type { Tables } from '@/integrations/supabase/types';
-import { Clock, Play, CheckCircle } from 'lucide-react';
+import { Clock, Play, CheckCircle, XCircle } from 'lucide-react';
 
 type Requirement = Tables<'requirements'>;
 
@@ -14,6 +14,8 @@ export const getStatusColor = (status: string) => {
     case 'completed':
     case 'completed_by_admin':
       return 'bg-green-100 text-green-800 border-green-300';
+    case 'closed':
+      return 'bg-red-100 text-red-800 border-red-300';
     case 'rejected':
     case 'rejected_by_client':
       return 'bg-red-100 text-red-800 border-red-300';
@@ -43,6 +45,8 @@ export const getAdminStatusColor = (adminStatus: string) => {
       return 'bg-blue-100 text-blue-800 border-blue-300';
     case 'completed':
       return 'bg-green-100 text-green-800 border-green-300';
+    case 'closed':
+      return 'bg-red-100 text-red-800 border-red-300';
     default:
       return 'bg-gray-100 text-gray-800 border-gray-300';
   }
@@ -67,6 +71,12 @@ export const adminStatusConfig = {
     color: 'bg-green-100 text-green-800 border-green-300',
     buttonColor: 'bg-green-600 hover:bg-green-700',
     icon: CheckCircle
+  },
+  closed: {
+    label: 'Closed',
+    color: 'bg-red-100 text-red-800 border-red-300',
+    buttonColor: 'bg-red-600 hover:bg-red-700',
+    icon: XCircle
   }
 };
 
