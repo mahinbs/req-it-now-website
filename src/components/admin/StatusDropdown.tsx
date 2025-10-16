@@ -13,9 +13,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { adminStatusConfig } from '@/utils/requirementUtils';
 import { useAutoCompletion } from '@/hooks/useAutoCompletion';
+import { CloseRequirementModal } from './CloseRequirementModal';
 import type { Tables } from '@/integrations/supabase/types';
 
-type Requirement = Tables<'requirements'>;
+type Requirement = Tables<'requirements'> & {
+  profiles?: {
+    company_name: string;
+    website_url: string;
+  } | null;
+};
 
 interface StatusDropdownProps {
   requirement: Requirement;
@@ -31,6 +37,7 @@ const statusIcons = {
 
 export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownProps) => {
   const [updating, setUpdating] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
   // Use local state to handle optimistic updates
   const [currentStatus, setCurrentStatus] = useState(requirement.admin_status || 'pending');
   
@@ -49,6 +56,17 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
                               !requirement.rejected_by_client && 
                               requirement.rejection_reason;
 
+  const handleCloseSuccess = () => {
+    setShowCloseModal(false);
+    if (onStatusUpdate) {
+      onStatusUpdate();
+    }
+    // Force page refresh to update all UI components
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
+
   const handleStatusChange = async (newStatus: string) => {
     if (newStatus === currentStatus || updating) return;
     
@@ -59,6 +77,22 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
         description: "This requirement was rejected by the client. Use the 'Respond' button to address the rejection.",
         variant: "destructive"
       });
+      return;
+    }
+    
+    // Don't allow status changes once requirement is closed
+    if (currentStatus === 'closed') {
+      toast({
+        title: "Cannot Change Status",
+        description: "This requirement has been closed and cannot be reopened. The status is final.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // If changing to closed, open the close modal instead
+    if (newStatus === 'closed') {
+      setShowCloseModal(true);
       return;
     }
     
@@ -105,11 +139,12 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
         console.log('Calling onStatusUpdate callback after status change');
         onStatusUpdate();
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to update requirement status:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to update requirement status. Please try again.";
       toast({
         title: "Error",
-        description: error.message || "Failed to update requirement status. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -138,59 +173,73 @@ export const StatusDropdown = ({ requirement, onStatusUpdate }: StatusDropdownPr
   }
 
   const currentConfig = adminStatusConfig[currentStatus as keyof typeof adminStatusConfig];
+  
+  // Check if requirement is closed
+  const isClosed = currentStatus === 'closed';
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={updating}
-          className={`flex items-center space-x-2 ${updating ? 'opacity-75' : ''}`}
-        >
-          {updating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Updating...</span>
-            </>
-          ) : (
-            <>
-              <Badge 
-                variant="outline" 
-                className={`${currentConfig?.color || adminStatusConfig.pending.color} ${
-                  wasRecentlyReopened ? 'ring-2 ring-green-200' : ''
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={updating || isClosed}
+            className={`flex items-center space-x-2 ${updating ? 'opacity-75' : ''} ${isClosed ? 'cursor-not-allowed opacity-60' : ''}`}
+            title={isClosed ? 'Cannot change status - requirement is closed' : undefined}
+          >
+            {updating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Updating...</span>
+              </>
+            ) : (
+              <>
+                <Badge 
+                  variant="outline" 
+                  className={`${currentConfig?.color || adminStatusConfig.pending.color} ${
+                    wasRecentlyReopened ? 'ring-2 ring-green-200' : ''
+                  }`}
+                >
+                  {wasRecentlyReopened && <RotateCcw className="h-3 w-3 mr-1" />}
+                  <CurrentIcon className="h-3 w-3 mr-1" />
+                  {wasRecentlyReopened ? 'Reopened' : currentConfig?.label || 'Pending'}
+                </Badge>
+                {!isClosed && <ChevronDown className="h-4 w-4" />}
+              </>
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40 bg-white border shadow-lg z-50">
+          {Object.entries(adminStatusConfig).map(([status, config]) => {
+            const Icon = statusIcons[status as keyof typeof statusIcons];
+            const isActive = status === currentStatus;
+            
+            return (
+              <DropdownMenuItem
+                key={status}
+                onClick={() => handleStatusChange(status)}
+                className={`flex items-center space-x-2 cursor-pointer ${
+                  isActive ? 'bg-slate-100 font-medium' : ''
                 }`}
+                disabled={isActive || updating}
               >
-                {wasRecentlyReopened && <RotateCcw className="h-3 w-3 mr-1" />}
-                <CurrentIcon className="h-3 w-3 mr-1" />
-                {wasRecentlyReopened ? 'Reopened' : currentConfig?.label || 'Pending'}
-              </Badge>
-              <ChevronDown className="h-4 w-4" />
-            </>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40 bg-white border shadow-lg z-50">
-        {Object.entries(adminStatusConfig).map(([status, config]) => {
-          const Icon = statusIcons[status as keyof typeof statusIcons];
-          const isActive = status === currentStatus;
-          
-          return (
-            <DropdownMenuItem
-              key={status}
-              onClick={() => handleStatusChange(status)}
-              className={`flex items-center space-x-2 cursor-pointer ${
-                isActive ? 'bg-slate-100 font-medium' : ''
-              }`}
-              disabled={isActive || updating}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{config.label}</span>
-              {isActive && <span className="text-xs text-slate-500">(Current)</span>}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+                <Icon className="h-4 w-4" />
+                <span>{config.label}</span>
+                {isActive && <span className="text-xs text-slate-500">(Current)</span>}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      
+      {/* Close Requirement Modal */}
+      <CloseRequirementModal
+        requirement={requirement}
+        isOpen={showCloseModal}
+        onClose={() => setShowCloseModal(false)}
+        onSuccess={handleCloseSuccess}
+      />
+    </>
   );
 };
