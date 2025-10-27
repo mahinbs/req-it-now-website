@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '@/hooks/useAuthOptimized';
 import { UnifiedNotificationProvider } from '@/hooks/useUnifiedNotifications';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
+import { useSessionKeepAlive } from '@/hooks/useSessionKeepAlive';
 
 // Direct imports instead of lazy loading to fix default export issues
 import { AuthPage } from '@/components/auth/AuthPage';
@@ -16,6 +17,16 @@ import { RequirementDetailPage } from '@/pages/RequirementDetailPage';
 
 const AppContent = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
+
+  // Global session keep-alive for all authenticated users
+  useSessionKeepAlive({
+    enabled: !!user,
+    interval: 5 * 60 * 1000, // Refresh every 5 minutes
+    onSessionExpired: () => {
+      console.log('Global session expired, signing out user');
+      signOut();
+    }
+  });
 
   if (loading) {
     return <LoadingScreen />;

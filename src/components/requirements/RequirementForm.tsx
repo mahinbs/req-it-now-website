@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast, useToast } from '@/hooks/use-toast';
 import { uploadRequirementFile, type UploadProgress } from '@/utils/storageUtils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSessionKeepAlive } from '@/hooks/useSessionKeepAlive';
 interface RequirementFormData {
   title: string;
   description: string;
@@ -40,6 +41,21 @@ export const RequirementForm = ({
   const [uploadStates, setUploadStates] = useState<Map<string, FileUploadState>>(new Map());
   const [submitError, setSubmitError] = useState<string | null>(null);
   const isMobile = useIsMobile();
+
+  // Session keep-alive to prevent timeouts during form filling
+  useSessionKeepAlive({
+    enabled: true,
+    interval: 4 * 60 * 1000, // Refresh every 4 minutes
+    onSessionExpired: () => {
+      console.log('Session expired during form filling');
+      toast({
+        title: "Session Expired",
+        description: "Your session has expired. Please refresh the page and try again.",
+        variant: "destructive",
+        duration: 10000
+      });
+    }
+  });
 
   // Debug Android detection
   const isAndroidDevice = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
@@ -525,56 +541,86 @@ export const RequirementForm = ({
           return false;
         }
 
-        const maxSize = 10 * 1024 * 1024; // 10MB
-        const allowedTypes = ['image/', 'application/pdf', 'application/msword', 'text/', 'application/vnd.openxmlformats-officedocument'];
+        const maxSize = 50 * 1024 * 1024; // 50MB - increased limit
+        const allowedTypes = [
+          'image/', 'application/pdf', 'application/msword', 'text/', 
+          'application/vnd.openxmlformats-officedocument', 'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/csv', 'text/csv', 'application/vnd.ms-powerpoint',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed',
+          'application/json', 'application/xml', 'text/xml', 'application/rtf',
+          'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet',
+          'application/vnd.oasis.opendocument.presentation'
+        ];
 
         if (file.size > maxSize) {
           toast({
             title: "File too large",
-            description: `${file.name} is larger than 10MB`,
+            description: `${file.name} is larger than 50MB`,
             variant: "destructive"
           });
           return false;
         }
 
-        // More permissive file type checking for mobile devices
+        // Comprehensive file type checking - allow all common file types
         const fileType = file.type || '';
         const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
         const isAllowedByType = allowedTypes.some(type => fileType.startsWith(type));
-        const isAllowedByExtension = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt'].includes(fileExtension);
+        const isAllowedByExtension = [
+          // Images
+          'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff', 'ico', 'heic', 'heif',
+          // Documents
+          'pdf', 'doc', 'docx', 'rtf', 'odt', 'txt', 'md', 'html', 'htm',
+          // Spreadsheets
+          'xls', 'xlsx', 'csv', 'ods',
+          // Presentations
+          'ppt', 'pptx', 'odp',
+          // Archives
+          'zip', 'rar', '7z', 'tar', 'gz',
+          // Data files
+          'json', 'xml', 'yaml', 'yml', 'sql',
+          // Other common formats
+          'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mp3', 'wav', 'flac', 'aac'
+        ].includes(fileExtension);
 
-        if (!isAllowedByType && !isAllowedByExtension) {
+        // Allow all files - only reject if explicitly dangerous
+        const dangerousExtensions = ['exe', 'bat', 'cmd', 'scr', 'pif', 'com', 'vbs', 'js', 'jar'];
+        if (dangerousExtensions.includes(fileExtension)) {
           toast({
-            title: "Invalid file type",
-            description: `${file.name} is not a supported file type`,
+            title: "File type not allowed",
+            description: `${file.name} contains a potentially dangerous file type`,
             variant: "destructive"
           });
           return false;
+        }
+
+        // If we can't determine the type, allow it anyway (more permissive)
+        if (!isAllowedByType && !isAllowedByExtension && fileType === '') {
+          console.log(`Allowing unknown file type: ${file.name} (${fileExtension})`);
         }
 
         return true;
       });
 
       if (validFiles.length > 0) {
-        // Update form data with new files
+        // Update form data with new files immediately
         setFormData(prev => ({
           ...prev,
           attachments: [...(prev.attachments || []), ...validFiles]
         }));
 
-        // Start uploads with a small delay to ensure UI updates first
-        setTimeout(() => {
-          validFiles.forEach(file => {
-            simpleUpload(file).catch(error => {
-              console.error(`Upload failed for ${file.name}:`, error);
-              toast({
-                title: "Upload Failed",
-                description: `Could not upload ${file.name}. Please try again.`,
-                variant: "destructive"
-              });
+        // Start uploads immediately - no delay needed
+        validFiles.forEach(file => {
+          simpleUpload(file).catch(error => {
+            console.error(`Upload failed for ${file.name}:`, error);
+            toast({
+              title: "Upload Failed",
+              description: `Could not upload ${file.name}. Please try again.`,
+              variant: "destructive"
             });
           });
-        }, 100);
+        });
       }
 
       // Reset the file input to allow selecting the same file again
@@ -899,7 +945,7 @@ export const RequirementForm = ({
               onChange={handleFileUpload}
               className="hidden"
               id="file-upload"
-              accept="image/*,.pdf,.doc,.docx,.txt"
+              accept="*/*"
               disabled={isSubmitting}
             />
             <div className="cursor-pointer block w-full h-full" onClick={() => {
@@ -922,7 +968,10 @@ export const RequirementForm = ({
                 {isMobile ? "Tap to select files" : "Click to upload files or drag and drop"}
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                Images, PDFs, documents up to 10MB each
+                All file types accepted up to 50MB each
+              </p>
+              <p className="text-xs text-blue-400 mt-1 font-medium">
+                ✓ Multiple files supported • ✓ Upload while others are processing
               </p>
               <Button
                 type="button"
@@ -959,7 +1008,12 @@ export const RequirementForm = ({
           </div>}
 
           {formData.attachments && formData.attachments.length > 0 && <div className="space-y-2 mt-4">
-            <Label className="text-sm font-medium text-slate-200">Selected Files:</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-slate-200">Selected Files:</Label>
+              <span className="text-xs text-slate-400">
+                {formData.attachments.length} file{formData.attachments.length !== 1 ? 's' : ''} selected
+              </span>
+            </div>
             {formData.attachments.map((file, index) => {
               const uploadState = Array.from(uploadStates.values()).find(state => state.file.name === file.name);
               return <div key={index} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600">
