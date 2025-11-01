@@ -78,7 +78,10 @@ export const useSessionKeepAlive = (options: UseSessionKeepAliveOptions = {}) =>
   }, [onSessionExpired]);
 
   const startKeepAlive = useCallback(() => {
-    if (!enabled || isActiveRef.current) return;
+    if (!enabled || isActiveRef.current) {
+      console.log('🔄 Session keep-alive already active or disabled, skipping...');
+      return;
+    }
 
     console.log('🚀 Starting session keep-alive...');
     isActiveRef.current = true;

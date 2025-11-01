@@ -42,20 +42,7 @@ export const RequirementForm = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
-  // Session keep-alive to prevent timeouts during form filling
-  useSessionKeepAlive({
-    enabled: true,
-    interval: 4 * 60 * 1000, // Refresh every 4 minutes
-    onSessionExpired: () => {
-      console.log('Session expired during form filling');
-      toast({
-        title: "Session Expired",
-        description: "Your session has expired. Please refresh the page and try again.",
-        variant: "destructive",
-        duration: 10000
-      });
-    }
-  });
+  // Note: Session keep-alive is handled globally in App.tsx to prevent conflicts
 
   // Debug Android detection
   const isAndroidDevice = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
@@ -715,62 +702,31 @@ export const RequirementForm = ({
       return;
     }
 
-    // Check upload status - allow submission with completed files, warn about pending ones
+    // Check upload status - BLOCK submission if uploads are incomplete
     const uploadStatesArray = Array.from(uploadStates.values());
     const uploadingFiles = uploadStatesArray.filter(state => state.status === 'uploading');
     const failedUploads = uploadStatesArray.filter(state => state.status === 'error');
-    const completedUploads = uploadStatesArray.filter(state => state.status === 'completed');
     
-    // Warn about failed uploads but don't block submission
+    // If files are actively uploading, prevent submission
+    if (uploadingFiles.length > 0) {
+      toast({
+        title: "Uploads in Progress",
+        description: `Please wait for ${uploadingFiles.length} file(s) to finish uploading before submitting.`,
+        variant: "destructive",
+        duration: 5000
+      });
+      console.log(`❌ Submission blocked: ${uploadingFiles.length} file(s) still uploading`);
+      return;
+    }
+    
+    // Warn about failed uploads but allow submission
     if (failedUploads.length > 0) {
       toast({
         title: "Some Files Failed",
-        description: `${failedUploads.length} file(s) failed to upload. You can still submit with other files or retry uploads.`,
+        description: `${failedUploads.length} file(s) failed to upload. Submitting without these files.`,
         variant: "default",
         duration: 5000
       });
-    }
-    
-    // If files are uploading, wait up to 30 seconds for them to complete
-    if (uploadingFiles.length > 0) {
-      console.log(`⏳ Waiting for ${uploadingFiles.length} file(s) to finish uploading...`);
-      
-      // Show user that we're waiting
-      toast({
-        title: "Waiting for Uploads",
-        description: `Finishing upload of ${uploadingFiles.length} file(s)...`,
-        duration: 2000
-      });
-      
-      // Wait for uploads with a reasonable timeout
-      const maxWaitTime = 30000; // 30 seconds max wait
-      const startTime = Date.now();
-      
-      while (uploadingFiles.length > 0 && (Date.now() - startTime) < maxWaitTime) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        // Recheck upload status
-        const currentStates = Array.from(uploadStates.values());
-        const stillUploading = currentStates.filter(state => 
-          uploadingFiles.some(u => u.file.name === state.file.name) && state.status === 'uploading'
-        );
-        if (stillUploading.length === 0) break;
-      }
-      
-      // After waiting, check if any are still uploading
-      const finalStates = Array.from(uploadStates.values());
-      const finalUploading = finalStates.filter(state => state.status === 'uploading');
-      
-      if (finalUploading.length > 0) {
-        console.log(`⚠️ Some files still uploading after wait period, proceeding with ${completedUploads.length} completed files`);
-        toast({
-          title: "Proceeding with Uploaded Files",
-          description: `${finalUploading.length} file(s) still uploading. Submitting with ${completedUploads.length} completed file(s).`,
-          variant: "default",
-          duration: 4000
-        });
-      } else {
-        console.log('✅ All files uploaded successfully');
-      }
     }
 
     // Prevent multiple submissions
@@ -784,11 +740,13 @@ export const RequirementForm = ({
       // Ignore errors with sessionStorage
     }
 
+    console.log('🚀 Starting requirement submission process...');
     setIsSubmitting(true);
 
     try {
       // For all browsers, add a small delay to ensure UI updates properly
       await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('✅ UI update delay completed');
 
       // Get user information with enhanced retry logic
       let user = null;
@@ -825,13 +783,18 @@ export const RequirementForm = ({
       }
 
       if (!user) {
+        console.error('❌ User authentication failed');
         throw new Error('User not authenticated. Please try refreshing the page and logging in again.');
       }
+
+      console.log('✅ User authenticated, preparing requirement data...');
 
       // Get completed uploads
       const completedUploads = uploadStatesArray
         .filter(state => state.status === 'completed' && state.url)
         .map(state => state.url!);
+
+      console.log(`📎 Found ${completedUploads.length} completed uploads`);
 
       const requirementData = {
         title: formData.title.trim(),
@@ -841,8 +804,17 @@ export const RequirementForm = ({
         has_screen_recording: formData.attachments && formData.attachments.length > 0,
         attachment_urls: completedUploads.length > 0 ? completedUploads : null,
         status: 'pending',
+        admin_status: 'pending', // Explicitly set admin_status to prevent trigger issues
         created_at: new Date().toISOString() // Explicitly set creation time
       };
+
+      console.log('📋 Requirement data prepared:', {
+        title: requirementData.title,
+        description: requirementData.description.substring(0, 50) + '...',
+        priority: requirementData.priority,
+        user_id: requirementData.user_id,
+        attachments: completedUploads.length
+      });
 
       // Add a small delay before database operation
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -863,10 +835,19 @@ export const RequirementForm = ({
             await new Promise(resolve => setTimeout(resolve, delay));
           }
 
-          const response = await supabase.from('requirements')
+          console.log(`🔄 Database insertion attempt ${attempt + 1}/5...`);
+          
+          // Add timeout to database operation
+          const dbTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database operation timeout')), 30000)
+          );
+          
+          const dbOperation = supabase.from('requirements')
             .insert([requirementData])
             .select()
             .single();
+          
+          const response = await Promise.race([dbOperation, dbTimeout]) as any;
 
           insertData = response.data;
           insertError = response.error;
@@ -912,7 +893,7 @@ export const RequirementForm = ({
         className: "bg-green-50 border-green-200 text-green-800"
       });
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error('❌ Submission error:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to submit requirement";
       setSubmitError(errorMessage);
 
@@ -929,7 +910,13 @@ export const RequirementForm = ({
         variant: "destructive"
       });
     } finally {
+      console.log('🏁 Submission process completed, resetting form state...');
       setIsSubmitting(false);
+      
+      // Force UI update
+      setTimeout(() => {
+        console.log('✅ Form state reset completed');
+      }, 100);
     }
   };
   const formatFileSize = (bytes: number): string => {
