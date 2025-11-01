@@ -46,11 +46,6 @@ export const RequirementForm = ({
 
   // Debug Android detection
   const isAndroidDevice = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
-  console.log('Device info:', {
-    isMobile,
-    isAndroid: isAndroidDevice,
-    userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'undefined'
-  });
 
   const handleInputChange = useCallback((field: keyof RequirementFormData, value: string) => {
     setFormData(prev => ({
@@ -59,9 +54,6 @@ export const RequirementForm = ({
     }));
   }, []);
   const uploadFileOptimized = useCallback(async (file: File): Promise<string | null> => {
-    console.log(`Starting optimized upload for ${file.name}, size: ${file.size} bytes, type: ${file.type}`);
-    console.log(`Device is ${isMobile ? 'mobile' : 'desktop'}`);
-
     // Create a unique ID for this file upload
     const fileId = `${file.name}-${Date.now()}`;
 
@@ -95,7 +87,6 @@ export const RequirementForm = ({
         const { data: { user: authUser } } = await supabase.auth.getUser();
         user = authUser;
       } catch (authError) {
-        console.error('Auth error:', authError);
         if (isAndroid) {
           toast({
             title: "Auth Error",
@@ -147,7 +138,6 @@ export const RequirementForm = ({
       });
 
       // Simple, unified upload approach that works on all devices
-      console.log("Starting upload to Supabase");
 
       // For Android, show a toast to indicate upload is starting
       if (isAndroid) {
@@ -197,7 +187,6 @@ export const RequirementForm = ({
 
         uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
       } catch (uploadError) {
-        console.error('Upload network error:', uploadError);
         if (isAndroid) {
           toast({
             title: "Upload Failed",
@@ -212,8 +201,6 @@ export const RequirementForm = ({
       const { data, error } = uploadResult;
 
       if (error) {
-        console.error('Upload error:', error);
-
         // Show error toast for Android users
         if (isAndroid) {
           toast({
@@ -276,7 +263,6 @@ export const RequirementForm = ({
         return newMap;
       });
 
-      console.log(`Upload completed for ${file.name}, URL: ${urlData.publicUrl}`);
 
       // Show success toast for Android users
       if (isAndroid) {
@@ -291,7 +277,6 @@ export const RequirementForm = ({
       // Return the URL
       return urlData.publicUrl;
     } catch (error) {
-      console.error(`Upload error for ${file.name}:`, error);
 
       
       // Show final error toast for Android
@@ -498,23 +483,16 @@ export const RequirementForm = ({
   }, [uploadFileOptimized]);
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     try {
-      console.log("handleFileUpload triggered");
-
       // Reset the file input value after getting files to ensure it triggers again on same file
       const fileInput = event.target;
       const files = fileInput.files;
 
-      console.log("Files selected:", files ? files.length : 0);
-
       if (!files || files.length === 0) {
-        console.log("No files selected");
         return;
       }
 
       // Create a copy of the FileList before resetting the input
       const newFiles = Array.from(files);
-
-      console.log("Processing files:", newFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
 
       // Validate files
       const validFiles = newFiles.filter(file => {
@@ -600,7 +578,6 @@ export const RequirementForm = ({
         // Start uploads immediately - no delay needed
         validFiles.forEach(file => {
           simpleUpload(file).catch(error => {
-            console.error(`Upload failed for ${file.name}:`, error);
             toast({
               title: "Upload Failed",
               description: `Could not upload ${file.name}. Please try again.`,
@@ -630,8 +607,6 @@ export const RequirementForm = ({
     }));
   }, []);
   const retryUpload = useCallback((file: File) => {
-    console.log(`Retrying upload for ${file.name}`);
-
     // Show toast to indicate retry is in progress
     toast({
       title: "Retrying Upload",
@@ -643,7 +618,6 @@ export const RequirementForm = ({
     simpleUpload(file)
       .then(url => {
         if (url) {
-          console.log(`Retry successful for ${file.name}`);
           toast({
             title: "Upload Successful",
             description: `${file.name} has been uploaded successfully.`,
@@ -652,7 +626,6 @@ export const RequirementForm = ({
         }
       })
       .catch(error => {
-        console.error(`Retry upload failed for ${file.name}:`, error);
         toast({
           title: "Retry Failed",
           description: `Could not upload ${file.name}. Please try again.`,
@@ -669,7 +642,6 @@ export const RequirementForm = ({
       // This should never trigger under normal circumstances
       // Only prevents UI from being permanently stuck if there's a serious error
       timeoutId = window.setTimeout(() => {
-        console.error('⚠️ Form submission taking unusually long, but allowing it to continue...');
         // Don't reset isSubmitting - let the actual submission complete
         // Only log a warning, don't show error to user yet
       }, 5 * 60 * 1000); // 5 minutes - only as absolute safety net
@@ -715,7 +687,6 @@ export const RequirementForm = ({
         variant: "destructive",
         duration: 5000
       });
-      console.log(`❌ Submission blocked: ${uploadingFiles.length} file(s) still uploading`);
       return;
     }
     
@@ -740,19 +711,15 @@ export const RequirementForm = ({
       // Ignore errors with sessionStorage
     }
 
-    console.log('🚀 Starting requirement submission process...');
     setIsSubmitting(true);
 
     try {
       // For all browsers, add a small delay to ensure UI updates properly
       await new Promise(resolve => setTimeout(resolve, 100));
-      console.log('✅ UI update delay completed');
 
       // Get user information with enhanced retry logic
       let user = null;
       let userError = null;
-
-      console.log('🔐 Verifying user authentication...');
 
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
@@ -761,12 +728,10 @@ export const RequirementForm = ({
           userError = response.error;
 
           if (user) {
-            console.log('✅ User authenticated successfully');
             break;
           }
 
           if (userError) {
-            console.warn(`Auth attempt ${attempt + 1}/5 failed:`, userError);
             // Exponential backoff for retries
             if (attempt < 4) {
               const delay = Math.min(500 * Math.pow(2, attempt), 2000); // Max 2 seconds
@@ -774,7 +739,6 @@ export const RequirementForm = ({
             }
           }
         } catch (err) {
-          console.error(`Auth attempt ${attempt + 1}/5 error:`, err);
           if (attempt < 4) {
             const delay = Math.min(500 * Math.pow(2, attempt), 2000);
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -783,18 +747,13 @@ export const RequirementForm = ({
       }
 
       if (!user) {
-        console.error('❌ User authentication failed');
         throw new Error('User not authenticated. Please try refreshing the page and logging in again.');
       }
-
-      console.log('✅ User authenticated, preparing requirement data...');
 
       // Get completed uploads
       const completedUploads = uploadStatesArray
         .filter(state => state.status === 'completed' && state.url)
         .map(state => state.url!);
-
-      console.log(`📎 Found ${completedUploads.length} completed uploads`);
 
       const requirementData = {
         title: formData.title.trim(),
@@ -808,14 +767,6 @@ export const RequirementForm = ({
         created_at: new Date().toISOString() // Explicitly set creation time
       };
 
-      console.log('📋 Requirement data prepared:', {
-        title: requirementData.title,
-        description: requirementData.description.substring(0, 50) + '...',
-        priority: requirementData.priority,
-        user_id: requirementData.user_id,
-        attachments: completedUploads.length
-      });
-
       // Add a small delay before database operation
       await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -823,19 +774,13 @@ export const RequirementForm = ({
       let insertError = null;
       let insertData = null;
 
-      // Show progress message
-      console.log('📤 Submitting requirement to database...');
-
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
           // Increase retry delay with each attempt (exponential backoff)
           if (attempt > 0) {
             const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Max 5 seconds
-            console.log(`⏳ Retrying submission (attempt ${attempt + 1}/5) after ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
-
-          console.log(`🔄 Database insertion attempt ${attempt + 1}/5...`);
           
           // Add timeout to database operation
           const dbTimeout = new Promise((_, reject) => 
@@ -853,13 +798,9 @@ export const RequirementForm = ({
           insertError = response.error;
 
           if (!insertError) {
-            console.log('✅ Requirement submitted successfully!');
             break;
           }
-
-          console.warn(`Insert attempt ${attempt + 1} failed:`, insertError);
         } catch (err) {
-          console.error(`Insert attempt ${attempt + 1} error:`, err);
           insertError = err as any;
         }
       }
@@ -893,7 +834,6 @@ export const RequirementForm = ({
         className: "bg-green-50 border-green-200 text-green-800"
       });
     } catch (error) {
-      console.error('❌ Submission error:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to submit requirement";
       setSubmitError(errorMessage);
 
@@ -910,13 +850,7 @@ export const RequirementForm = ({
         variant: "destructive"
       });
     } finally {
-      console.log('🏁 Submission process completed, resetting form state...');
       setIsSubmitting(false);
-      
-      // Force UI update
-      setTimeout(() => {
-        console.log('✅ Form state reset completed');
-      }, 100);
     }
   };
   const formatFileSize = (bytes: number): string => {
@@ -1003,7 +937,6 @@ export const RequirementForm = ({
               if (fileInput) {
                 // For Android, ensure the input is properly focused and clicked
                 if (/Android/i.test(navigator.userAgent)) {
-                  console.log('Android: Triggering file input');
                   fileInput.focus();
                   setTimeout(() => {
                     fileInput.click();
@@ -1031,7 +964,6 @@ export const RequirementForm = ({
                   if (fileInput) {
                     // For Android, ensure the input is properly focused and clicked
                     if (/Android/i.test(navigator.userAgent)) {
-                      console.log('Android: Button click - triggering file input');
                       fileInput.focus();
                       setTimeout(() => {
                         fileInput.click();
