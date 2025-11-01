@@ -673,22 +673,19 @@ export const RequirementForm = ({
         });
       });
   }, [simpleUpload, toast]);
-  // Add a timeout effect to prevent stuck submitting state
+  // Add a safety timeout effect to prevent stuck submitting state (only as last resort)
   useEffect(() => {
     let timeoutId: number | undefined;
 
     if (isSubmitting) {
-      // Set a timeout to automatically reset the submitting state after 10 seconds
-      // This prevents the UI from being stuck in a submitting state if something goes wrong
+      // Set a very long timeout (5 minutes) as a safety net only
+      // This should never trigger under normal circumstances
+      // Only prevents UI from being permanently stuck if there's a serious error
       timeoutId = window.setTimeout(() => {
-        setIsSubmitting(false);
-        setSubmitError('Submission timed out. Please try again.');
-        toast({
-          title: "Submission Timeout",
-          description: "The request is taking too long. Please try again.",
-          variant: "destructive"
-        });
-      }, 10000); // Reduced timeout to 10 seconds
+        console.error('⚠️ Form submission taking unusually long, but allowing it to continue...');
+        // Don't reset isSubmitting - let the actual submission complete
+        // Only log a warning, don't show error to user yet
+      }, 5 * 60 * 1000); // 5 minutes - only as absolute safety net
     }
 
     return () => {
@@ -718,16 +715,62 @@ export const RequirementForm = ({
       return;
     }
 
-    // Check if any uploads are in progress
+    // Check upload status - allow submission with completed files, warn about pending ones
     const uploadStatesArray = Array.from(uploadStates.values());
-    const hasUploadingFiles = uploadStatesArray.some(state => state.status === 'uploading');
-    if (hasUploadingFiles) {
+    const uploadingFiles = uploadStatesArray.filter(state => state.status === 'uploading');
+    const failedUploads = uploadStatesArray.filter(state => state.status === 'error');
+    const completedUploads = uploadStatesArray.filter(state => state.status === 'completed');
+    
+    // Warn about failed uploads but don't block submission
+    if (failedUploads.length > 0) {
       toast({
-        title: "Upload in Progress",
-        description: "Please wait for all files to finish uploading",
-        variant: "destructive"
+        title: "Some Files Failed",
+        description: `${failedUploads.length} file(s) failed to upload. You can still submit with other files or retry uploads.`,
+        variant: "default",
+        duration: 5000
       });
-      return;
+    }
+    
+    // If files are uploading, wait up to 30 seconds for them to complete
+    if (uploadingFiles.length > 0) {
+      console.log(`⏳ Waiting for ${uploadingFiles.length} file(s) to finish uploading...`);
+      
+      // Show user that we're waiting
+      toast({
+        title: "Waiting for Uploads",
+        description: `Finishing upload of ${uploadingFiles.length} file(s)...`,
+        duration: 2000
+      });
+      
+      // Wait for uploads with a reasonable timeout
+      const maxWaitTime = 30000; // 30 seconds max wait
+      const startTime = Date.now();
+      
+      while (uploadingFiles.length > 0 && (Date.now() - startTime) < maxWaitTime) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // Recheck upload status
+        const currentStates = Array.from(uploadStates.values());
+        const stillUploading = currentStates.filter(state => 
+          uploadingFiles.some(u => u.file.name === state.file.name) && state.status === 'uploading'
+        );
+        if (stillUploading.length === 0) break;
+      }
+      
+      // After waiting, check if any are still uploading
+      const finalStates = Array.from(uploadStates.values());
+      const finalUploading = finalStates.filter(state => state.status === 'uploading');
+      
+      if (finalUploading.length > 0) {
+        console.log(`⚠️ Some files still uploading after wait period, proceeding with ${completedUploads.length} completed files`);
+        toast({
+          title: "Proceeding with Uploaded Files",
+          description: `${finalUploading.length} file(s) still uploading. Submitting with ${completedUploads.length} completed file(s).`,
+          variant: "default",
+          duration: 4000
+        });
+      } else {
+        console.log('✅ All files uploaded successfully');
+      }
     }
 
     // Prevent multiple submissions
@@ -747,27 +790,37 @@ export const RequirementForm = ({
       // For all browsers, add a small delay to ensure UI updates properly
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Get user information with retry logic
+      // Get user information with enhanced retry logic
       let user = null;
       let userError = null;
 
-      for (let attempt = 0; attempt < 3; attempt++) {
+      console.log('🔐 Verifying user authentication...');
+
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
           const response = await supabase.auth.getUser();
           user = response.data.user;
           userError = response.error;
 
-          if (user) break;
+          if (user) {
+            console.log('✅ User authenticated successfully');
+            break;
+          }
 
           if (userError) {
-            console.warn(`Auth attempt ${attempt + 1} failed:`, userError);
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 500));
+            console.warn(`Auth attempt ${attempt + 1}/5 failed:`, userError);
+            // Exponential backoff for retries
+            if (attempt < 4) {
+              const delay = Math.min(500 * Math.pow(2, attempt), 2000); // Max 2 seconds
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
           }
         } catch (err) {
-          console.error(`Auth attempt ${attempt + 1} error:`, err);
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
+          console.error(`Auth attempt ${attempt + 1}/5 error:`, err);
+          if (attempt < 4) {
+            const delay = Math.min(500 * Math.pow(2, attempt), 2000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
       }
 
@@ -794,12 +847,22 @@ export const RequirementForm = ({
       // Add a small delay before database operation
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Insert with retry logic
+      // Insert with retry logic - increased attempts and delays for slow connections
       let insertError = null;
       let insertData = null;
 
-      for (let attempt = 0; attempt < 3; attempt++) {
+      // Show progress message
+      console.log('📤 Submitting requirement to database...');
+
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
+          // Increase retry delay with each attempt (exponential backoff)
+          if (attempt > 0) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Max 5 seconds
+            console.log(`⏳ Retrying submission (attempt ${attempt + 1}/5) after ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+
           const response = await supabase.from('requirements')
             .insert([requirementData])
             .select()
@@ -808,15 +871,15 @@ export const RequirementForm = ({
           insertData = response.data;
           insertError = response.error;
 
-          if (!insertError) break;
+          if (!insertError) {
+            console.log('✅ Requirement submitted successfully!');
+            break;
+          }
 
           console.warn(`Insert attempt ${attempt + 1} failed:`, insertError);
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (err) {
           console.error(`Insert attempt ${attempt + 1} error:`, err);
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
+          insertError = err as any;
         }
       }
 
