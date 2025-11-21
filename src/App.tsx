@@ -22,10 +22,7 @@ const AppContent = () => {
   useSessionKeepAlive({
     enabled: !!user,
     interval: 5 * 60 * 1000, // Refresh every 5 minutes
-    onSessionExpired: () => {
-      console.log('Global session expired, signing out user');
-      signOut();
-    }
+    onSessionExpired: signOut
   });
 
   if (loading) {

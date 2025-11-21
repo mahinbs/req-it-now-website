@@ -64,8 +64,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
     }
 
     try {
-      console.log('Fetching initial unread counts for:', user.id, isAdmin ? '(Admin)' : '(Client)');
-      
       const rpcFunction = isAdmin 
         ? 'get_unread_counts_for_admin'
         : 'get_unread_counts_for_client';
@@ -80,7 +78,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       const { data, error } = await supabase.rpc(rpcFunction, rpcParams);
 
       if (error) {
-        console.error('Error fetching unread counts:', error);
         updateState({ 
           loading: false, 
           error: 'Failed to load notifications',
@@ -94,7 +91,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
         unreadCounts[item.requirement_id || 'general'] = item.unread_count;
       });
 
-      console.log('Fetched unread counts:', unreadCounts);
       lastNotificationCheckRef.current = Date.now();
 
       updateState({ 
@@ -104,7 +100,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
         hasNewMessage: Object.values(unreadCounts).some(count => count > 0)
       });
     } catch (error) {
-      console.error('Error in fetchInitialUnreadCounts:', error);
       updateState({ 
         loading: false, 
         error: 'Failed to connect to notification service',
@@ -119,8 +114,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
     }
 
     try {
-      console.log('Setting up unified notification subscription for:', user.id, isAdmin ? '(Admin)' : '(Client)');
-      
       subscriptionActiveRef.current = true;
       
       const channelName = `unified-notifications-${isAdmin ? 'admin' : 'client'}-${user.id}-${Date.now()}`;
@@ -138,7 +131,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
             if (mountedRef.current && user) {
               try {
                 const newMessage = payload.new as Message;
-                console.log('New message received:', newMessage);
                 
                 // Enhanced logic for determining notification eligibility
                 let shouldNotify = false;
@@ -147,28 +139,14 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
                   // Admin gets notifications for client messages only
                   // Make sure the message is NOT from an admin and NOT from current user
                   shouldNotify = !newMessage.is_admin && newMessage.sender_id !== user.id;
-                  console.log('Admin notification check:', { 
-                    isAdmin: newMessage.is_admin, 
-                    senderId: newMessage.sender_id, 
-                    currentUserId: user.id,
-                    shouldNotify 
-                  });
                 } else {
                   // Client gets notifications for admin messages only  
                   // Make sure the message IS from an admin and NOT from current user
                   shouldNotify = newMessage.is_admin && newMessage.sender_id !== user.id;
-                  console.log('Client notification check:', { 
-                    isAdmin: newMessage.is_admin, 
-                    senderId: newMessage.sender_id, 
-                    currentUserId: user.id,
-                    shouldNotify 
-                  });
                 }
                 
                 if (shouldNotify) {
                   const requirementId = newMessage.requirement_id || 'general';
-                  
-                  console.log('Adding notification for:', requirementId, 'User:', isAdmin ? 'Admin' : 'Client');
                   
                   setState(prev => {
                     const newCount = (prev.notificationCounts[requirementId] || 0) + 1;
@@ -185,14 +163,12 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
                   });
                 }
               } catch (error) {
-                console.error('Error processing notification:', error);
+                // Silently handle error
               }
             }
           }
         )
         .subscribe((status) => {
-          console.log('Unified notification subscription status:', status);
-          
           if (mountedRef.current) {
             if (status === 'SUBSCRIBED') {
               updateState({ connected: true, error: null });
@@ -221,7 +197,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       channelRef.current = channel;
 
     } catch (error) {
-      console.error('Error setting up unified subscription:', error);
       subscriptionActiveRef.current = false;
       updateState({ 
         connected: false, 
@@ -235,8 +210,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
     if (!user?.id) return;
 
     try {
-      console.log('Marking as read:', requirementId, 'User:', isAdmin ? 'Admin' : 'Client');
-      
       const rpcFunction = isAdmin 
         ? 'mark_requirement_as_read'
         : 'mark_requirement_as_read_for_client';
@@ -251,7 +224,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       const { error } = await supabase.rpc(rpcFunction, rpcParams);
 
       if (error) {
-        console.error('Error marking as read:', error);
         return;
       }
 
@@ -270,12 +242,11 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
       });
 
     } catch (error) {
-      console.error('Error in markAsRead:', error);
+      // Silently handle error
     }
   };
 
   const refreshNotifications = async () => {
-    console.log('Manually refreshing notifications...');
     await fetchInitialUnreadCounts();
   };
 
@@ -292,13 +263,11 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
     // Periodic refresh as fallback (every 30 seconds)
     const interval = setInterval(() => {
       if (user?.id && Date.now() - lastNotificationCheckRef.current > 30000) {
-        console.log('Periodic notification refresh');
         fetchInitialUnreadCounts();
       }
     }, 30000);
 
     return () => {
-      console.log('Cleaning up unified notifications');
       mountedRef.current = false;
       subscriptionActiveRef.current = false;
       
@@ -317,7 +286,6 @@ export const useUnifiedNotifications = (): UnifiedNotificationContextType => {
   }, [user?.id, isAdmin]);
 
   const clearNotifications = (requirementId: string) => {
-    console.log('Clearing notifications for:', requirementId);
     setState(prev => {
       const updatedCounts = {
         ...prev.notificationCounts,
