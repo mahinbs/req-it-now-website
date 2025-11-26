@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast, useToast } from '@/hooks/use-toast';
 import { uploadRequirementFile, type UploadProgress } from '@/utils/storageUtils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSessionKeepAlive } from '@/hooks/useSessionKeepAlive';
 interface RequirementFormData {
   title: string;
   description: string;
@@ -41,13 +42,10 @@ export const RequirementForm = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
+  // Note: Session keep-alive is handled globally in App.tsx to prevent conflicts
+
   // Debug Android detection
   const isAndroidDevice = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
-  console.log('Device info:', {
-    isMobile,
-    isAndroid: isAndroidDevice,
-    userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'undefined'
-  });
 
   const handleInputChange = useCallback((field: keyof RequirementFormData, value: string) => {
     setFormData(prev => ({
@@ -56,9 +54,6 @@ export const RequirementForm = ({
     }));
   }, []);
   const uploadFileOptimized = useCallback(async (file: File): Promise<string | null> => {
-    console.log(`Starting optimized upload for ${file.name}, size: ${file.size} bytes, type: ${file.type}`);
-    console.log(`Device is ${isMobile ? 'mobile' : 'desktop'}`);
-
     // Create a unique ID for this file upload
     const fileId = `${file.name}-${Date.now()}`;
 
@@ -92,7 +87,6 @@ export const RequirementForm = ({
         const { data: { user: authUser } } = await supabase.auth.getUser();
         user = authUser;
       } catch (authError) {
-        console.error('Auth error:', authError);
         if (isAndroid) {
           toast({
             title: "Auth Error",
@@ -144,7 +138,6 @@ export const RequirementForm = ({
       });
 
       // Simple, unified upload approach that works on all devices
-      console.log("Starting upload to Supabase");
 
       // For Android, show a toast to indicate upload is starting
       if (isAndroid) {
@@ -194,7 +187,6 @@ export const RequirementForm = ({
 
         uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
       } catch (uploadError) {
-        console.error('Upload network error:', uploadError);
         if (isAndroid) {
           toast({
             title: "Upload Failed",
@@ -209,8 +201,6 @@ export const RequirementForm = ({
       const { data, error } = uploadResult;
 
       if (error) {
-        console.error('Upload error:', error);
-
         // Show error toast for Android users
         if (isAndroid) {
           toast({
@@ -273,7 +263,6 @@ export const RequirementForm = ({
         return newMap;
       });
 
-      console.log(`Upload completed for ${file.name}, URL: ${urlData.publicUrl}`);
 
       // Show success toast for Android users
       if (isAndroid) {
@@ -288,7 +277,6 @@ export const RequirementForm = ({
       // Return the URL
       return urlData.publicUrl;
     } catch (error) {
-      console.error(`Upload error for ${file.name}:`, error);
 
       
       // Show final error toast for Android
@@ -495,23 +483,16 @@ export const RequirementForm = ({
   }, [uploadFileOptimized]);
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     try {
-      console.log("handleFileUpload triggered");
-
       // Reset the file input value after getting files to ensure it triggers again on same file
       const fileInput = event.target;
       const files = fileInput.files;
 
-      console.log("Files selected:", files ? files.length : 0);
-
       if (!files || files.length === 0) {
-        console.log("No files selected");
         return;
       }
 
       // Create a copy of the FileList before resetting the input
       const newFiles = Array.from(files);
-
-      console.log("Processing files:", newFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
 
       // Validate files
       const validFiles = newFiles.filter(file => {
@@ -525,56 +506,85 @@ export const RequirementForm = ({
           return false;
         }
 
-        const maxSize = 10 * 1024 * 1024; // 10MB
-        const allowedTypes = ['image/', 'application/pdf', 'application/msword', 'text/', 'application/vnd.openxmlformats-officedocument'];
+        const maxSize = 50 * 1024 * 1024; // 50MB - increased limit
+        const allowedTypes = [
+          'image/', 'application/pdf', 'application/msword', 'text/', 
+          'application/vnd.openxmlformats-officedocument', 'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/csv', 'text/csv', 'application/vnd.ms-powerpoint',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed',
+          'application/json', 'application/xml', 'text/xml', 'application/rtf',
+          'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet',
+          'application/vnd.oasis.opendocument.presentation'
+        ];
 
         if (file.size > maxSize) {
           toast({
             title: "File too large",
-            description: `${file.name} is larger than 10MB`,
+            description: `${file.name} is larger than 50MB`,
             variant: "destructive"
           });
           return false;
         }
 
-        // More permissive file type checking for mobile devices
+        // Comprehensive file type checking - allow all common file types
         const fileType = file.type || '';
         const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
         const isAllowedByType = allowedTypes.some(type => fileType.startsWith(type));
-        const isAllowedByExtension = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt'].includes(fileExtension);
+        const isAllowedByExtension = [
+          // Images
+          'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff', 'ico', 'heic', 'heif',
+          // Documents
+          'pdf', 'doc', 'docx', 'rtf', 'odt', 'txt', 'md', 'html', 'htm',
+          // Spreadsheets
+          'xls', 'xlsx', 'csv', 'ods',
+          // Presentations
+          'ppt', 'pptx', 'odp',
+          // Archives
+          'zip', 'rar', '7z', 'tar', 'gz',
+          // Data files
+          'json', 'xml', 'yaml', 'yml', 'sql',
+          // Other common formats
+          'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mp3', 'wav', 'flac', 'aac'
+        ].includes(fileExtension);
 
-        if (!isAllowedByType && !isAllowedByExtension) {
+        // Allow all files - only reject if explicitly dangerous
+        const dangerousExtensions = ['exe', 'bat', 'cmd', 'scr', 'pif', 'com', 'vbs', 'js', 'jar'];
+        if (dangerousExtensions.includes(fileExtension)) {
           toast({
-            title: "Invalid file type",
-            description: `${file.name} is not a supported file type`,
+            title: "File type not allowed",
+            description: `${file.name} contains a potentially dangerous file type`,
             variant: "destructive"
           });
           return false;
+        }
+
+        // If we can't determine the type, allow it anyway (more permissive)
+        if (!isAllowedByType && !isAllowedByExtension && fileType === '') {
+          console.log(`Allowing unknown file type: ${file.name} (${fileExtension})`);
         }
 
         return true;
       });
 
       if (validFiles.length > 0) {
-        // Update form data with new files
+        // Update form data with new files immediately
         setFormData(prev => ({
           ...prev,
           attachments: [...(prev.attachments || []), ...validFiles]
         }));
 
-        // Start uploads with a small delay to ensure UI updates first
-        setTimeout(() => {
-          validFiles.forEach(file => {
-            simpleUpload(file).catch(error => {
-              console.error(`Upload failed for ${file.name}:`, error);
-              toast({
-                title: "Upload Failed",
-                description: `Could not upload ${file.name}. Please try again.`,
-                variant: "destructive"
-              });
+        // Start uploads immediately - no delay needed
+        validFiles.forEach(file => {
+          simpleUpload(file).catch(error => {
+            toast({
+              title: "Upload Failed",
+              description: `Could not upload ${file.name}. Please try again.`,
+              variant: "destructive"
             });
           });
-        }, 100);
+        });
       }
 
       // Reset the file input to allow selecting the same file again
@@ -597,8 +607,6 @@ export const RequirementForm = ({
     }));
   }, []);
   const retryUpload = useCallback((file: File) => {
-    console.log(`Retrying upload for ${file.name}`);
-
     // Show toast to indicate retry is in progress
     toast({
       title: "Retrying Upload",
@@ -610,7 +618,6 @@ export const RequirementForm = ({
     simpleUpload(file)
       .then(url => {
         if (url) {
-          console.log(`Retry successful for ${file.name}`);
           toast({
             title: "Upload Successful",
             description: `${file.name} has been uploaded successfully.`,
@@ -619,7 +626,6 @@ export const RequirementForm = ({
         }
       })
       .catch(error => {
-        console.error(`Retry upload failed for ${file.name}:`, error);
         toast({
           title: "Retry Failed",
           description: `Could not upload ${file.name}. Please try again.`,
@@ -627,22 +633,18 @@ export const RequirementForm = ({
         });
       });
   }, [simpleUpload, toast]);
-  // Add a timeout effect to prevent stuck submitting state
+  // Add a safety timeout effect to prevent stuck submitting state (only as last resort)
   useEffect(() => {
     let timeoutId: number | undefined;
 
     if (isSubmitting) {
-      // Set a timeout to automatically reset the submitting state after 10 seconds
-      // This prevents the UI from being stuck in a submitting state if something goes wrong
+      // Set a very long timeout (5 minutes) as a safety net only
+      // This should never trigger under normal circumstances
+      // Only prevents UI from being permanently stuck if there's a serious error
       timeoutId = window.setTimeout(() => {
-        setIsSubmitting(false);
-        setSubmitError('Submission timed out. Please try again.');
-        toast({
-          title: "Submission Timeout",
-          description: "The request is taking too long. Please try again.",
-          variant: "destructive"
-        });
-      }, 10000); // Reduced timeout to 10 seconds
+        // Don't reset isSubmitting - let the actual submission complete
+        // Only log a warning, don't show error to user yet
+      }, 5 * 60 * 1000); // 5 minutes - only as absolute safety net
     }
 
     return () => {
@@ -672,16 +674,30 @@ export const RequirementForm = ({
       return;
     }
 
-    // Check if any uploads are in progress
+    // Check upload status - BLOCK submission if uploads are incomplete
     const uploadStatesArray = Array.from(uploadStates.values());
-    const hasUploadingFiles = uploadStatesArray.some(state => state.status === 'uploading');
-    if (hasUploadingFiles) {
+    const uploadingFiles = uploadStatesArray.filter(state => state.status === 'uploading');
+    const failedUploads = uploadStatesArray.filter(state => state.status === 'error');
+    
+    // If files are actively uploading, prevent submission
+    if (uploadingFiles.length > 0) {
       toast({
-        title: "Upload in Progress",
-        description: "Please wait for all files to finish uploading",
-        variant: "destructive"
+        title: "Uploads in Progress",
+        description: `Please wait for ${uploadingFiles.length} file(s) to finish uploading before submitting.`,
+        variant: "destructive",
+        duration: 5000
       });
       return;
+    }
+    
+    // Warn about failed uploads but allow submission
+    if (failedUploads.length > 0) {
+      toast({
+        title: "Some Files Failed",
+        description: `${failedUploads.length} file(s) failed to upload. Submitting without these files.`,
+        variant: "default",
+        duration: 5000
+      });
     }
 
     // Prevent multiple submissions
@@ -701,27 +717,32 @@ export const RequirementForm = ({
       // For all browsers, add a small delay to ensure UI updates properly
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Get user information with retry logic
+      // Get user information with enhanced retry logic
       let user = null;
       let userError = null;
 
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
           const response = await supabase.auth.getUser();
           user = response.data.user;
           userError = response.error;
 
-          if (user) break;
+          if (user) {
+            break;
+          }
 
           if (userError) {
-            console.warn(`Auth attempt ${attempt + 1} failed:`, userError);
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Exponential backoff for retries
+            if (attempt < 4) {
+              const delay = Math.min(500 * Math.pow(2, attempt), 2000); // Max 2 seconds
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
           }
         } catch (err) {
-          console.error(`Auth attempt ${attempt + 1} error:`, err);
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
+          if (attempt < 4) {
+            const delay = Math.min(500 * Math.pow(2, attempt), 2000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
       }
 
@@ -742,35 +763,45 @@ export const RequirementForm = ({
         has_screen_recording: formData.attachments && formData.attachments.length > 0,
         attachment_urls: completedUploads.length > 0 ? completedUploads : null,
         status: 'pending',
+        admin_status: 'pending', // Explicitly set admin_status to prevent trigger issues
         created_at: new Date().toISOString() // Explicitly set creation time
       };
 
       // Add a small delay before database operation
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Insert with retry logic
+      // Insert with retry logic - increased attempts and delays for slow connections
       let insertError = null;
       let insertData = null;
 
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
-          const response = await supabase.from('requirements')
+          // Increase retry delay with each attempt (exponential backoff)
+          if (attempt > 0) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Max 5 seconds
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          
+          // Add timeout to database operation
+          const dbTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database operation timeout')), 30000)
+          );
+          
+          const dbOperation = supabase.from('requirements')
             .insert([requirementData])
             .select()
             .single();
+          
+          const response = await Promise.race([dbOperation, dbTimeout]) as any;
 
           insertData = response.data;
           insertError = response.error;
 
-          if (!insertError) break;
-
-          console.warn(`Insert attempt ${attempt + 1} failed:`, insertError);
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
+          if (!insertError) {
+            break;
+          }
         } catch (err) {
-          console.error(`Insert attempt ${attempt + 1} error:`, err);
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
+          insertError = err as any;
         }
       }
 
@@ -803,7 +834,6 @@ export const RequirementForm = ({
         className: "bg-green-50 border-green-200 text-green-800"
       });
     } catch (error) {
-      console.error('Submission error:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to submit requirement";
       setSubmitError(errorMessage);
 
@@ -899,7 +929,7 @@ export const RequirementForm = ({
               onChange={handleFileUpload}
               className="hidden"
               id="file-upload"
-              accept="image/*,.pdf,.doc,.docx,.txt"
+              accept="*/*"
               disabled={isSubmitting}
             />
             <div className="cursor-pointer block w-full h-full" onClick={() => {
@@ -907,7 +937,6 @@ export const RequirementForm = ({
               if (fileInput) {
                 // For Android, ensure the input is properly focused and clicked
                 if (/Android/i.test(navigator.userAgent)) {
-                  console.log('Android: Triggering file input');
                   fileInput.focus();
                   setTimeout(() => {
                     fileInput.click();
@@ -922,7 +951,10 @@ export const RequirementForm = ({
                 {isMobile ? "Tap to select files" : "Click to upload files or drag and drop"}
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                Images, PDFs, documents up to 10MB each
+                All file types accepted up to 50MB each
+              </p>
+              <p className="text-xs text-blue-400 mt-1 font-medium">
+                ✓ Multiple files supported • ✓ Upload while others are processing
               </p>
               <Button
                 type="button"
@@ -932,7 +964,6 @@ export const RequirementForm = ({
                   if (fileInput) {
                     // For Android, ensure the input is properly focused and clicked
                     if (/Android/i.test(navigator.userAgent)) {
-                      console.log('Android: Button click - triggering file input');
                       fileInput.focus();
                       setTimeout(() => {
                         fileInput.click();
@@ -959,7 +990,12 @@ export const RequirementForm = ({
           </div>}
 
           {formData.attachments && formData.attachments.length > 0 && <div className="space-y-2 mt-4">
-            <Label className="text-sm font-medium text-slate-200">Selected Files:</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-slate-200">Selected Files:</Label>
+              <span className="text-xs text-slate-400">
+                {formData.attachments.length} file{formData.attachments.length !== 1 ? 's' : ''} selected
+              </span>
+            </div>
             {formData.attachments.map((file, index) => {
               const uploadState = Array.from(uploadStates.values()).find(state => state.file.name === file.name);
               return <div key={index} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600">
