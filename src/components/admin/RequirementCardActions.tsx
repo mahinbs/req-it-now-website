@@ -5,7 +5,6 @@ import { MessageCircle, Eye, ExternalLink, XCircle } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import { CloseRequirementModal } from './CloseRequirementModal';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Requirement = Tables<'requirements'> & {
@@ -30,7 +29,6 @@ export const RequirementCardActions = ({
   onStatusUpdate,
   onViewRequirement 
 }: RequirementCardActionsProps) => {
-  const navigate = useNavigate();
   const [showCloseModal, setShowCloseModal] = useState(false);
 
   const handleOpenChat = () => {
@@ -39,7 +37,7 @@ export const RequirementCardActions = ({
   };
 
   const handleViewInPage = () => {
-    navigate(`/requirement/${requirement.id}`);
+    window.open(`/requirement/${requirement.id}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleCloseSuccess = () => {
