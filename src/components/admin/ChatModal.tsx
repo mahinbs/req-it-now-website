@@ -29,7 +29,7 @@ export const ChatModal = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold truncate">
+          <DialogTitle className="text-lg font-semibold truncate text-wrap">
             Chat: {requirementTitle}
           </DialogTitle>
         </DialogHeader>
