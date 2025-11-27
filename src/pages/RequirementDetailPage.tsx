@@ -192,6 +192,14 @@ export const RequirementDetailPage = () => {
     !requirement.rejected_by_client &&
     requirement.rejection_reason;
 
+  const handleCloseTab = () => {
+    if (window.opener) {
+      window.close();
+    } else {
+      navigate(-1);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-red-900 relative overflow-hidden">
       {/* Animated background */}
@@ -201,7 +209,7 @@ export const RequirementDetailPage = () => {
         {/* Header with Back Button */}
         <div className="mb-6 flex items-center justify-between">
           <Button
-            onClick={() => navigate(-1)}
+            onClick={handleCloseTab}
             variant="outline"
             className="glass border-white/20 text-slate-200 hover:bg-white/10 hover:text-white"
           >
