@@ -193,9 +193,13 @@ export const RequirementDetailPage = () => {
     requirement.rejection_reason;
 
   const handleCloseTab = () => {
+    if (window.opener && !window.opener.closed) {
+      window.opener.focus();
+    }
+
     window.close();
 
-    // Give the browser a moment to close; if it doesn't, fall back to history
+    // Give the browser a moment to close; if it doesn't, fall back to admin list
     setTimeout(() => {
       if (!window.closed) {
         navigate('/admin/requirements');
