@@ -37,7 +37,8 @@ export const RequirementCardActions = ({
   };
 
   const handleViewInPage = () => {
-    window.open(`/requirement/${requirement.id}`, '_blank', 'noopener,noreferrer');
+    const detailWindow = window.open(`/requirement/${requirement.id}`, '_blank');
+    detailWindow?.focus();
   };
 
   const handleCloseSuccess = () => {
