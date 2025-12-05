@@ -21,6 +21,7 @@ import {
   formatDate,
   getAttachmentCount,
   adminStatusConfig,
+  shouldAutoComplete,
 } from "@/utils/requirementUtils";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -311,33 +312,34 @@ export const RequirementsList = ({
                       <span>View</span>
                     </Button>
 
-                    {!requirement.accepted_by_client && (
-                      <NotificationBadge
-                        count={unreadCount}
-                        pulse={unreadCount > 0}
-                      >
-                        <Button
-                          onClick={() => handleSelectRequirement(requirement)}
-                          variant="outline"
-                          size="sm"
-                          className={`flex-1 flex items-center justify-center space-x-2 font-medium ${
-                            unreadCount > 0
-                              ? "bg-blue-700/60 border-blue-400/60 text-white hover:bg-blue-600/80 hover:border-blue-300 ring-2 ring-blue-400/50 ring-offset-1 shadow-lg"
-                              : "bg-slate-700/50 border-slate-500 text-slate-100 hover:bg-blue-700/50 hover:border-blue-400 hover:text-white"
-                          }`}
+                    {!requirement.accepted_by_client &&
+                      !shouldAutoComplete(requirement) && (
+                        <NotificationBadge
+                          count={unreadCount}
+                          pulse={unreadCount > 0}
                         >
-                          <MessageCircle className="h-4 w-4" />
-                          <span>
-                            {unreadCount > 0 ? "New Messages" : "Open Chat"}
-                          </span>
-                          {unreadCount > 0 && (
-                            <div className="ml-1 bg-blue-400 text-slate-900 rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
-                              {unreadCount > 9 ? "9+" : unreadCount}
-                            </div>
-                          )}
-                        </Button>
-                      </NotificationBadge>
-                    )}
+                          <Button
+                            onClick={() => handleSelectRequirement(requirement)}
+                            variant="outline"
+                            size="sm"
+                            className={`flex-1 flex items-center justify-center space-x-2 font-medium ${
+                              unreadCount > 0
+                                ? "bg-blue-700/60 border-blue-400/60 text-white hover:bg-blue-600/80 hover:border-blue-300 ring-2 ring-blue-400/50 ring-offset-1 shadow-lg"
+                                : "bg-slate-700/50 border-slate-500 text-slate-100 hover:bg-blue-700/50 hover:border-blue-400 hover:text-white"
+                            }`}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            <span>
+                              {unreadCount > 0 ? "New Messages" : "Open Chat"}
+                            </span>
+                            {unreadCount > 0 && (
+                              <div className="ml-1 bg-blue-400 text-slate-900 rounded-full text-xs font-bold min-w-[1rem] h-4 flex items-center justify-center px-1">
+                                {unreadCount > 9 ? "9+" : unreadCount}
+                              </div>
+                            )}
+                          </Button>
+                        </NotificationBadge>
+                      )}
                   </div>
                 </CardContent>
               </Card>
